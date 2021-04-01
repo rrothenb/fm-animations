@@ -95,7 +95,7 @@ type FMEnv struct {
 func (e *FMEnv) At(dir geom.Dir) rgb.Energy {
 	u := math.Atan2(dir.X, -dir.Z)
 	v := math.Acos(dir.Y)
-	a := math.Pow(texture(u, v, e.t), 4)*500
+	a := math.Pow(texture(u, v, e.t), 6)*750
 	return rgb.Energy{
 		X: a,
 		Y: a,
@@ -118,28 +118,36 @@ func index2radians(index, n int) float64 {
 
 func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 	t := float64(frameNumber) * dt
-	n := 1500
+	n := 2000
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
 			topRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex, n), t, radius).Scaled(.075)
 			topLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex, n), t, radius).Scaled(.075)
 			botRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
 			botLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
-			roughness := math.Pow(texture(index2radians(uIndex, n), index2radians(vIndex, n), t), 4)*.09 + .01
+			t := math.Pow(texture(index2radians(uIndex, n), index2radians(vIndex, n), t), 4)
+			roughness := t*.09 + .01
+			color := rgb.Energy{1,.5,.25}.Scaled(t).Plus(rgb.Energy{.8, .8, .8}.Scaled(1-t))
+			m := &material.Uniform{
+				Color: color,
+				Metalness: 1 - t,
+				Roughness: roughness,
+				Specularity: t,
+			}
 			if vIndex != 0 {
 				surfaces = append(surfaces,
-					surface.NewTriangle(topRight, botLeft, topLeft, material.Mirror(roughness)))
+					surface.NewTriangle(topRight, botLeft, topLeft, m))
 			}
 			if vIndex != n-1 {
 				surfaces = append(surfaces,
-					surface.NewTriangle(topRight, botRight, botLeft, material.Mirror(roughness)))
+					surface.NewTriangle(topRight, botRight, botLeft, m))
 			}
 		}
 	}
 
 	//surfaces = append(surfaces, surface.UnitSphere(material.Mirror(.01)).Scale(geom.Vec{.1,.1,.1}))
 
-	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.4).Plus(geom.Vec{0.0,0.1,-.2})
+	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0,0.1,-.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := camera.NewSLR().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -150,7 +158,7 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 
 	scene := render.NewScene(c, s, e)
 	framePath := fmt.Sprintf("images/%04v.png", frameNumber)
-	err := Iterative(scene, framePath, 512, 512, 8, true, 150)
+	err := Iterative(scene, framePath, 800, 800, 8, true, 750)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
 	}
@@ -166,7 +174,7 @@ func main() {
 		leftWall.Shift(geom.Vec{3, 0, 0}).Scale(geom.Vec{0.1, 10, 10})
 	*/
 	frameNumber, _ := strconv.Atoi(os.Args[1])
-	dt := math.Pi * 2 / 500
+	dt := math.Pi * 2 / 5000
 	var surfaces []render.Surface
 	//surfaces = append(surfaces, floor, rightWall, leftWall)
 	renderFrame(frameNumber, dt, surfaces)
