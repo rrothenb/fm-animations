@@ -70,7 +70,7 @@ func Iterative(scene *render.Scene, file string, width, height, depth int, direc
 				if err := writePng(file, sample.Image()); err != nil {
 					return err
 				}
-				if time.Now().UnixNano() - start > int64(maxSeconds) * 1e9 {
+				if time.Now().UnixNano()-start > int64(maxSeconds)*1e9 {
 					frame.Stop()
 				}
 			}
@@ -95,7 +95,7 @@ type FMEnv struct {
 func (e *FMEnv) At(dir geom.Dir) rgb.Energy {
 	u := math.Atan2(dir.X, -dir.Z)
 	v := math.Acos(dir.Y)
-	a := math.Pow(texture(u, v, e.t), 6)*750
+	a := math.Pow(texture(u, v, e.t), 6) * 750
 	return rgb.Energy{
 		X: a,
 		Y: a,
@@ -127,11 +127,11 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 			botLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
 			t := math.Pow(texture(index2radians(uIndex, n), index2radians(vIndex, n), t), 4)
 			roughness := t*.09 + .01
-			color := rgb.Energy{1,.5,.25}.Scaled(t).Plus(rgb.Energy{.8, .8, .8}.Scaled(1-t))
+			color := rgb.Energy{1, .5, .25}.Scaled(t).Plus(rgb.Energy{.8, .8, .8}.Scaled(1 - t))
 			m := &material.Uniform{
-				Color: color,
-				Metalness: 1 - t,
-				Roughness: roughness,
+				Color:       color,
+				Metalness:   1 - t,
+				Roughness:   roughness,
 				Specularity: t,
 			}
 			if vIndex != 0 {
@@ -147,7 +147,7 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 
 	//surfaces = append(surfaces, surface.UnitSphere(material.Mirror(.01)).Scale(geom.Vec{.1,.1,.1}))
 
-	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0,0.1,-.1})
+	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.1, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := camera.NewSLR().MoveTo(cameraLoc).LookAt(focusPoint)

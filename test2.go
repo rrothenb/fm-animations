@@ -54,7 +54,7 @@ func Iterative(scene *render.Scene, file string, width, height, depth int, direc
 				if err := writePng(file, sample.Image()); err != nil {
 					return err
 				}
-				if time.Now().UnixNano() - start > int64(maxSeconds) * 1e9 {
+				if time.Now().UnixNano()-start > int64(maxSeconds)*1e9 {
 					frame.Stop()
 				}
 			}
@@ -79,7 +79,7 @@ type FMEnv struct {
 func (e *FMEnv) At(dir geom.Dir) rgb.Energy {
 	u := math.Atan2(dir.X, -dir.Z)
 	v := math.Acos(dir.Y)
-	a := math.Pow(texture(u, v, e.t), 4)*500
+	a := math.Pow(texture(u, v, e.t), 4) * 500
 	return rgb.Energy{
 		X: a,
 		Y: a,

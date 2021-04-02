@@ -70,7 +70,7 @@ func Iterative(scene *render.Scene, file string, width, height, depth int, direc
 				if err := writePng(file, sample.Image()); err != nil {
 					return err
 				}
-				if time.Now().UnixNano() - start > int64(maxSeconds) * 1e9 {
+				if time.Now().UnixNano()-start > int64(maxSeconds)*1e9 {
 					frame.Stop()
 				}
 			}
@@ -95,7 +95,7 @@ type FMEnv struct {
 func (e *FMEnv) At(dir geom.Dir) rgb.Energy {
 	u := math.Atan2(dir.X, -dir.Z)
 	v := math.Acos(dir.Y)
-	a := math.Pow(texture(u, v, e.t), 6)*750
+	a := math.Pow(texture(u, v, e.t), 6) * 750
 	return rgb.Energy{
 		X: a,
 		Y: a,
@@ -119,11 +119,11 @@ func index2radians(index, n int) float64 {
 func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 	pixels := 800
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0,0.1,-.1})
+	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.1, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	n := int(float64(pixels)/distance/2)
+	n := int(float64(pixels) / distance / 2)
 	if n > 2000 {
 		n = 2000
 	}
@@ -134,19 +134,19 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 			topLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex, n), t, radius).Scaled(.075)
 			botRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
 			botLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
-			fm:= texture(index2radians(uIndex, n), index2radians(vIndex, n), t)
+			fm := texture(index2radians(uIndex, n), index2radians(vIndex, n), t)
 			fm4 := math.Pow(fm, 4)
 			roughness := fm4*.09 + .01
 			metalness := (1-fm4)*.8 + .1
 			specularity := fm4*.3 + .1
 			color := rgb.Energy{
 				1,
-				.5+.05*fm,
-				.25+.15*math.Sin(4*fm)}.Scaled(fm4).Plus(rgb.Energy{.8, .8, .8}.Scaled(1-fm4))
+				.5 + .05*fm,
+				.25 + .15*math.Sin(4*fm)}.Scaled(fm4).Plus(rgb.Energy{.8, .8, .8}.Scaled(1 - fm4))
 			m := &material.Uniform{
-				Color: color,
-				Metalness: metalness,
-				Roughness: roughness,
+				Color:       color,
+				Metalness:   metalness,
+				Roughness:   roughness,
 				Specularity: specularity,
 			}
 			if vIndex != 0 {
