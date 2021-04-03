@@ -122,12 +122,15 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.1, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
-	distance := cameraLoc.Minus(focusPoint).Len()
+	c := camera.NewSLR().MoveTo(cameraLoc).LookAt(focusPoint)
+	c.FStop = 32
+	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	n := int(float64(pixels) / distance / 2)
 	if n > 2000 {
 		n = 2000
 	}
-	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v", cameraLoc.Len(), distance, n)
+	maxSeconds := int(float64(pixels) / distance / 10)
+	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxSeconds: %v", cameraLoc.Len(), distance, n, maxSeconds)
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
 			topRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex, n), t, radius).Scaled(.075)
@@ -162,15 +165,13 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 
 	//surfaces = append(surfaces, surface.UnitSphere(material.Mirror(.01)).Scale(geom.Vec{.1,.1,.1}))
 
-	c := camera.NewSLR().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FStop = 32
 	s := surface.NewTree(surfaces...)
 	//e := env.NewGradient(rgb.Black, rgb.Energy{1000, 1000, 1000}, 7)
 	e := &FMEnv{t}
 
 	scene := render.NewScene(c, s, e)
 	framePath := fmt.Sprintf("images/%04v.png", frameNumber)
-	err := Iterative(scene, framePath, pixels, pixels, 8, true, 450)
+	err := Iterative(scene, framePath, pixels, pixels, 8, true, maxSeconds)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
 	}
