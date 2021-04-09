@@ -7,13 +7,13 @@ import (
 	"image"
 	"image/png"
 	"math"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/hunterloftis/pbr/pkg/camera"
 	"github.com/hunterloftis/pbr/pkg/geom"
 	"github.com/hunterloftis/pbr/pkg/material"
 	"github.com/hunterloftis/pbr/pkg/render"
@@ -35,6 +35,91 @@ func texture(u, v, t float64) float64 {
 
 func radius(u, v, t float64) float64 {
 	return 1.0 + .075*math.Pow(math.Pow(texture(u, v, t), 2), 3)
+}
+
+type SLR2 struct {
+	Width  float64
+	Height float64
+	Lens   float64
+	FStop  float64
+	Focus  float64
+
+	trans    *geom.Mtx
+	position geom.Vec
+	target   geom.Vec
+}
+
+// NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
+func NewSLR2() *SLR2 {
+	s := &SLR2{
+		Width:    0.036, // 36mm (full frame sensor width)
+		Height:   0.024, // 24mm (full frame sensor height)
+		Lens:     0.050, // 50mm focal length
+		FStop:    4,
+		Focus:    1,
+		position: geom.Vec{0, 0, 0},
+		target:   geom.Vec{0, 0, -5},
+	}
+	s.transform()
+	return s
+}
+
+// LookAt orients a Camera to face a target.
+func (s *SLR2) LookAt(target geom.Vec) *SLR2 {
+	s.target = target
+	s.transform()
+	return s
+}
+
+// MoveTo moves a Camera to a position given by x, y, and z coordinates.
+func (s *SLR2) MoveTo(pos geom.Vec) *SLR2 {
+	s.position = pos
+	s.transform()
+	return s
+}
+
+func (s *SLR2) Ray(x, y, width, height float64, rnd *rand.Rand) *geom.Ray {
+	targetDist := s.target.Minus(s.position).Len()
+	u := x / width
+	v := y / height
+	aSense := s.Width / s.Height
+	aImage := width / height
+	if aImage > aSense { // wider image; crop vertically
+		r := aSense / aImage
+		v = (1-r)*0.5 + v*r
+	} else if aSense > aImage { // taller image; crop horizontally
+		r := aImage / aSense
+		u = (1-r)*0.5 + u*r
+	}
+	focusDist := targetDist * s.Focus
+	sensorPt := s.sensorPoint(u, v, focusDist)
+	straight, _ := geom.Vec{}.Minus(sensorPt).Unit()
+	focalPt := geom.Vec(straight).Scaled(focusDist) // TODO: is this creating a curved focal plane? need to project along the center axis?
+	lensPt := s.aperturePoint(rnd)
+	refracted, _ := focalPt.Minus(lensPt).Unit()
+	ray := geom.NewRay(lensPt, refracted)
+	return s.trans.MultRay(ray)
+}
+
+func (s *SLR2) transform() {
+	s.trans = geom.LookMatrix(s.position, s.target)
+}
+
+func (s *SLR2) sensorPoint(u, v, focusDist float64) geom.Vec {
+	z := 1 / ((1 / s.Lens) - (1 / focusDist))
+	x := (u - 0.5) * s.Width
+	y := (v - 0.5) * s.Height
+	return geom.Vec{-x, y, z}
+}
+
+// https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
+func (s *SLR2) aperturePoint(rnd *rand.Rand) geom.Vec {
+	d := s.Lens / s.FStop
+	t := 2 * math.Pi * rnd.Float64()
+	r := math.Sqrt(rnd.Float64()) * d * 0.5
+	x := r * math.Cos(t)
+	y := r * math.Sin(t)
+	return geom.Vec{x, y, 0}
 }
 
 func writePng(filename string, im image.Image) error {
@@ -117,12 +202,12 @@ func index2radians(index, n int) float64 {
 }
 
 func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
-	pixels := 2160
+	pixels := 1024
 	t := float64(frameNumber) * dt
 	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
-	c := camera.NewSLR().MoveTo(cameraLoc).LookAt(focusPoint)
+	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 16
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	n := int(float64(pixels) / distance / 2)
