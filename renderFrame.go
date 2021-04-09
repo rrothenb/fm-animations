@@ -117,23 +117,58 @@ func index2radians(index, n int) float64 {
 }
 
 func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
-	pixels := 512
+	pixels := 2160
 	t := float64(frameNumber) * dt
 	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := camera.NewSLR().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FStop = 32
+	c.FStop = 16
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	n := int(float64(pixels) / distance / 2)
-	if n > 2000 {
-		n = 2000
+	if n > 3000 {
+		n = 3000
 	}
-	maxSeconds := int(float64(pixels) / distance / 10)
-	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxSeconds: %v", cameraLoc.Len(), distance, n, maxSeconds)
+	maxSeconds := int(float64(pixels) / distance / 3)
+	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxSeconds: %v\n", cameraLoc.Len(), distance, n, maxSeconds)
+	// One way to test frustum calcs would be to calc for 0,0,0 on frame 0 or 2500, which should be at 0,0
+	// use geom LookMatrix and MultPoint
+	center := geom.Vec{0,0,.1}
+	top := geom.Vec{0,.1,0}
+	left := geom.Vec{-.1,0,0}
+	above := geom.Vec{0,.707,.707}
+	aboveRight := geom.Vec{.707,.707,0}
+	cameraSpaceTransform := geom.LookMatrix(cameraLoc, focusPoint).Inverse()
+	projectedCenter := cameraSpaceTransform.MultPoint(center)
+	projectedTop := cameraSpaceTransform.MultPoint(top)
+	projectedLeft := cameraSpaceTransform.MultPoint(left)
+	projectedAbove := cameraSpaceTransform.MultPoint(above)
+	projectedAboveRight := cameraSpaceTransform.MultPoint(aboveRight)
+	projectedFocusPoint := cameraSpaceTransform.MultPoint(focusPoint)
+	fmt.Println(cameraLoc, focusPoint)
+	fmt.Println(center, projectedCenter)
+	fmt.Println(top, projectedTop)
+	fmt.Println(left, projectedLeft)
+	fmt.Println(above, projectedAbove)
+	fmt.Println(aboveRight, projectedAboveRight)
+	fmt.Println(focusPoint, projectedFocusPoint)
+	fmt.Println(cameraLoc.Len())
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
 			topRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex, n), t, radius).Scaled(.075)
+			topRightProjected := cameraSpaceTransform.MultPoint(topRight)
+			if topRightProjected.Z > 0.0 {
+				continue
+			}
+			if topRightProjected.Z < -cameraLoc.Len() {
+				continue
+			}
+			if topRightProjected.X < topRightProjected.Z/5 || topRightProjected.X > -topRightProjected.Z/5 {
+				continue
+			}
+			if topRightProjected.Y < topRightProjected.Z/5 || topRightProjected.Y > -topRightProjected.Z/5 {
+				continue
+			}
 			topLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex, n), t, radius).Scaled(.075)
 			botRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
 			botLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
@@ -162,6 +197,7 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 			}
 		}
 	}
+	fmt.Println(len(surfaces), n*n*2)
 
 	//surfaces = append(surfaces, surface.UnitSphere(material.Mirror(.01)).Scale(geom.Vec{.1,.1,.1}))
 
