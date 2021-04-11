@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -10,7 +11,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -44,21 +44,31 @@ type SLR2 struct {
 	FStop  float64
 	Focus  float64
 
-	trans    *geom.Mtx
-	position geom.Vec
-	target   geom.Vec
+	trans       *geom.Mtx
+	position    geom.Vec
+	target      geom.Vec
+	subframes   bool
+	subframeRow int
+	subframeCol int
 }
 
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
-func NewSLR2() *SLR2 {
+func NewSLR2(subframe int) *SLR2 {
 	s := &SLR2{
-		Width:    0.036, // 36mm (full frame sensor width)
-		Height:   0.024, // 24mm (full frame sensor height)
-		Lens:     0.050, // 50mm focal length
-		FStop:    4,
-		Focus:    1,
-		position: geom.Vec{0, 0, 0},
-		target:   geom.Vec{0, 0, -5},
+		Width:     0.036, // 36mm (full frame sensor width)
+		Height:    0.024, // 24mm (full frame sensor height)
+		Lens:      0.050, // 50mm focal length
+		FStop:     4,
+		Focus:     1,
+		position:  geom.Vec{0, 0, 0},
+		target:    geom.Vec{0, 0, -5},
+		subframes: subframe > 0,
+	}
+	if s.subframes {
+		s.Lens = s.Lens * 2
+		s.subframeRow = 2 - (subframe-1)/6
+		s.subframeCol = (subframe-1)%6 - 3
+		fmt.Printf("row: %v, col: %v\n", s.subframeRow, s.subframeCol)
 	}
 	s.transform()
 	return s
@@ -100,9 +110,41 @@ func (s *SLR2) Ray(x, y, width, height float64, rnd *rand.Rand) *geom.Ray {
 	ray := geom.NewRay(lensPt, refracted)
 	return s.trans.MultRay(ray)
 }
-
 func (s *SLR2) transform() {
 	s.trans = geom.LookMatrix(s.position, s.target)
+	if s.subframes {
+		s.trans = s.trans.Mult(geom.Shift(geom.Vec{s.Height/8 + s.Height/4*float64(s.subframeCol), s.Height/8 + s.Height/4*float64(s.subframeRow), 0}))
+	}
+}
+
+func (s *SLR2) invisible(point geom.Vec) bool {
+	cameraSpaceTransform := s.trans.Inverse()
+	projectedPoint := cameraSpaceTransform.MultPoint(point)
+	if projectedPoint.Z > 0.0 {
+		return true
+	}
+	if projectedPoint.Z < -s.position.Len() {
+		return true
+	}
+	if s.subframes {
+		subframeSize := -projectedPoint.Z/4/3
+		xOffset := float64(s.subframeCol)*subframeSize
+		yOffset := float64(s.subframeRow)*subframeSize
+		if projectedPoint.X < math.Min(xOffset, 0) - subframeSize/2 || projectedPoint.X > math.Max(xOffset, 0) + subframeSize/2 {
+			return true
+		}
+		if projectedPoint.Y < math.Min(yOffset, 0) - subframeSize/2 || projectedPoint.Y > math.Max(yOffset, 0) + subframeSize/2 {
+			return true
+		}
+	} else {
+		if projectedPoint.X < projectedPoint.Z/4 || projectedPoint.X > -projectedPoint.Z/4 {
+			return true
+		}
+		if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *SLR2) sensorPoint(u, v, focusDist float64) geom.Vec {
@@ -180,7 +222,7 @@ type FMEnv struct {
 func (e *FMEnv) At(dir geom.Dir) rgb.Energy {
 	u := math.Atan2(dir.X, -dir.Z)
 	v := math.Acos(dir.Y)
-	a := (1-math.Pow(1 - math.Pow(texture(u, v, e.t), 2), math.Pow(1-v/math.Pi, 7)*50))*400
+	a := (1 - math.Pow(1-math.Pow(texture(u, v, e.t), 2), math.Pow(1-v/math.Pi, 7)*50)) * 400
 	return rgb.Energy{
 		X: a,
 		Y: a,
@@ -201,57 +243,23 @@ func index2radians(index, n int) float64 {
 	return float64(index) / float64(n) * math.Pi * 2
 }
 
-func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
-	pixels := 1024
+func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface) {
 	t := float64(frameNumber) * dt
 	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
-	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FStop = 16
+	c := NewSLR2(subframe).MoveTo(cameraLoc).LookAt(focusPoint)
+	c.FStop = 64
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	n := int(float64(pixels) / distance / 2)
-	if n > 3000 {
-		n = 3000
+	if n > maxSubdivisions {
+		n = maxSubdivisions
 	}
-	maxSeconds := int(float64(pixels) / distance / 3)
-	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxSeconds: %v\n", cameraLoc.Len(), distance, n, maxSeconds)
-	// One way to test frustum calcs would be to calc for 0,0,0 on frame 0 or 2500, which should be at 0,0
-	// use geom LookMatrix and MultPoint
-	center := geom.Vec{0,0,.1}
-	top := geom.Vec{0,.1,0}
-	left := geom.Vec{-.1,0,0}
-	above := geom.Vec{0,.707,.707}
-	aboveRight := geom.Vec{.707,.707,0}
-	cameraSpaceTransform := geom.LookMatrix(cameraLoc, focusPoint).Inverse()
-	projectedCenter := cameraSpaceTransform.MultPoint(center)
-	projectedTop := cameraSpaceTransform.MultPoint(top)
-	projectedLeft := cameraSpaceTransform.MultPoint(left)
-	projectedAbove := cameraSpaceTransform.MultPoint(above)
-	projectedAboveRight := cameraSpaceTransform.MultPoint(aboveRight)
-	projectedFocusPoint := cameraSpaceTransform.MultPoint(focusPoint)
-	fmt.Println(cameraLoc, focusPoint)
-	fmt.Println(center, projectedCenter)
-	fmt.Println(top, projectedTop)
-	fmt.Println(left, projectedLeft)
-	fmt.Println(above, projectedAbove)
-	fmt.Println(aboveRight, projectedAboveRight)
-	fmt.Println(focusPoint, projectedFocusPoint)
-	fmt.Println(cameraLoc.Len())
+	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxTime: %v\n", cameraLoc.Len(), distance, n, maxTime)
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
 			topRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex, n), t, radius).Scaled(.075)
-			topRightProjected := cameraSpaceTransform.MultPoint(topRight)
-			if topRightProjected.Z > 0.0 {
-				continue
-			}
-			if topRightProjected.Z < -cameraLoc.Len() {
-				continue
-			}
-			if topRightProjected.X < topRightProjected.Z/5 || topRightProjected.X > -topRightProjected.Z/5 {
-				continue
-			}
-			if topRightProjected.Y < topRightProjected.Z/5 || topRightProjected.Y > -topRightProjected.Z/5 {
+			if c.invisible(topRight) {
 				continue
 			}
 			topLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex, n), t, radius).Scaled(.075)
@@ -284,32 +292,30 @@ func renderFrame(frameNumber int, dt float64, surfaces []render.Surface) {
 	}
 	fmt.Println(len(surfaces), n*n*2)
 
-	//surfaces = append(surfaces, surface.UnitSphere(material.Mirror(.01)).Scale(geom.Vec{.1,.1,.1}))
-
 	s := surface.NewTree(surfaces...)
-	//e := env.NewGradient(rgb.Black, rgb.Energy{1000, 1000, 1000}, 7)
 	e := &FMEnv{t}
 
 	scene := render.NewScene(c, s, e)
 	framePath := fmt.Sprintf("images/%04v.png", frameNumber)
-	err := Iterative(scene, framePath, pixels, pixels, 8, true, maxSeconds)
+	if subframe > 0 {
+		framePath = fmt.Sprintf("images/%04v.%02v.png", frameNumber, subframe)
+	}
+	err := Iterative(scene, framePath, pixels, pixels, 8, true, maxTime)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\nError: %v\n", err)
 	}
 }
 
 func main() {
-	/*
-		floor := surface.UnitCube(material.Plastic(1, 1, 1, 0.05))
-		floor.Shift(geom.Vec{0, -3, 0}).Scale(geom.Vec{10, 0.1, 10})
-		rightWall := surface.UnitCube(material.Plastic(.4, .7, 1, 0.05))
-		rightWall.Shift(geom.Vec{-3, 0, 0}).Scale(geom.Vec{0.1, 10, 10})
-		leftWall := surface.UnitCube(material.Plastic(1, .7, .4, 0.05))
-		leftWall.Shift(geom.Vec{3, 0, 0}).Scale(geom.Vec{0.1, 10, 10})
-	*/
-	frameNumber, _ := strconv.Atoi(os.Args[1])
-	dt := math.Pi * 2 / 5000
+	frame := flag.Int("frame", 0, "Specify frame")
+	subframe := flag.Int("subframe", 0, "Specify subframe")
+	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
+	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
+	maxTime := flag.Int("maxtime", 0, "Max time to render")
+	maxFrames := flag.Int("maxframes", 5000, "Max frames")
+	flag.Parse()
+	fmt.Printf("subframe: %v, frame: %v, pixels: %v, maxSubdivisions: %v, maxTime: %v, maxFrames: %v\n", *subframe, *frame, *pixels, *maxSubdivisions, *maxTime, *maxFrames)
+	dt := math.Pi * 2 / float64(*maxFrames)
 	var surfaces []render.Surface
-	//surfaces = append(surfaces, floor, rightWall, leftWall)
-	renderFrame(frameNumber, dt, surfaces)
+	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces)
 }
