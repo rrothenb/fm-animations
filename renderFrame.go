@@ -48,15 +48,15 @@ type SLR2 struct {
 	position    geom.Vec
 	target      geom.Vec
 	subframes   bool
-	subframeRow int
-	subframeCol int
+	subframeRow float64
+	subframeCol float64
 }
 
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2(subframe int) *SLR2 {
 	s := &SLR2{
-		Width:     0.036, // 36mm (full frame sensor width)
-		Height:    0.024, // 24mm (full frame sensor height)
+		Width:     0.024,
+		Height:    0.024,
 		Lens:      0.050, // 50mm focal length
 		FStop:     4,
 		Focus:     1,
@@ -65,9 +65,8 @@ func NewSLR2(subframe int) *SLR2 {
 		subframes: subframe > 0,
 	}
 	if s.subframes {
-		s.Lens = s.Lens * 2
-		s.subframeRow = 2 - (subframe-1)/6
-		s.subframeCol = (subframe-1)%6 - 3
+		s.subframeRow = float64(3 - (subframe-1)/6)
+		s.subframeCol = float64((subframe-1)%6 - 2)
 		fmt.Printf("row: %v, col: %v\n", s.subframeRow, s.subframeCol)
 	}
 	s.transform()
@@ -101,6 +100,12 @@ func (s *SLR2) Ray(x, y, width, height float64, rnd *rand.Rand) *geom.Ray {
 		r := aImage / aSense
 		u = (1-r)*0.5 + u*r
 	}
+	if s.subframes {
+		// top right is 0,0 offset (row is reversed)
+		u = u/6 + (s.subframeCol + 2)/6
+		v = v/6 + (3 - s.subframeRow)/6
+	}
+
 	focusDist := targetDist * s.Focus
 	sensorPt := s.sensorPoint(u, v, focusDist)
 	straight, _ := geom.Vec{}.Minus(sensorPt).Unit()
@@ -112,9 +117,6 @@ func (s *SLR2) Ray(x, y, width, height float64, rnd *rand.Rand) *geom.Ray {
 }
 func (s *SLR2) transform() {
 	s.trans = geom.LookMatrix(s.position, s.target)
-	if s.subframes {
-		s.trans = s.trans.Mult(geom.Shift(geom.Vec{s.Height/8 + s.Height/4*float64(s.subframeCol), s.Height/8 + s.Height/4*float64(s.subframeRow), 0}))
-	}
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
@@ -127,13 +129,13 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 		return true
 	}
 	if s.subframes {
-		subframeSize := -projectedPoint.Z/4/3
+		subframeSize := -projectedPoint.Z/6/3
 		xOffset := float64(s.subframeCol)*subframeSize
 		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < math.Min(xOffset, 0) - subframeSize/2 || projectedPoint.X > math.Max(xOffset, 0) + subframeSize/2 {
+		if projectedPoint.X < xOffset - subframeSize - subframeSize*1.333 || projectedPoint.X > xOffset + subframeSize*1.333 {
 			return true
 		}
-		if projectedPoint.Y < math.Min(yOffset, 0) - subframeSize/2 || projectedPoint.Y > math.Max(yOffset, 0) + subframeSize/2 {
+		if projectedPoint.Y < yOffset - subframeSize - subframeSize*1.333 || projectedPoint.Y > yOffset + subframeSize*1.333 {
 			return true
 		}
 	} else {
@@ -251,7 +253,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	c := NewSLR2(subframe).MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
-	n := int(float64(pixels) / distance / 2)
+	n := int(float64(pixels) / distance )
 	if n > maxSubdivisions {
 		n = maxSubdivisions
 	}
