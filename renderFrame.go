@@ -129,13 +129,13 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 		return true
 	}
 	if s.subframes {
-		subframeSize := -projectedPoint.Z/6/5
+		subframeSize := -projectedPoint.Z/10/5
 		xOffset := float64(s.subframeCol)*subframeSize
 		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*2 || projectedPoint.X > xOffset + subframeSize*2 {
+		if projectedPoint.X < xOffset - subframeSize - subframeSize*3 || projectedPoint.X > xOffset + subframeSize*3 {
 			return true
 		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*2 || projectedPoint.Y > yOffset + subframeSize*2 {
+		if projectedPoint.Y < yOffset - subframeSize - subframeSize*3 || projectedPoint.Y > yOffset + subframeSize*3 {
 			return true
 		}
 	} else {
