@@ -1,7 +1,11 @@
-convert 0000.01.png 0000.02.png 0000.03.png 0000.04.png 0000.05.png 0000.06.png +append row1.png
-convert 0000.07.png 0000.08.png 0000.09.png 0000.10.png 0000.11.png 0000.12.png +append row2.png
-convert 0000.13.png 0000.14.png 0000.15.png 0000.16.png 0000.17.png 0000.18.png +append row3.png
-convert 0000.19.png 0000.20.png 0000.21.png 0000.22.png 0000.23.png 0000.24.png +append row4.png
-convert 0000.25.png 0000.26.png 0000.27.png 0000.28.png 0000.29.png 0000.30.png +append row5.png
-convert 0000.31.png 0000.32.png 0000.33.png 0000.34.png 0000.34.png 0000.34.png +append row6.png
-convert row1.png row2.png row3.png row4.png row5.png row6.png -append 0000.png
+convert 0000.001.png 0000.002.png 0000.003.png 0000.004.png 0000.005.png 0000.006.png 0000.007.png 0000.008.png 0000.009.png 0000.010.png +append row1.png
+convert 0000.011.png 0000.012.png 0000.013.png 0000.014.png 0000.015.png 0000.016.png 0000.017.png 0000.018.png 0000.019.png 0000.020.png +append row2.png
+convert 0000.021.png 0000.022.png 0000.023.png 0000.024.png 0000.025.png 0000.026.png 0000.027.png 0000.028.png 0000.029.png 0000.030.png +append row3.png
+convert 0000.031.png 0000.032.png 0000.033.png 0000.034.png 0000.035.png 0000.036.png 0000.037.png 0000.038.png 0000.039.png 0000.040.png +append row4.png
+convert 0000.041.png 0000.042.png 0000.043.png 0000.044.png 0000.045.png 0000.046.png 0000.047.png 0000.048.png 0000.049.png 0000.050.png +append row5.png
+convert 0000.051.png 0000.052.png 0000.053.png 0000.054.png 0000.055.png 0000.056.png 0000.057.png 0000.058.png 0000.059.png 0000.060.png +append row6.png
+convert 0000.061.png 0000.062.png 0000.063.png 0000.064.png 0000.065.png 0000.066.png 0000.067.png 0000.068.png 0000.069.png 0000.070.png +append row7.png
+convert 0000.071.png 0000.072.png 0000.073.png 0000.074.png 0000.075.png 0000.076.png 0000.077.png 0000.078.png 0000.079.png 0000.080.png +append row8.png
+convert 0000.081.png 0000.082.png 0000.083.png 0000.084.png 0000.085.png 0000.086.png 0000.087.png 0000.088.png 0000.089.png 0000.090.png +append row9.png
+convert 0000.091.png 0000.092.png 0000.093.png 0000.094.png 0000.095.png 0000.096.png 0000.097.png 0000.098.png 0000.099.png 0000.100.png +append row10.png
+convert row1.png row2.png row3.png row4.png row5.png row6.png row7.png row8.png row9.png row10.png -append 0000.png

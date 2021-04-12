@@ -65,8 +65,8 @@ func NewSLR2(subframe int) *SLR2 {
 		subframes: subframe > 0,
 	}
 	if s.subframes {
-		s.subframeRow = float64(3 - (subframe-1)/6)
-		s.subframeCol = float64((subframe-1)%6 - 2)
+		s.subframeRow = float64(5 - (subframe-1)/10)
+		s.subframeCol = float64((subframe-1)%10 - 4)
 		fmt.Printf("row: %v, col: %v\n", s.subframeRow, s.subframeCol)
 	}
 	s.transform()
@@ -102,8 +102,8 @@ func (s *SLR2) Ray(x, y, width, height float64, rnd *rand.Rand) *geom.Ray {
 	}
 	if s.subframes {
 		// top right is 0,0 offset (row is reversed)
-		u = u/6 + (s.subframeCol + 2)/6
-		v = v/6 + (3 - s.subframeRow)/6
+		u = u/10 + (s.subframeCol + 4)/10
+		v = v/10 + (5 - s.subframeRow)/10
 	}
 
 	focusDist := targetDist * s.Focus
@@ -129,13 +129,13 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 		return true
 	}
 	if s.subframes {
-		subframeSize := -projectedPoint.Z/6/3
+		subframeSize := -projectedPoint.Z/6/5
 		xOffset := float64(s.subframeCol)*subframeSize
 		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*1.333 || projectedPoint.X > xOffset + subframeSize*1.333 {
+		if projectedPoint.X < xOffset - subframeSize - subframeSize*2 || projectedPoint.X > xOffset + subframeSize*2 {
 			return true
 		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*1.333 || projectedPoint.Y > yOffset + subframeSize*1.333 {
+		if projectedPoint.Y < yOffset - subframeSize - subframeSize*2 || projectedPoint.Y > yOffset + subframeSize*2 {
 			return true
 		}
 	} else {
@@ -300,7 +300,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	scene := render.NewScene(c, s, e)
 	framePath := fmt.Sprintf("images/%04v.png", frameNumber)
 	if subframe > 0 {
-		framePath = fmt.Sprintf("images/%04v.%02v.png", frameNumber, subframe)
+		framePath = fmt.Sprintf("images/%04v.%03v.png", frameNumber, subframe)
 	}
 	err := Iterative(scene, framePath, pixels, pixels, 8, true, maxTime)
 	if err != nil {
