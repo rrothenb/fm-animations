@@ -129,13 +129,13 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 		return true
 	}
 	if s.subframes {
-		subframeSize := -projectedPoint.Z/10/5
+		subframeSize := -projectedPoint.Z/9/5
 		xOffset := float64(s.subframeCol)*subframeSize
 		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*3 || projectedPoint.X > xOffset + subframeSize*3 {
+		if projectedPoint.X < xOffset - subframeSize - subframeSize*3.33 || projectedPoint.X > xOffset + subframeSize*3.33 {
 			return true
 		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*3 || projectedPoint.Y > yOffset + subframeSize*3 {
+		if projectedPoint.Y < yOffset - subframeSize - subframeSize*3.33 || projectedPoint.Y > yOffset + subframeSize*3.33 {
 			return true
 		}
 	} else {
@@ -253,7 +253,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	c := NewSLR2(subframe).MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
-	n := int(float64(pixels) / distance )
+	n := int(float64(pixels) / distance * 3)
 	if n > maxSubdivisions {
 		n = maxSubdivisions
 	}
