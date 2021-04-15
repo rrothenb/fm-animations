@@ -247,7 +247,13 @@ func index2radians(index, n int) float64 {
 
 func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
+	// this should speed up at t around pi
+	cameraT := (t - math.Pi)/math.Pi
+	cameraT = math.Pow(cameraT*cameraT, .1)*math.Pi + math.Pi
+	if t < math.Pi {
+		cameraT = -cameraT
+	}
+	cameraLoc := geom.Vec{math.Sin(cameraT), math.Sin(cameraT), math.Cos(cameraT)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2(subframe).MoveTo(cameraLoc).LookAt(focusPoint)
