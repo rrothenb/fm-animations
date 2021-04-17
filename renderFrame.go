@@ -245,7 +245,7 @@ func index2radians(index, n int) float64 {
 	return float64(index) / float64(n) * math.Pi * 2
 }
 
-func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface) {
+func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool) {
 	t := float64(frameNumber) * dt
 	// this should speed up at t around pi
 	cameraT := (t - math.Pi)/math.Pi
@@ -300,6 +300,10 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	}
 	fmt.Println(len(surfaces), n*n*2)
 
+	if info {
+		return
+	}
+
 	s := surface.NewTree(surfaces...)
 	e := &FMEnv{t}
 
@@ -321,9 +325,10 @@ func main() {
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
 	maxTime := flag.Int("maxtime", 0, "Max time to render")
 	maxFrames := flag.Int("maxframes", 5000, "Max frames")
+	info := flag.Bool("info", false, "Only print out number triangles")
 	flag.Parse()
 	fmt.Printf("subframe: %v, frame: %v, pixels: %v, maxSubdivisions: %v, maxTime: %v, maxFrames: %v\n", *subframe, *frame, *pixels, *maxSubdivisions, *maxTime, *maxFrames)
 	dt := math.Pi * 2 / float64(*maxFrames)
 	var surfaces []render.Surface
-	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces)
+	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces, *info)
 }
