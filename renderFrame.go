@@ -128,21 +128,20 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Z < -s.position.Len() {
 		return true
 	}
+	if projectedPoint.X < projectedPoint.Z/4 || projectedPoint.X > -projectedPoint.Z/4 {
+		return true
+	}
+	if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
+		return true
+	}
 	if s.subframes {
-		subframeSize := -projectedPoint.Z/9/5
+		subframeSize := -projectedPoint.Z/6/5
 		xOffset := float64(s.subframeCol)*subframeSize
 		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*3.33 || projectedPoint.X > xOffset + subframeSize*3.33 {
+		if projectedPoint.X < xOffset - subframeSize - subframeSize*2.5 || projectedPoint.X > xOffset + subframeSize*2.5 {
 			return true
 		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*3.33 || projectedPoint.Y > yOffset + subframeSize*3.33 {
-			return true
-		}
-	} else {
-		if projectedPoint.X < projectedPoint.Z/4 || projectedPoint.X > -projectedPoint.Z/4 {
-			return true
-		}
-		if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
+		if projectedPoint.Y < yOffset - subframeSize - subframeSize*2.5 || projectedPoint.Y > yOffset + subframeSize*2.5 {
 			return true
 		}
 	}
@@ -241,8 +240,63 @@ func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	}
 }
 
-func index2radians(index, n int) float64 {
-	return float64(index) / float64(n) * math.Pi * 2
+func index2radians(index float64, n int) float64 {
+	return index / float64(n) * math.Pi * 2
+}
+
+type Interpolated struct {
+	u *material.Uniform
+	v *material.Uniform
+	w *material.Uniform
+}
+
+func (interpolated *Interpolated) interpolate(u, v float64) *material.Uniform {
+	w := 1 - u - v
+	return &material.Uniform{
+		Color:       interpolated.u.Color.Scaled(u).Plus(interpolated.v.Color.Scaled(v)).Plus(interpolated.w.Color.Scaled(w)),
+		Metalness:   interpolated.u.Metalness*u+interpolated.v.Metalness*v+interpolated.w.Metalness*w,
+		Roughness:   interpolated.u.Roughness*u+interpolated.v.Roughness*v+interpolated.w.Roughness*w,
+		Specularity: interpolated.u.Specularity*u+interpolated.v.Specularity*v+interpolated.w.Specularity*w,
+	}
+}
+
+func (interpolated *Interpolated) At(u, v float64, in, norm geom.Dir, rnd *rand.Rand) (geom.Dir, render.BSDF) {
+	return interpolated.interpolate(u, v).At(u, v, in, norm, rnd)
+}
+
+func (interpolated *Interpolated) Light() rgb.Energy {
+	return rgb.Black
+}
+
+func (interpolated *Interpolated) Transmit() rgb.Energy {
+	return rgb.Black
+}
+
+func uvIndexToMaterial(uIndex, vIndex, n int, t float64) *material.Uniform {
+	fm := texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t)
+	fm4 := math.Pow(fm, 4)
+	roughness := fm4*.09 + .01
+	metalness := (1-fm4)*.8 + .1
+	specularity := fm4*.3 + .1
+	color := rgb.Energy{
+		1,
+		.5 + .05*fm,
+		.25 + .15*math.Sin(4*fm)}.Scaled(fm4).Plus(rgb.Energy{.8, .8, .8}.Scaled(1 - fm4))
+	return &material.Uniform{
+		Color:       color,
+		Metalness:   metalness,
+		Roughness:   roughness,
+		Specularity: specularity,
+	}
+}
+
+func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
+	left := uv2xyz(index2radians(float64(uIndex)-.1, n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
+	right := uv2xyz(index2radians(float64(uIndex)+.1, n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
+	up := uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex)+.1, n), t, radius).Scaled(.075)
+	down := uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex)-.1, n), t, radius).Scaled(.075)
+	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
+	return &normal
 }
 
 func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool) {
@@ -264,37 +318,51 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 		n = maxSubdivisions
 	}
 	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxTime: %v\n", cameraLoc.Len(), distance, n, maxTime)
+	vertices := make([][]geom.Vec, n+1)
+	materials := make([][]*material.Uniform, n+1)
+	normals := make([][]*geom.Dir, n+1)
+	for uIndex := 0; uIndex <= n; uIndex++ {
+		vertices[uIndex] = make([]geom.Vec, n+1)
+		materials[uIndex] = make([]*material.Uniform, n+1)
+		normals[uIndex] = make([]*geom.Dir, n+1)
+		for vIndex := 0; vIndex <= n; vIndex++ {
+			vertices[uIndex][vIndex] = uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
+			materials[uIndex][vIndex] = uvIndexToMaterial(uIndex, vIndex, n, t)
+			normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
+		}
+	}
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
-			topRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex, n), t, radius).Scaled(.075)
+			topRight := vertices[uIndex][vIndex]
 			if c.invisible(topRight) {
 				continue
 			}
-			topLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex, n), t, radius).Scaled(.075)
-			botRight := uv2xyz(index2radians(uIndex, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
-			botLeft := uv2xyz(index2radians(uIndex+1, n), index2radians(vIndex+1, n), t, radius).Scaled(.075)
-			fm := texture(index2radians(uIndex, n), index2radians(vIndex, n), t)
-			fm4 := math.Pow(fm, 4)
-			roughness := fm4*.09 + .01
-			metalness := (1-fm4)*.8 + .1
-			specularity := fm4*.3 + .1
-			color := rgb.Energy{
-				1,
-				.5 + .05*fm,
-				.25 + .15*math.Sin(4*fm)}.Scaled(fm4).Plus(rgb.Energy{.8, .8, .8}.Scaled(1 - fm4))
-			m := &material.Uniform{
-				Color:       color,
-				Metalness:   metalness,
-				Roughness:   roughness,
-				Specularity: specularity,
-			}
+			topRightMaterial := materials[uIndex][vIndex]
+			topRightNormal := normals[uIndex][vIndex]
+			topLeft := vertices[uIndex+1][vIndex]
+			topLeftMaterial := materials[uIndex+1][vIndex]
+			topLeftNormal := normals[uIndex+1][vIndex]
+			botRight := vertices[uIndex][vIndex+1]
+			botRightMaterial := materials[uIndex][vIndex+1]
+			botRightNormal := normals[uIndex][vIndex+1]
+			botLeft := vertices[uIndex+1][vIndex+1]
+			botLeftMaterial := materials[uIndex+1][vIndex+1]
+			botLeftNormal := normals[uIndex+1][vIndex+1]
 			if vIndex != 0 {
-				surfaces = append(surfaces,
-					surface.NewTriangle(topRight, botLeft, topLeft, m))
+				m := &Interpolated{u: topRightMaterial, v: botLeftMaterial, w: topLeftMaterial}
+				triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
+				triangle.Texture[0] = geom.Vec{1,0,0}
+				triangle.Texture[1] = geom.Vec{0,1,0}
+				triangle.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
+				surfaces = append(surfaces, triangle)
 			}
 			if vIndex != n-1 {
-				surfaces = append(surfaces,
-					surface.NewTriangle(topRight, botRight, botLeft, m))
+				m := &Interpolated{u: topRightMaterial, v: botRightMaterial, w: botLeftMaterial}
+				triangle := surface.NewTriangle(topRight, botRight, botLeft, m)
+				triangle.Texture[0] = geom.Vec{1,0,0}
+				triangle.Texture[1] = geom.Vec{0,1,0}
+				triangle.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
+				surfaces = append(surfaces, triangle)
 			}
 		}
 	}
