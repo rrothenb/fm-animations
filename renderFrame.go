@@ -134,6 +134,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
 		return true
 	}
+	/*
 	if s.subframes {
 		subframeSize := -projectedPoint.Z/6/5
 		xOffset := float64(s.subframeCol)*subframeSize
@@ -145,6 +146,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 			return true
 		}
 	}
+	 */
 	return false
 }
 
@@ -327,6 +329,9 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 		normals[uIndex] = make([]*geom.Dir, n+1)
 		for vIndex := 0; vIndex <= n; vIndex++ {
 			vertices[uIndex][vIndex] = uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
+			if c.invisible(vertices[uIndex][vIndex]) {
+				continue
+			}
 			materials[uIndex][vIndex] = uvIndexToMaterial(uIndex, vIndex, n, t)
 			normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
 		}
@@ -334,18 +339,18 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
 			topRight := vertices[uIndex][vIndex]
-			if c.invisible(topRight) {
+			topLeft := vertices[uIndex+1][vIndex]
+			botRight := vertices[uIndex][vIndex+1]
+			botLeft := vertices[uIndex+1][vIndex+1]
+			if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
 				continue
 			}
 			topRightMaterial := materials[uIndex][vIndex]
 			topRightNormal := normals[uIndex][vIndex]
-			topLeft := vertices[uIndex+1][vIndex]
 			topLeftMaterial := materials[uIndex+1][vIndex]
 			topLeftNormal := normals[uIndex+1][vIndex]
-			botRight := vertices[uIndex][vIndex+1]
 			botRightMaterial := materials[uIndex][vIndex+1]
 			botRightNormal := normals[uIndex][vIndex+1]
-			botLeft := vertices[uIndex+1][vIndex+1]
 			botLeftMaterial := materials[uIndex+1][vIndex+1]
 			botLeftNormal := normals[uIndex+1][vIndex+1]
 			if vIndex != 0 {
