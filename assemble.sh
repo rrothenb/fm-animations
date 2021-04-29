@@ -8,4 +8,4 @@ convert 0000.061.png 0000.062.png 0000.063.png 0000.064.png 0000.065.png 0000.06
 convert 0000.071.png 0000.072.png 0000.073.png 0000.074.png 0000.075.png 0000.076.png 0000.077.png 0000.078.png 0000.079.png 0000.080.png +append row8.png
 convert 0000.081.png 0000.082.png 0000.083.png 0000.084.png 0000.085.png 0000.086.png 0000.087.png 0000.088.png 0000.089.png 0000.090.png +append row9.png
 convert 0000.091.png 0000.092.png 0000.093.png 0000.094.png 0000.095.png 0000.096.png 0000.097.png 0000.098.png 0000.099.png 0000.100.png +append row10.png
-convert row1.png row2.png row3.png row4.png row5.png row6.png row7.png row8.png row9.png row10.png -append 0000.png
+convert row1.png row2.png row3.png row4.png row5.png row6.png row7.png row8.png row9.png row10.png -append ../0000.assembled.png
