@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"sync"
 
 	"github.com/hunterloftis/pbr/pkg/geom"
 	"github.com/hunterloftis/pbr/pkg/material"
@@ -301,6 +302,95 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 	return &normal
 }
 
+// new Object/Surface - like Sphere
+
+type Square struct {
+	left surface.Triangle
+	right surface.Triangle
+}
+
+type Shape struct {
+	vertices sync.Map
+	normals sync.Map
+	materials sync.Map
+	squares sync.Map
+	outerBound *surface.Sphere
+	innerBound *surface.Sphere
+	intersections int
+	triangles []surface.Triangle
+}
+
+func NewShape() *Shape {
+	u := 17
+	v := 31
+	topRight := uv2xyz(index2radians(float64(u), 32), index2radians(float64(v), 32), 0, radius).Scaled(.075)
+	topLeft := uv2xyz(index2radians(float64(u+1), 32), index2radians(float64(v), 32), 0, radius).Scaled(.075)
+	botRight := uv2xyz(index2radians(float64(u), 32), index2radians(float64(v+1), 32), 0, radius).Scaled(.075)
+	botLeft := uv2xyz(index2radians(float64(u+1), 32), index2radians(float64(v+1), 32), 0, radius).Scaled(.075)
+	var surfaces []surface.Triangle
+	surfaces = append(surfaces, *surface.NewTriangle(topRight, botLeft, topLeft))
+	surfaces = append(surfaces, *surface.NewTriangle(topRight, botRight, botLeft))
+	return &Shape {
+		outerBound: surface.UnitSphere().Scale(geom.Vec{.075*(1+.075),.075*(1+.075),.075*(1+.075)}),
+		innerBound: surface.UnitSphere().Scale(geom.Vec{.075,.075,.075}),
+		triangles: surfaces,
+	}
+}
+
+func (s *Shape) Light() rgb.Energy {
+	return rgb.Black
+}
+
+func (s *Shape) Transmit() rgb.Energy {
+	return rgb.Black
+}
+
+func (s *Shape) Bounds() *geom.Bounds {
+	return s.outerBound.Bounds()
+}
+
+func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
+	//obj, dist = s.outerBound.Intersect(ray, max)
+	obj, dist = surface.NewTree(&s.triangles[0], &s.triangles[1]).Intersect(ray, max)
+	if obj != nil {
+		s.intersections++
+		intersection, _ := ray.Origin.Plus(ray.Dir.Scaled(dist)).Unit()
+		u := (math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2+.5)*32
+		v := math.Acos(intersection.Z)/math.Pi*32
+		// both indices go from 0 to n when u/v go from 0 to 2pi
+		// v goes from -pi/2 to pi/2
+		// subframe 1 -x, y | x, y
+		// subframe 10 x, y | -x, y
+		// subframe 91 -x, -y | x, -y
+		// subframe 100 x, -y | -x, -y
+		// x is opposite around back - that makes sense
+		// x,y make u
+		// z makes v
+		// u of 0 and n are both 3:00 at frame 0
+		// 0,1 - .2, .03, .99 - 1.4, .18
+		// 0,31 - .1, 0, -1 - 1.5, 3
+		// 4,1 - .1,.15,.99
+		// 8,1 - 0, .2, .99
+		// 16,1 - -.15,0, .99
+		// 28,1 - .08, -.06, .99
+		// v above goes from 0 to pi, u goes from
+		if s.intersections < 10 {
+			fmt.Println(intersection, u, v)
+			//panic("hello")
+		}
+		obj = s
+	}
+	return
+}
+
+func (s *Shape) At(pt geom.Vec, in geom.Dir, rnd *rand.Rand) (normal geom.Dir, bsdf render.BSDF) {
+	return s.outerBound.At(pt, in, rnd)
+}
+
+func (s *Shape) Lights() []render.Object {
+	return nil
+}
+
 func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool) {
 	t := float64(frameNumber) * dt
 	// this should speed up at t around pi
@@ -320,6 +410,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 		n = maxSubdivisions
 	}
 	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxTime: %v\n", cameraLoc.Len(), distance, n, maxTime)
+	/*
 	vertices := make([][]geom.Vec, n+1)
 	materials := make([][]*material.Uniform, n+1)
 	normals := make([][]*geom.Dir, n+1)
@@ -371,6 +462,8 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 			}
 		}
 	}
+	 */
+	surfaces = append(surfaces,NewShape())
 	fmt.Println(len(surfaces), n*n*2)
 
 	if info {
