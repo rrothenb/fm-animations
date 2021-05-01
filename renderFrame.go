@@ -316,24 +316,12 @@ type Shape struct {
 	squares sync.Map
 	outerBound *surface.Sphere
 	innerBound *surface.Sphere
-	intersections int
-	triangles []surface.Triangle
 }
 
 func NewShape() *Shape {
-	u := 17
-	v := 31
-	topRight := uv2xyz(index2radians(float64(u), 32), index2radians(float64(v), 32), 0, radius).Scaled(.075)
-	topLeft := uv2xyz(index2radians(float64(u+1), 32), index2radians(float64(v), 32), 0, radius).Scaled(.075)
-	botRight := uv2xyz(index2radians(float64(u), 32), index2radians(float64(v+1), 32), 0, radius).Scaled(.075)
-	botLeft := uv2xyz(index2radians(float64(u+1), 32), index2radians(float64(v+1), 32), 0, radius).Scaled(.075)
-	var surfaces []surface.Triangle
-	surfaces = append(surfaces, *surface.NewTriangle(topRight, botLeft, topLeft))
-	surfaces = append(surfaces, *surface.NewTriangle(topRight, botRight, botLeft))
 	return &Shape {
 		outerBound: surface.UnitSphere().Scale(geom.Vec{.075*(1+.075),.075*(1+.075),.075*(1+.075)}),
 		innerBound: surface.UnitSphere().Scale(geom.Vec{.075,.075,.075}),
-		triangles: surfaces,
 	}
 }
 
@@ -349,34 +337,71 @@ func (s *Shape) Bounds() *geom.Bounds {
 	return s.outerBound.Bounds()
 }
 
+func calcUV(dist float64, ray *geom.Ray) (u,v int, intersects bool) {
+	if dist > 0 {
+		intersects = true
+		intersection, _ := ray.Moved(dist).Unit()
+		u = int((math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2+.5)*32)
+		v = int(math.Acos(intersection.Z)/math.Pi*32)
+	}
+	return
+}
+
+func reverseRay(ray *geom.Ray) *geom.Ray {
+	newOrigin := ray.Origin.Plus(ray.Dir.Scaled(1))
+	reversedDir, _ := ray.Dir.Scaled(-1).Unit()
+	return geom.NewRay(newOrigin, reversedDir)
+}
+
+func uvKey(u, v int) int64 {
+	return int64(u*1000000) + int64(v)
+}
+
+type UV struct {
+	u int
+	v int
+}
+
+func NewUV(u,v float64) UV {
+	return UV{int(u), int(v)}
+}
+
 func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
-	//obj, dist = s.outerBound.Intersect(ray, max)
-	obj, dist = surface.NewTree(&s.triangles[0], &s.triangles[1]).Intersect(ray, max)
-	if obj != nil {
-		s.intersections++
-		intersection, _ := ray.Origin.Plus(ray.Dir.Scaled(dist)).Unit()
-		u := (math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2+.5)*32
-		v := math.Acos(intersection.Z)/math.Pi*32
-		// both indices go from 0 to n when u/v go from 0 to 2pi
-		// v goes from -pi/2 to pi/2
-		// subframe 1 -x, y | x, y
-		// subframe 10 x, y | -x, y
-		// subframe 91 -x, -y | x, -y
-		// subframe 100 x, -y | -x, -y
-		// x is opposite around back - that makes sense
-		// x,y make u
-		// z makes v
-		// u of 0 and n are both 3:00 at frame 0
-		// 0,1 - .2, .03, .99 - 1.4, .18
-		// 0,31 - .1, 0, -1 - 1.5, 3
-		// 4,1 - .1,.15,.99
-		// 8,1 - 0, .2, .99
-		// 16,1 - -.15,0, .99
-		// 28,1 - .08, -.06, .99
-		// v above goes from 0 to pi, u goes from
-		if s.intersections < 10 {
-			fmt.Println(intersection, u, v)
-			//panic("hello")
+	// consider that the origin of the ray can be inside the outer bound
+	obj, dist = s.outerBound.Intersect(ray, max)
+	u, v, intersects := calcUV(dist, ray)
+	if intersects {
+		obj, dist = s.innerBound.Intersect(ray, max)
+		u2, v2, intersects2 := calcUV(dist, ray)
+		if !intersects2 {
+			mtx := geom.Identity().Mult(geom.Scale(geom.Vec{.075*(1+.075),.075*(1+.075),.075*(1+.075)}))
+			i := mtx.Inverse()
+			r := i.MultRay(ray)
+			op := geom.Vec{}.Minus(r.Origin)
+			b := op.Dot(geom.Vec(r.Dir))
+			det := b*b - op.Dot(op) + 0.5*0.5
+			root := math.Sqrt(det)
+			t1 := b - root
+			t2 := b + root
+			dist1 := mtx.MultDist(r.Dir.Scaled(t1)).Len()
+			dist2 := mtx.MultDist(r.Dir.Scaled(t2)).Len()
+			u2, v2, _ = calcUV(dist1, ray)
+			if u2 == u && v2 == v {
+				u2, v2, _ = calcUV(dist2, ray)
+			}
+		}
+		numUVs := math.Max(math.Abs(float64(u - u2)),math.Abs(float64(v - v2)))+1
+		deltaU := float64(u2 - u)/(numUVs-1)
+		deltaV := float64(v2 - v)/(numUVs-1)
+		for i:=0.0;i<numUVs;i++ {
+			uv := NewUV(float64(u)+.5+i*deltaU, float64(v)+.5+i*deltaV)
+			square, ok := s.squares.Load(uv)
+			if (!ok) {
+				// get the four relevant vertices, normals and materials
+				// I probably need to lose the square concept as it doesn't work around the poles
+				// what if i ignore poles?
+				// what if i just do left for south pole and right for north pole
+			}
 		}
 		obj = s
 	}
@@ -384,6 +409,7 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 }
 
 func (s *Shape) At(pt geom.Vec, in geom.Dir, rnd *rand.Rand) (normal geom.Dir, bsdf render.BSDF) {
+	// calc uv
 	return s.outerBound.At(pt, in, rnd)
 }
 
