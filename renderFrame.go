@@ -11,9 +11,9 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
-	"sync"
 
 	"github.com/hunterloftis/pbr/pkg/geom"
 	"github.com/hunterloftis/pbr/pkg/material"
@@ -103,8 +103,8 @@ func (s *SLR2) Ray(x, y, width, height float64, rnd *rand.Rand) *geom.Ray {
 	}
 	if s.subframes {
 		// top right is 0,0 offset (row is reversed)
-		u = u/10 + (s.subframeCol + 4)/10
-		v = v/10 + (5 - s.subframeRow)/10
+		u = u/10 + (s.subframeCol+4)/10
+		v = v/10 + (5-s.subframeRow)/10
 	}
 
 	focusDist := targetDist * s.Focus
@@ -136,18 +136,18 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 		return true
 	}
 	/*
-	if s.subframes {
-		subframeSize := -projectedPoint.Z/6/5
-		xOffset := float64(s.subframeCol)*subframeSize
-		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*2.5 || projectedPoint.X > xOffset + subframeSize*2.5 {
-			return true
+		if s.subframes {
+			subframeSize := -projectedPoint.Z/6/5
+			xOffset := float64(s.subframeCol)*subframeSize
+			yOffset := float64(s.subframeRow)*subframeSize
+			if projectedPoint.X < xOffset - subframeSize - subframeSize*2.5 || projectedPoint.X > xOffset + subframeSize*2.5 {
+				return true
+			}
+			if projectedPoint.Y < yOffset - subframeSize - subframeSize*2.5 || projectedPoint.Y > yOffset + subframeSize*2.5 {
+				return true
+			}
 		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*2.5 || projectedPoint.Y > yOffset + subframeSize*2.5 {
-			return true
-		}
-	}
-	 */
+	*/
 	return false
 }
 
@@ -257,9 +257,9 @@ func (interpolated *Interpolated) interpolate(u, v float64) *material.Uniform {
 	w := 1 - u - v
 	return &material.Uniform{
 		Color:       interpolated.u.Color.Scaled(u).Plus(interpolated.v.Color.Scaled(v)).Plus(interpolated.w.Color.Scaled(w)),
-		Metalness:   interpolated.u.Metalness*u+interpolated.v.Metalness*v+interpolated.w.Metalness*w,
-		Roughness:   interpolated.u.Roughness*u+interpolated.v.Roughness*v+interpolated.w.Roughness*w,
-		Specularity: interpolated.u.Specularity*u+interpolated.v.Specularity*v+interpolated.w.Specularity*w,
+		Metalness:   interpolated.u.Metalness*u + interpolated.v.Metalness*v + interpolated.w.Metalness*w,
+		Roughness:   interpolated.u.Roughness*u + interpolated.v.Roughness*v + interpolated.w.Roughness*w,
+		Specularity: interpolated.u.Specularity*u + interpolated.v.Specularity*v + interpolated.w.Specularity*w,
 	}
 }
 
@@ -305,23 +305,31 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 // new Object/Surface - like Sphere
 
 type Square struct {
-	left surface.Triangle
+	left  surface.Triangle
 	right surface.Triangle
 }
 
+func (square *Square) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
+	obj, dist = square.left.Intersect(ray, max)
+	if obj == nil {
+		obj, dist = square.left.Intersect(ray, max)
+	}
+	return
+}
+
 type Shape struct {
-	vertices sync.Map
-	normals sync.Map
-	materials sync.Map
-	squares sync.Map
+	vertices   sync.Map
+	normals    sync.Map
+	materials  sync.Map
+	faces      sync.Map
 	outerBound *surface.Sphere
 	innerBound *surface.Sphere
 }
 
 func NewShape() *Shape {
-	return &Shape {
-		outerBound: surface.UnitSphere().Scale(geom.Vec{.075*(1+.075),.075*(1+.075),.075*(1+.075)}),
-		innerBound: surface.UnitSphere().Scale(geom.Vec{.075,.075,.075}),
+	return &Shape{
+		outerBound: surface.UnitSphere().Scale(geom.Vec{.075 * (1 + .075), .075 * (1 + .075), .075 * (1 + .075)}),
+		innerBound: surface.UnitSphere().Scale(geom.Vec{.075, .075, .075}),
 	}
 }
 
@@ -337,12 +345,12 @@ func (s *Shape) Bounds() *geom.Bounds {
 	return s.outerBound.Bounds()
 }
 
-func calcUV(dist float64, ray *geom.Ray) (u,v int, intersects bool) {
+func calcUV(dist float64, ray *geom.Ray) (u, v int, intersects bool) {
 	if dist > 0 {
 		intersects = true
 		intersection, _ := ray.Moved(dist).Unit()
-		u = int((math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2+.5)*32)
-		v = int(math.Acos(intersection.Z)/math.Pi*32)
+		u = int((math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2 + .5) * 32)
+		v = int(math.Acos(intersection.Z) / math.Pi * 32)
 	}
 	return
 }
@@ -362,8 +370,24 @@ type UV struct {
 	v int
 }
 
-func NewUV(u,v float64) UV {
-	return UV{int(u), int(v)}
+func NewUV(u, v float64) *UV {
+	return &UV{int(u), int(v)}
+}
+
+func (uv *UV)left() *UV {
+	return &UV{uv.u-1, uv.v}
+}
+
+func (uv *UV)right() *UV {
+	return &UV{uv.u+1, uv.v}
+}
+
+func (uv *UV)below() *UV {
+	return &UV{uv.u, uv.v-1}
+}
+
+func (uv *UV)above() *UV {
+	return &UV{uv.u, uv.v+1}
 }
 
 func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
@@ -374,7 +398,7 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 		obj, dist = s.innerBound.Intersect(ray, max)
 		u2, v2, intersects2 := calcUV(dist, ray)
 		if !intersects2 {
-			mtx := geom.Identity().Mult(geom.Scale(geom.Vec{.075*(1+.075),.075*(1+.075),.075*(1+.075)}))
+			mtx := geom.Identity().Mult(geom.Scale(geom.Vec{.075 * (1 + .075), .075 * (1 + .075), .075 * (1 + .075)}))
 			i := mtx.Inverse()
 			r := i.MultRay(ray)
 			op := geom.Vec{}.Minus(r.Origin)
@@ -390,13 +414,23 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 				u2, v2, _ = calcUV(dist2, ray)
 			}
 		}
-		numUVs := math.Max(math.Abs(float64(u - u2)),math.Abs(float64(v - v2)))+1
-		deltaU := float64(u2 - u)/(numUVs-1)
-		deltaV := float64(v2 - v)/(numUVs-1)
-		for i:=0.0;i<numUVs;i++ {
-			uv := NewUV(float64(u)+.5+i*deltaU, float64(v)+.5+i*deltaV)
-			square, ok := s.squares.Load(uv)
-			if (!ok) {
+		numUVs := math.Max(math.Abs(float64(u-u2)), math.Abs(float64(v-v2))) + 1
+		deltaU := float64(u2-u) / (numUVs - 1)
+		deltaV := float64(v2-v) / (numUVs - 1)
+		for i := 0.0; i < numUVs; i++ {
+			topRight := NewUV(float64(u)+.5+i*deltaU, float64(v)+.5+i*deltaV)
+
+			// should know specifically which triangle is needed based on v top or bot or if u remaineder is greater than v remainder
+			// should be able to index to the correct triangle
+			// maybe the "face" can do that logic and it can do most of the work of creating stuff that doesn't exist
+			// a face could have a pointer to a uv and pointers to top, bot, left and right triangles?  Could be an array of 2
+			// triangles aren't shared so maybe not pointers, but very slight waste of space to have two
+			// maybe i need a single data structure that represents the map of triangles indexed by float uv
+			face, ok := s.faces.Load(topRight)
+			if !ok {
+				if uv.v == 0 {
+					face =
+				}
 				// get the four relevant vertices, normals and materials
 				// I probably need to lose the square concept as it doesn't work around the poles
 				// what if i ignore poles?
@@ -420,7 +454,7 @@ func (s *Shape) Lights() []render.Object {
 func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool) {
 	t := float64(frameNumber) * dt
 	// this should speed up at t around pi
-	cameraT := (t - math.Pi)/math.Pi
+	cameraT := (t - math.Pi) / math.Pi
 	cameraT = math.Pow(cameraT*cameraT, .1)*math.Pi + math.Pi
 	if t < math.Pi {
 		cameraT = -cameraT
@@ -437,59 +471,59 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	}
 	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxTime: %v\n", cameraLoc.Len(), distance, n, maxTime)
 	/*
-	vertices := make([][]geom.Vec, n+1)
-	materials := make([][]*material.Uniform, n+1)
-	normals := make([][]*geom.Dir, n+1)
-	for uIndex := 0; uIndex <= n; uIndex++ {
-		vertices[uIndex] = make([]geom.Vec, n+1)
-		materials[uIndex] = make([]*material.Uniform, n+1)
-		normals[uIndex] = make([]*geom.Dir, n+1)
-		for vIndex := 0; vIndex <= n; vIndex++ {
-			vertices[uIndex][vIndex] = uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
-			if c.invisible(vertices[uIndex][vIndex]) {
-				continue
-			}
-			materials[uIndex][vIndex] = uvIndexToMaterial(uIndex, vIndex, n, t)
-			normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
-		}
-	}
-	for vIndex := 0; vIndex < n; vIndex++ {
-		for uIndex := 0; uIndex < n; uIndex++ {
-			topRight := vertices[uIndex][vIndex]
-			topLeft := vertices[uIndex+1][vIndex]
-			botRight := vertices[uIndex][vIndex+1]
-			botLeft := vertices[uIndex+1][vIndex+1]
-			if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
-				continue
-			}
-			topRightMaterial := materials[uIndex][vIndex]
-			topRightNormal := normals[uIndex][vIndex]
-			topLeftMaterial := materials[uIndex+1][vIndex]
-			topLeftNormal := normals[uIndex+1][vIndex]
-			botRightMaterial := materials[uIndex][vIndex+1]
-			botRightNormal := normals[uIndex][vIndex+1]
-			botLeftMaterial := materials[uIndex+1][vIndex+1]
-			botLeftNormal := normals[uIndex+1][vIndex+1]
-			if vIndex != 0 {
-				m := &Interpolated{u: topRightMaterial, v: botLeftMaterial, w: topLeftMaterial}
-				triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
-				triangle.Texture[0] = geom.Vec{1,0,0}
-				triangle.Texture[1] = geom.Vec{0,1,0}
-				triangle.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
-				surfaces = append(surfaces, triangle)
-			}
-			if vIndex != n-1 {
-				m := &Interpolated{u: topRightMaterial, v: botRightMaterial, w: botLeftMaterial}
-				triangle := surface.NewTriangle(topRight, botRight, botLeft, m)
-				triangle.Texture[0] = geom.Vec{1,0,0}
-				triangle.Texture[1] = geom.Vec{0,1,0}
-				triangle.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
-				surfaces = append(surfaces, triangle)
+		vertices := make([][]geom.Vec, n+1)
+		materials := make([][]*material.Uniform, n+1)
+		normals := make([][]*geom.Dir, n+1)
+		for uIndex := 0; uIndex <= n; uIndex++ {
+			vertices[uIndex] = make([]geom.Vec, n+1)
+			materials[uIndex] = make([]*material.Uniform, n+1)
+			normals[uIndex] = make([]*geom.Dir, n+1)
+			for vIndex := 0; vIndex <= n; vIndex++ {
+				vertices[uIndex][vIndex] = uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
+				if c.invisible(vertices[uIndex][vIndex]) {
+					continue
+				}
+				materials[uIndex][vIndex] = uvIndexToMaterial(uIndex, vIndex, n, t)
+				normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
 			}
 		}
-	}
-	 */
-	surfaces = append(surfaces,NewShape())
+		for vIndex := 0; vIndex < n; vIndex++ {
+			for uIndex := 0; uIndex < n; uIndex++ {
+				topRight := vertices[uIndex][vIndex]
+				topLeft := vertices[uIndex+1][vIndex]
+				botRight := vertices[uIndex][vIndex+1]
+				botLeft := vertices[uIndex+1][vIndex+1]
+				if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
+					continue
+				}
+				topRightMaterial := materials[uIndex][vIndex]
+				topRightNormal := normals[uIndex][vIndex]
+				topLeftMaterial := materials[uIndex+1][vIndex]
+				topLeftNormal := normals[uIndex+1][vIndex]
+				botRightMaterial := materials[uIndex][vIndex+1]
+				botRightNormal := normals[uIndex][vIndex+1]
+				botLeftMaterial := materials[uIndex+1][vIndex+1]
+				botLeftNormal := normals[uIndex+1][vIndex+1]
+				if vIndex != 0 {
+					m := &Interpolated{u: topRightMaterial, v: botLeftMaterial, w: topLeftMaterial}
+					triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
+					triangle.Texture[0] = geom.Vec{1,0,0}
+					triangle.Texture[1] = geom.Vec{0,1,0}
+					triangle.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
+					surfaces = append(surfaces, triangle)
+				}
+				if vIndex != n-1 {
+					m := &Interpolated{u: topRightMaterial, v: botRightMaterial, w: botLeftMaterial}
+					triangle := surface.NewTriangle(topRight, botRight, botLeft, m)
+					triangle.Texture[0] = geom.Vec{1,0,0}
+					triangle.Texture[1] = geom.Vec{0,1,0}
+					triangle.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
+					surfaces = append(surfaces, triangle)
+				}
+			}
+		}
+	*/
+	surfaces = append(surfaces, NewShape())
 	fmt.Println(len(surfaces), n*n*2)
 
 	if info {
