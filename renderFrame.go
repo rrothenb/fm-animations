@@ -305,8 +305,8 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 // new Object/Surface - like Sphere
 
 type Square struct {
-	left  surface.Triangle
-	right surface.Triangle
+	left  *surface.Triangle
+	right *surface.Triangle
 }
 
 func (square *Square) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
@@ -318,18 +318,22 @@ func (square *Square) Intersect(ray *geom.Ray, max float64) (obj render.Object, 
 }
 
 type Shape struct {
-	vertices   sync.Map
-	normals    sync.Map
-	materials  sync.Map
-	faces      sync.Map
-	outerBound *surface.Sphere
-	innerBound *surface.Sphere
+	vertices        sync.Map
+	normals         sync.Map
+	materials       sync.Map
+	faces           sync.Map
+	outerBound      *surface.Sphere
+	innerBound      *surface.Sphere
+	t               float64
+	numSubdivisions int
 }
 
-func NewShape() *Shape {
+func NewShape(t float64, numSubdivisions int) *Shape {
 	return &Shape{
-		outerBound: surface.UnitSphere().Scale(geom.Vec{.075 * (1 + .075), .075 * (1 + .075), .075 * (1 + .075)}),
-		innerBound: surface.UnitSphere().Scale(geom.Vec{.075, .075, .075}),
+		outerBound:      surface.UnitSphere().Scale(geom.Vec{.075 * (1 + .075), .075 * (1 + .075), .075 * (1 + .075)}),
+		innerBound:      surface.UnitSphere().Scale(geom.Vec{.075, .075, .075}),
+		t:               t,
+		numSubdivisions: numSubdivisions,
 	}
 }
 
@@ -355,16 +359,6 @@ func calcUV(dist float64, ray *geom.Ray) (u, v int, intersects bool) {
 	return
 }
 
-func reverseRay(ray *geom.Ray) *geom.Ray {
-	newOrigin := ray.Origin.Plus(ray.Dir.Scaled(1))
-	reversedDir, _ := ray.Dir.Scaled(-1).Unit()
-	return geom.NewRay(newOrigin, reversedDir)
-}
-
-func uvKey(u, v int) int64 {
-	return int64(u*1000000) + int64(v)
-}
-
 type UV struct {
 	u int
 	v int
@@ -374,20 +368,71 @@ func NewUV(u, v float64) *UV {
 	return &UV{int(u), int(v)}
 }
 
-func (uv *UV)left() *UV {
-	return &UV{uv.u-1, uv.v}
+func (shape *Shape) getVertex(u, v int) geom.Vec {
+	uv := UV{u, v}
+	value, ok := shape.vertices.Load(uv)
+	if !ok {
+		value = uv2xyz(float64(u), float64(v), shape.t, radius)
+		shape.vertices.Store(uv, value)
+	}
+	return value.(geom.Vec)
 }
 
-func (uv *UV)right() *UV {
-	return &UV{uv.u+1, uv.v}
+func (shape *Shape) getNormal(u, v int) *geom.Dir {
+	uv := UV{u, v}
+	value, ok := shape.normals.Load(uv)
+	if !ok {
+		value = uvIndexToNormal(u, v, shape.numSubdivisions, shape.t)
+		shape.normals.Store(uv, value)
+	}
+	return value.(*geom.Dir)
 }
 
-func (uv *UV)below() *UV {
-	return &UV{uv.u, uv.v-1}
+func (shape *Shape) getMaterial(u, v int) *material.Uniform {
+	uv := UV{u, v}
+	value, ok := shape.materials.Load(uv)
+	if !ok {
+		value = uvIndexToMaterial(u, v, shape.numSubdivisions, shape.t)
+		shape.materials.Store(uv, value)
+	}
+	return value.(*material.Uniform)
 }
 
-func (uv *UV)above() *UV {
-	return &UV{uv.u, uv.v+1}
+func (shape *Shape) getFace(u, v int) *render.Surface {
+	uv := UV{u, v}
+	value, ok := shape.faces.Load(uv)
+	if !ok {
+		topRight := shape.getVertex(u, v)
+		topRightNormal := shape.getNormal(u, v)
+		topRightMaterial := shape.getMaterial(u, v)
+		botLeft := shape.getVertex(u+1, v+1)
+		botLeftNormal := shape.getNormal(u+1, v+1)
+		botLeftMaterial := shape.getMaterial(u+1, v+1)
+		if v == 0 {
+		} else if v == shape.numSubdivisions-1 {
+		} else {
+			square := &Square{}
+			value = square
+			topLeft := shape.getVertex(u+1, v)
+			topLeftNormal := shape.getNormal(u+1, v)
+			topLeftMaterial := shape.getMaterial(u+1, v)
+			botRight := shape.getVertex(u, v+1)
+			botRightNormal := shape.getNormal(u, v+1)
+			botRightMaterial := shape.getMaterial(u, v+1)
+			leftMaterial := &Interpolated{u: topRightMaterial, v: botLeftMaterial, w: topLeftMaterial}
+			square.left = surface.NewTriangle(topRight, botLeft, topLeft, leftMaterial)
+			square.left.Texture[0] = geom.Vec{1, 0, 0}
+			square.left.Texture[1] = geom.Vec{0, 1, 0}
+			square.left.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
+			rightMaterial := &Interpolated{u: topRightMaterial, v: botRightMaterial, w: botLeftMaterial}
+			square.right = surface.NewTriangle(topRight, botRight, botLeft, rightMaterial)
+			square.right.Texture[0] = geom.Vec{1, 0, 0}
+			square.right.Texture[1] = geom.Vec{0, 1, 0}
+			square.right.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
+		}
+		shape.faces.Store(uv, value)
+	}
+	return value.(*render.Surface)
 }
 
 func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
@@ -426,16 +471,8 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 			// a face could have a pointer to a uv and pointers to top, bot, left and right triangles?  Could be an array of 2
 			// triangles aren't shared so maybe not pointers, but very slight waste of space to have two
 			// maybe i need a single data structure that represents the map of triangles indexed by float uv
-			face, ok := s.faces.Load(topRight)
-			if !ok {
-				if uv.v == 0 {
-					face =
-				}
-				// get the four relevant vertices, normals and materials
-				// I probably need to lose the square concept as it doesn't work around the poles
-				// what if i ignore poles?
-				// what if i just do left for south pole and right for north pole
-			}
+			face := s.getFace(topRight.u, topRight.v)
+			obj, dist = (*face).Intersect(ray, max)
 		}
 		obj = s
 	}
@@ -523,7 +560,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 			}
 		}
 	*/
-	surfaces = append(surfaces, NewShape())
+	surfaces = append(surfaces, NewShape(t, n))
 	fmt.Println(len(surfaces), n*n*2)
 
 	if info {
