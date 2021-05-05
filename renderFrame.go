@@ -38,6 +38,15 @@ func radius(u, v, t float64) float64 {
 	return 1.0 + .075*math.Pow(math.Pow(texture(u, v, t), 2), 3)
 }
 
+type SurfaceObject interface {
+	Intersect(r *geom.Ray, max float64) (obj render.Object, dist float64)
+	Lights() []render.Object
+	Bounds() *geom.Bounds
+	At(pt geom.Vec, dir geom.Dir, rnd *rand.Rand) (normal geom.Dir, bsdf render.BSDF)
+	Light() rgb.Energy
+	Transmit() rgb.Energy
+}
+
 type SLR2 struct {
 	Width  float64
 	Height float64
@@ -309,12 +318,32 @@ type Square struct {
 	right *surface.Triangle
 }
 
+func (square *Square) Lights() []render.Object {
+	return nil
+}
+
+func (square *Square) Bounds() *geom.Bounds {
+	return geom.MergeBounds(square.left.Bounds(), square.right.Bounds())
+}
+
 func (square *Square) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
 	obj, dist = square.left.Intersect(ray, max)
 	if obj == nil {
 		obj, dist = square.left.Intersect(ray, max)
 	}
 	return
+}
+
+func (square *Square) At(pt geom.Vec, dir geom.Dir, rnd *rand.Rand) (normal geom.Dir, bsdf render.BSDF) {
+	return square.left.At(pt, dir, rnd)
+}
+
+func (square *Square) Light() rgb.Energy {
+	return rgb.Black
+}
+
+func (square *Square) Transmit() rgb.Energy {
+	return rgb.Black
 }
 
 type Shape struct {
@@ -349,12 +378,12 @@ func (s *Shape) Bounds() *geom.Bounds {
 	return s.outerBound.Bounds()
 }
 
-func calcUV(dist float64, ray *geom.Ray) (u, v int, intersects bool) {
+func (s *Shape) calcUV(dist float64, ray *geom.Ray) (u, v int, intersects bool) {
 	if dist > 0 {
 		intersects = true
 		intersection, _ := ray.Moved(dist).Unit()
-		u = int((math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2 + .5) * 32)
-		v = int(math.Acos(intersection.Z) / math.Pi * 32)
+		u = int((math.Atan2(-intersection.Y, -intersection.X)/math.Pi/2 + .5) * float64(s.numSubdivisions))
+		v = int(math.Acos(intersection.Z) / math.Pi * float64(s.numSubdivisions))
 	}
 	return
 }
@@ -398,9 +427,10 @@ func (shape *Shape) getMaterial(u, v int) *material.Uniform {
 	return value.(*material.Uniform)
 }
 
-func (shape *Shape) getFace(u, v int) *render.Surface {
+func (shape *Shape) getFace(u, v int) *SurfaceObject {
 	uv := UV{u, v}
 	value, ok := shape.faces.Load(uv)
+	//fmt.Println(value, ok)
 	if !ok {
 		topRight := shape.getVertex(u, v)
 		topRightNormal := shape.getNormal(u, v)
@@ -409,7 +439,25 @@ func (shape *Shape) getFace(u, v int) *render.Surface {
 		botLeftNormal := shape.getNormal(u+1, v+1)
 		botLeftMaterial := shape.getMaterial(u+1, v+1)
 		if v == 0 {
+			botRight := shape.getVertex(u, v+1)
+			botRightNormal := shape.getNormal(u, v+1)
+			botRightMaterial := shape.getMaterial(u, v+1)
+			m := &Interpolated{u: topRightMaterial, v: botRightMaterial, w: botLeftMaterial}
+			triangle := surface.NewTriangle(topRight, botRight, botLeft, m)
+			triangle.Texture[0] = geom.Vec{1, 0, 0}
+			triangle.Texture[1] = geom.Vec{0, 1, 0}
+			triangle.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
+			value = triangle
 		} else if v == shape.numSubdivisions-1 {
+			topLeft := shape.getVertex(u+1, v)
+			topLeftNormal := shape.getNormal(u+1, v)
+			topLeftMaterial := shape.getMaterial(u+1, v)
+			m := &Interpolated{u: topRightMaterial, v: botLeftMaterial, w: topLeftMaterial}
+			triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
+			triangle.Texture[0] = geom.Vec{1, 0, 0}
+			triangle.Texture[1] = geom.Vec{0, 1, 0}
+			triangle.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
+			value = triangle
 		} else {
 			square := &Square{}
 			value = square
@@ -432,16 +480,22 @@ func (shape *Shape) getFace(u, v int) *render.Surface {
 		}
 		shape.faces.Store(uv, value)
 	}
-	return value.(*render.Surface)
+	//fmt.Printf("\n%+v\n", value)
+	//fmt.Printf("%+v\n", ok)
+	//fmt.Printf("%+v\n", uv)
+	//fmt.Printf("%+v\n", shape)
+	thing, _ := value.(SurfaceObject)
+	//fmt.Println(value, valid)
+	return &thing
 }
 
 func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist float64) {
 	// consider that the origin of the ray can be inside the outer bound
 	obj, dist = s.outerBound.Intersect(ray, max)
-	u, v, intersects := calcUV(dist, ray)
+	u, v, intersects := s.calcUV(dist, ray)
 	if intersects {
 		obj, dist = s.innerBound.Intersect(ray, max)
-		u2, v2, intersects2 := calcUV(dist, ray)
+		u2, v2, intersects2 := s.calcUV(dist, ray)
 		if !intersects2 {
 			mtx := geom.Identity().Mult(geom.Scale(geom.Vec{.075 * (1 + .075), .075 * (1 + .075), .075 * (1 + .075)}))
 			i := mtx.Inverse()
@@ -454,9 +508,9 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 			t2 := b + root
 			dist1 := mtx.MultDist(r.Dir.Scaled(t1)).Len()
 			dist2 := mtx.MultDist(r.Dir.Scaled(t2)).Len()
-			u2, v2, _ = calcUV(dist1, ray)
+			u2, v2, _ = s.calcUV(dist1, ray)
 			if u2 == u && v2 == v {
-				u2, v2, _ = calcUV(dist2, ray)
+				u2, v2, _ = s.calcUV(dist2, ray)
 			}
 		}
 		numUVs := math.Max(math.Abs(float64(u-u2)), math.Abs(float64(v-v2))) + 1
@@ -472,7 +526,13 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 			// triangles aren't shared so maybe not pointers, but very slight waste of space to have two
 			// maybe i need a single data structure that represents the map of triangles indexed by float uv
 			face := s.getFace(topRight.u, topRight.v)
+			//fmt.Printf("\nIntersect: %+v, %v, %v\n", *face, u, v)
 			obj, dist = (*face).Intersect(ray, max)
+			if obj != nil {
+				//fmt.Printf("Intersect: %+v, %v, %v\n", ray, u, v)
+				obj = s
+				return
+			}
 		}
 		obj = s
 	}
@@ -480,8 +540,10 @@ func (s *Shape) Intersect(ray *geom.Ray, max float64) (obj render.Object, dist f
 }
 
 func (s *Shape) At(pt geom.Vec, in geom.Dir, rnd *rand.Rand) (normal geom.Dir, bsdf render.BSDF) {
-	// calc uv
-	return s.outerBound.At(pt, in, rnd)
+	u := int((math.Atan2(-pt.Y, -pt.X)/math.Pi/2 + .5) * float64(s.numSubdivisions))
+	v := int(math.Acos(pt.Z) / math.Pi * float64(s.numSubdivisions))
+	//fmt.Printf("At: %+v, %v, %v\n", pt, u, v)
+	return (*s.getFace(u, v)).At(pt, in, rnd)
 }
 
 func (s *Shape) Lights() []render.Object {
