@@ -134,19 +134,17 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
 		return true
 	}
-	/*
 	if s.subframes {
 		subframeSize := -projectedPoint.Z/6/5
 		xOffset := float64(s.subframeCol)*subframeSize
 		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*2.5 || projectedPoint.X > xOffset + subframeSize*2.5 {
+		if projectedPoint.X < xOffset - subframeSize - subframeSize*3.5 || projectedPoint.X > xOffset + subframeSize*3.5 {
 			return true
 		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*2.5 || projectedPoint.Y > yOffset + subframeSize*2.5 {
+		if projectedPoint.Y < yOffset - subframeSize - subframeSize*3.5 || projectedPoint.Y > yOffset + subframeSize*3.5 {
 			return true
 		}
 	}
-	 */
 	return false
 }
 
@@ -246,36 +244,19 @@ func index2radians(index float64, n int) float64 {
 	return index / float64(n) * math.Pi * 2
 }
 
-type Interpolated struct {
-	u *material.Uniform
-	v *material.Uniform
-	w *material.Uniform
+type FMMaterial struct {
+	uTexture float32
+	vTexture float32
+	wTexture float32
 }
 
-func (interpolated *Interpolated) interpolate(u, v float64) *material.Uniform {
+func NewFMMaterial(uTexture, vTexture, wTexture float64) *FMMaterial{
+	return &FMMaterial{float32(uTexture), float32(vTexture),float32(wTexture)}
+}
+
+func (m *FMMaterial) At(u, v float64, in, norm geom.Dir, rnd *rand.Rand) (geom.Dir, render.BSDF) {
 	w := 1 - u - v
-	return &material.Uniform{
-		Color:       interpolated.u.Color.Scaled(u).Plus(interpolated.v.Color.Scaled(v)).Plus(interpolated.w.Color.Scaled(w)),
-		Metalness:   interpolated.u.Metalness*u+interpolated.v.Metalness*v+interpolated.w.Metalness*w,
-		Roughness:   interpolated.u.Roughness*u+interpolated.v.Roughness*v+interpolated.w.Roughness*w,
-		Specularity: interpolated.u.Specularity*u+interpolated.v.Specularity*v+interpolated.w.Specularity*w,
-	}
-}
-
-func (interpolated *Interpolated) At(u, v float64, in, norm geom.Dir, rnd *rand.Rand) (geom.Dir, render.BSDF) {
-	return interpolated.interpolate(u, v).At(u, v, in, norm, rnd)
-}
-
-func (interpolated *Interpolated) Light() rgb.Energy {
-	return rgb.Black
-}
-
-func (interpolated *Interpolated) Transmit() rgb.Energy {
-	return rgb.Black
-}
-
-func uvIndexToMaterial(uIndex, vIndex, n int, t float64) *material.Uniform {
-	fm := texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t)
+	fm := float64(m.uTexture)*u+float64(m.vTexture)*v+float64(m.wTexture)*w
 	fm4 := math.Pow(fm, 4)
 	roughness := fm4*.09 + .01
 	metalness := (1-fm4)*.8 + .1
@@ -284,12 +265,21 @@ func uvIndexToMaterial(uIndex, vIndex, n int, t float64) *material.Uniform {
 		1,
 		.5 + .05*fm,
 		.25 + .15*math.Sin(4*fm)}.Scaled(fm4).Plus(rgb.Energy{.8, .8, .8}.Scaled(1 - fm4))
-	return &material.Uniform{
+	mat := material.Uniform{
 		Color:       color,
 		Metalness:   metalness,
 		Roughness:   roughness,
 		Specularity: specularity,
 	}
+	return mat.At(u, v, in, norm, rnd)
+}
+
+func (m *FMMaterial) Light() rgb.Energy {
+	return rgb.Black
+}
+
+func (m *FMMaterial) Transmit() rgb.Energy {
+	return rgb.Black
 }
 
 func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
@@ -301,7 +291,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool) {
+func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	// this should speed up at t around pi
 	cameraT := (t - math.Pi)/math.Pi
@@ -319,20 +309,33 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	if n > maxSubdivisions {
 		n = maxSubdivisions
 	}
+	if desiredTriangles > 0 {
+		numTriangles := 0
+		for uIndex := 0; uIndex <= 500; uIndex++ {
+			for vIndex := 0; vIndex <= 500; vIndex++ {
+				vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
+				if !c.invisible(vertex) {
+					numTriangles++
+				}
+			}
+		}
+		fmt.Println(numTriangles)
+		n = int(math.Sqrt(float64(desiredTriangles)/float64(numTriangles*2))*500)
+	}
 	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v, maxTime: %v\n", cameraLoc.Len(), distance, n, maxTime)
 	vertices := make([][]geom.Vec, n+1)
-	materials := make([][]*material.Uniform, n+1)
+	textures := make([][]float64, n+1)
 	normals := make([][]*geom.Dir, n+1)
 	for uIndex := 0; uIndex <= n; uIndex++ {
 		vertices[uIndex] = make([]geom.Vec, n+1)
-		materials[uIndex] = make([]*material.Uniform, n+1)
+		textures[uIndex] = make([]float64, n+1)
 		normals[uIndex] = make([]*geom.Dir, n+1)
 		for vIndex := 0; vIndex <= n; vIndex++ {
 			vertices[uIndex][vIndex] = uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
 			if c.invisible(vertices[uIndex][vIndex]) {
 				continue
 			}
-			materials[uIndex][vIndex] = uvIndexToMaterial(uIndex, vIndex, n, t)
+			textures[uIndex][vIndex] = texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t)
 			normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
 		}
 	}
@@ -345,16 +348,16 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 			if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
 				continue
 			}
-			topRightMaterial := materials[uIndex][vIndex]
+			topRightTexture := textures[uIndex][vIndex]
 			topRightNormal := normals[uIndex][vIndex]
-			topLeftMaterial := materials[uIndex+1][vIndex]
+			topLeftTexture := textures[uIndex+1][vIndex]
 			topLeftNormal := normals[uIndex+1][vIndex]
-			botRightMaterial := materials[uIndex][vIndex+1]
+			botRightTexture := textures[uIndex][vIndex+1]
 			botRightNormal := normals[uIndex][vIndex+1]
-			botLeftMaterial := materials[uIndex+1][vIndex+1]
+			botLeftTexture := textures[uIndex+1][vIndex+1]
 			botLeftNormal := normals[uIndex+1][vIndex+1]
 			if vIndex != 0 {
-				m := &Interpolated{u: topRightMaterial, v: botLeftMaterial, w: topLeftMaterial}
+				m := NewFMMaterial(topRightTexture, botLeftTexture, topLeftTexture)
 				triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
 				triangle.Texture[0] = geom.Vec{1,0,0}
 				triangle.Texture[1] = geom.Vec{0,1,0}
@@ -362,7 +365,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 				surfaces = append(surfaces, triangle)
 			}
 			if vIndex != n-1 {
-				m := &Interpolated{u: topRightMaterial, v: botRightMaterial, w: botLeftMaterial}
+				m := NewFMMaterial(topRightTexture, botRightTexture, botLeftTexture)
 				triangle := surface.NewTriangle(topRight, botRight, botLeft, m)
 				triangle.Texture[0] = geom.Vec{1,0,0}
 				triangle.Texture[1] = geom.Vec{0,1,0}
@@ -399,9 +402,10 @@ func main() {
 	maxTime := flag.Int("maxtime", 0, "Max time to render")
 	maxFrames := flag.Int("maxframes", 5000, "Max frames")
 	info := flag.Bool("info", false, "Only print out number triangles")
+	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("subframe: %v, frame: %v, pixels: %v, maxSubdivisions: %v, maxTime: %v, maxFrames: %v\n", *subframe, *frame, *pixels, *maxSubdivisions, *maxTime, *maxFrames)
 	dt := math.Pi * 2 / float64(*maxFrames)
 	var surfaces []render.Surface
-	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces, *info)
+	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces, *info, *desiredTriangles)
 }
