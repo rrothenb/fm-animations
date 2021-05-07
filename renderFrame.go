@@ -119,6 +119,24 @@ func (s *SLR2) transform() {
 	s.trans = geom.LookMatrix(s.position, s.target)
 }
 
+func (s *SLR2) invisibleToSubframe(point geom.Vec) bool {
+	if s.invisible(point) {
+		return true
+	}
+	cameraSpaceTransform := s.trans.Inverse()
+	projectedPoint := cameraSpaceTransform.MultPoint(point)
+	subframeSize := -projectedPoint.Z/6/5
+	xOffset := float64(s.subframeCol)*subframeSize
+	yOffset := float64(s.subframeRow)*subframeSize
+	if projectedPoint.X < xOffset - subframeSize - subframeSize*2 || projectedPoint.X > xOffset + subframeSize*2 {
+		return true
+	}
+	if projectedPoint.Y < yOffset - subframeSize - subframeSize*2 || projectedPoint.Y > yOffset + subframeSize*2 {
+		return true
+	}
+	return false
+}
+
 func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
@@ -133,17 +151,6 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	}
 	if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
 		return true
-	}
-	if s.subframes {
-		subframeSize := -projectedPoint.Z/6/5
-		xOffset := float64(s.subframeCol)*subframeSize
-		yOffset := float64(s.subframeRow)*subframeSize
-		if projectedPoint.X < xOffset - subframeSize - subframeSize*3.5 || projectedPoint.X > xOffset + subframeSize*3.5 {
-			return true
-		}
-		if projectedPoint.Y < yOffset - subframeSize - subframeSize*3.5 || projectedPoint.Y > yOffset + subframeSize*3.5 {
-			return true
-		}
 	}
 	return false
 }
@@ -314,8 +321,18 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 		for uIndex := 0; uIndex <= 500; uIndex++ {
 			for vIndex := 0; vIndex <= 500; vIndex++ {
 				vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
-				if !c.invisible(vertex) {
-					numTriangles++
+				if subframe > 0 {
+					if !c.invisibleToSubframe(vertex) {
+						numTriangles++
+					} else if vIndex%4 == 0 && uIndex%4 == 0 {
+						if !c.invisible(vertex) {
+							numTriangles++
+						}
+					}
+				} else {
+					if !c.invisible(vertex) {
+						numTriangles++
+					}
 				}
 			}
 		}
@@ -339,14 +356,59 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 			normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
 		}
 	}
+	// if subframe loop but jumping by 10 instead of 1 and include stuff not visible to subframe but still visible
+	if subframe > 0 {
+		for vIndex := 0; vIndex < n-4; vIndex+=4 {
+			for uIndex := 0; uIndex < n-4; uIndex+=4 {
+				topRight := vertices[uIndex][vIndex]
+				topLeft := vertices[uIndex+4][vIndex]
+				botRight := vertices[uIndex][vIndex+4]
+				botLeft := vertices[uIndex+4][vIndex+4]
+				if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
+					continue
+				}
+				if !c.invisibleToSubframe(topRight) && !c.invisibleToSubframe(topLeft) && !c.invisibleToSubframe(botRight) && !c.invisibleToSubframe(botLeft) {
+					continue
+				}
+				topRightTexture := textures[uIndex][vIndex]
+				topRightNormal := normals[uIndex][vIndex]
+				topLeftTexture := textures[uIndex+4][vIndex]
+				topLeftNormal := normals[uIndex+4][vIndex]
+				botRightTexture := textures[uIndex][vIndex+4]
+				botRightNormal := normals[uIndex][vIndex+4]
+				botLeftTexture := textures[uIndex+4][vIndex+4]
+				botLeftNormal := normals[uIndex+4][vIndex+4]
+				if vIndex != 0 {
+					m := NewFMMaterial(topRightTexture, botLeftTexture, topLeftTexture)
+					triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
+					triangle.Texture[0] = geom.Vec{1,0,0}
+					triangle.Texture[1] = geom.Vec{0,1,0}
+					triangle.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
+					surfaces = append(surfaces, triangle)
+				}
+				m := NewFMMaterial(topRightTexture, botRightTexture, botLeftTexture)
+				triangle := surface.NewTriangle(topRight, botRight, botLeft, m)
+				triangle.Texture[0] = geom.Vec{1,0,0}
+				triangle.Texture[1] = geom.Vec{0,1,0}
+				triangle.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
+				surfaces = append(surfaces, triangle)
+			}
+		}
+	}
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
 			topRight := vertices[uIndex][vIndex]
 			topLeft := vertices[uIndex+1][vIndex]
 			botRight := vertices[uIndex][vIndex+1]
 			botLeft := vertices[uIndex+1][vIndex+1]
-			if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
-				continue
+			if subframe > 0 {
+				if c.invisibleToSubframe(topRight) || c.invisibleToSubframe(topLeft) || c.invisibleToSubframe(botRight) || c.invisibleToSubframe(botLeft) {
+					continue
+				}
+			} else {
+				if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
+					continue
+				}
 			}
 			topRightTexture := textures[uIndex][vIndex]
 			topRightNormal := normals[uIndex][vIndex]
