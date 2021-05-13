@@ -128,10 +128,10 @@ func (s *SLR2) invisibleToSubframe(point geom.Vec) bool {
 	subframeSize := -projectedPoint.Z/6/5
 	xOffset := float64(s.subframeCol)*subframeSize
 	yOffset := float64(s.subframeRow)*subframeSize
-	if projectedPoint.X < xOffset - subframeSize - subframeSize*2 || projectedPoint.X > xOffset + subframeSize*2 {
+	if projectedPoint.X < xOffset - subframeSize - subframeSize*1.5 || projectedPoint.X > xOffset + subframeSize*1.5 {
 		return true
 	}
-	if projectedPoint.Y < yOffset - subframeSize - subframeSize*2 || projectedPoint.Y > yOffset + subframeSize*2 {
+	if projectedPoint.Y < yOffset - subframeSize - subframeSize*1.5 || projectedPoint.Y > yOffset + subframeSize*1.5 {
 		return true
 	}
 	return false
@@ -324,7 +324,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 				if subframe > 0 {
 					if !c.invisibleToSubframe(vertex) {
 						numTriangles++
-					} else if vIndex%4 == 0 && uIndex%4 == 0 {
+					} else if vIndex%6 == 0 && uIndex%6 == 0 {
 						if !c.invisible(vertex) {
 							numTriangles++
 						}
@@ -358,12 +358,12 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	}
 	// if subframe loop but jumping by 10 instead of 1 and include stuff not visible to subframe but still visible
 	if subframe > 0 {
-		for vIndex := 0; vIndex < n-4; vIndex+=4 {
-			for uIndex := 0; uIndex < n-4; uIndex+=4 {
+		for vIndex := 0; vIndex < n-6; vIndex+=6 {
+			for uIndex := 0; uIndex < n-6; uIndex+=6 {
 				topRight := vertices[uIndex][vIndex]
-				topLeft := vertices[uIndex+4][vIndex]
-				botRight := vertices[uIndex][vIndex+4]
-				botLeft := vertices[uIndex+4][vIndex+4]
+				topLeft := vertices[uIndex+6][vIndex]
+				botRight := vertices[uIndex][vIndex+6]
+				botLeft := vertices[uIndex+6][vIndex+6]
 				if c.invisible(topRight) || c.invisible(topLeft) || c.invisible(botRight) || c.invisible(botLeft) {
 					continue
 				}
@@ -372,12 +372,12 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 				}
 				topRightTexture := textures[uIndex][vIndex]
 				topRightNormal := normals[uIndex][vIndex]
-				topLeftTexture := textures[uIndex+4][vIndex]
-				topLeftNormal := normals[uIndex+4][vIndex]
-				botRightTexture := textures[uIndex][vIndex+4]
-				botRightNormal := normals[uIndex][vIndex+4]
-				botLeftTexture := textures[uIndex+4][vIndex+4]
-				botLeftNormal := normals[uIndex+4][vIndex+4]
+				topLeftTexture := textures[uIndex+6][vIndex]
+				topLeftNormal := normals[uIndex+6][vIndex]
+				botRightTexture := textures[uIndex][vIndex+6]
+				botRightNormal := normals[uIndex][vIndex+6]
+				botLeftTexture := textures[uIndex+6][vIndex+6]
+				botLeftNormal := normals[uIndex+6][vIndex+6]
 				if vIndex != 0 {
 					m := NewFMMaterial(topRightTexture, botLeftTexture, topLeftTexture)
 					triangle := surface.NewTriangle(topRight, botLeft, topLeft, m)
