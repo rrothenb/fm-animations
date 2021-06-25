@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"text/template"
 
 	"github.com/hunterloftis/pbr/pkg/geom"
 	"github.com/hunterloftis/pbr/pkg/material"
@@ -298,7 +299,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool, desiredTriangles int) {
+func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool, desiredTriangles int, mitsuba bool) {
 	t := float64(frameNumber) * dt
 	// this should speed up at t around pi
 	cameraT := (t - math.Pi)/math.Pi
@@ -442,6 +443,38 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 		return
 	}
 
+	if mitsuba {
+		fmt.Println("Mitsuba!")
+		t, _ := template.New("some template").Parse(`
+ply
+format ascii 1.0
+element vertex 8
+property float32 x
+property float32 y
+property float32 z
+element face 6
+property list uint8 int32 vertex_index
+end_header
+0 0 0
+0 0 1
+0 1 1
+0 1 0
+1 0 0
+1 0 1
+1 1 1
+1 1 0
+4 0 1 2 3
+4 7 6 5 4
+4 0 4 5 1
+4 1 5 6 2
+4 2 6 7 3
+4 3 7 4 0
+`)
+		f, _ := os.Create("mitsuba.ply")
+		t.Execute(f, "Hello")  // merge.
+		return
+	}
+
 	s := surface.NewTree(surfaces...)
 	e := &FMEnv{t}
 
@@ -465,9 +498,10 @@ func main() {
 	maxFrames := flag.Int("maxframes", 5000, "Max frames")
 	info := flag.Bool("info", false, "Only print out number triangles")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
+	mitsuba := flag.Bool("mitsuba", false, "Only generate files for Mitsuba")
 	flag.Parse()
 	fmt.Printf("subframe: %v, frame: %v, pixels: %v, maxSubdivisions: %v, maxTime: %v, maxFrames: %v\n", *subframe, *frame, *pixels, *maxSubdivisions, *maxTime, *maxFrames)
 	dt := math.Pi * 2 / float64(*maxFrames)
 	var surfaces []render.Surface
-	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces, *info, *desiredTriangles)
+	renderSurfaces(*frame, *subframe, *pixels, *maxSubdivisions, *maxTime, dt, surfaces, *info, *desiredTriangles, *mitsuba)
 }
