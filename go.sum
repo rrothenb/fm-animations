@@ -2,8 +2,6 @@ github.com/Opioid/rgbe v0.0.0-20141201200131-01612e3f14b6 h1:FPWtmw1niniiHVez8Pk
 github.com/Opioid/rgbe v0.0.0-20141201200131-01612e3f14b6/go.mod h1:p0iB75FalbQzHQ+JhI4pX21jtQsw440DnuW3bvuTb5I=
 github.com/hunterloftis/pbr v2.0.0+incompatible h1:1To8raUZAaalVJPxZZL0xqk3R/1K/d6gpIU3TXzfEOk=
 github.com/hunterloftis/pbr v2.0.0+incompatible/go.mod h1:CtAVoV2u637QHCq83BfwhOsQO4cONwFLYIAYZ0jz2qY=
-github.com/rrothenb/pbr v2.0.0+incompatible h1:SpePWfLOPAZsORN7XdvM5/625WfqtQjaPtsBoGdpotw=
-github.com/rrothenb/pbr v2.0.0+incompatible/go.mod h1:sbxjWOWJFz3GVdJlQk7AwOdzeotwO35ImDd5R6LzTPY=
 golang.org/x/text v0.3.5 h1:i6eZZ+zk0SOf0xgBpEpPD18qWcJda6q1sxt3S0kzyUQ=
 golang.org/x/text v0.3.5/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=

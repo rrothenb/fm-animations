@@ -20,7 +20,26 @@ import (
 	"github.com/hunterloftis/pbr/pkg/render"
 	"github.com/hunterloftis/pbr/pkg/rgb"
 	"github.com/hunterloftis/pbr/pkg/surface"
+	"github.com/Opioid/rgbe"
 )
+
+type Face struct {
+	A int
+	B int
+	C int
+}
+
+type Vertex struct {
+	Vertex geom.Vec
+	Normal geom.Dir
+}
+
+type MeshType struct {
+	Vertices []Vertex
+	Faces []Face
+	Thing int
+	Stuff string
+}
 
 func strength(x float64) float64 {
 	return math.Sin(x)*.75 + .85
@@ -150,7 +169,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.X < projectedPoint.Z/4 || projectedPoint.X > -projectedPoint.Z/4 {
 		return true
 	}
-	if projectedPoint.Y < projectedPoint.Z/4 || projectedPoint.Y > -projectedPoint.Z/4 {
+	if projectedPoint.Y < projectedPoint.Z/7 || projectedPoint.Y > -projectedPoint.Z/7 {
 		return true
 	}
 	return false
@@ -302,11 +321,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions int, maxTime int, dt float64, surfaces []render.Surface, info bool, desiredTriangles int, mitsuba bool) {
 	t := float64(frameNumber) * dt
 	// this should speed up at t around pi
-	cameraT := (t - math.Pi)/math.Pi
-	cameraT = math.Pow(cameraT*cameraT, .1)*math.Pi + math.Pi
-	if t < math.Pi {
-		cameraT = -cameraT
-	}
+	cameraT := 0.0
 	cameraLoc := geom.Vec{math.Sin(cameraT), math.Sin(cameraT), math.Cos(cameraT)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
@@ -344,10 +359,15 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 	vertices := make([][]geom.Vec, n+1)
 	textures := make([][]float64, n+1)
 	normals := make([][]*geom.Dir, n+1)
+	vertexIndicies := make([][]int, n+1)
+	numVerticies := 0
+	verticiesArray := []Vertex{}
+	faces := []Face{}
 	for uIndex := 0; uIndex <= n; uIndex++ {
 		vertices[uIndex] = make([]geom.Vec, n+1)
 		textures[uIndex] = make([]float64, n+1)
 		normals[uIndex] = make([]*geom.Dir, n+1)
+		vertexIndicies[uIndex] = make([]int, n+1)
 		for vIndex := 0; vIndex <= n; vIndex++ {
 			vertices[uIndex][vIndex] = uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius).Scaled(.075)
 			if c.invisible(vertices[uIndex][vIndex]) {
@@ -355,8 +375,12 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 			}
 			textures[uIndex][vIndex] = texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t)
 			normals[uIndex][vIndex] = uvIndexToNormal(uIndex, vIndex, n, t)
+			vertexIndicies[uIndex][vIndex] = numVerticies
+			numVerticies++
+			verticiesArray = append(verticiesArray, Vertex{vertices[uIndex][vIndex], *normals[uIndex][vIndex]})
 		}
 	}
+	fmt.Printf("\nnumVerticies: %v, len(verticiesArray): %v\n", numVerticies, len(verticiesArray))
 	// if subframe loop but jumping by 10 instead of 1 and include stuff not visible to subframe but still visible
 	if subframe > 0 {
 		for vIndex := 0; vIndex < n-6; vIndex+=6 {
@@ -396,8 +420,14 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 			}
 		}
 	}
+	e := &FMEnv{t}
+	envmapArray := []float32{}
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
+			u := float64(uIndex)/float64(n)*2*math.Pi
+			v := float64(vIndex)/float64(n)*math.Pi
+			envmapValue := float32(1 - math.Pow(1-math.Pow(texture(u, v, e.t), 2), math.Pow(1-v/math.Pi, 7)*50))*255
+			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			topRight := vertices[uIndex][vIndex]
 			topLeft := vertices[uIndex+1][vIndex]
 			botRight := vertices[uIndex][vIndex+1]
@@ -426,6 +456,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 				triangle.Texture[1] = geom.Vec{0,1,0}
 				triangle.SetNormals(*topRightNormal, *botLeftNormal, *topLeftNormal)
 				surfaces = append(surfaces, triangle)
+				faces = append(faces, Face{vertexIndicies[uIndex][vIndex], vertexIndicies[uIndex+1][vIndex+1], vertexIndicies[uIndex+1][vIndex]})
 			}
 			if vIndex != n-1 {
 				m := NewFMMaterial(topRightTexture, botRightTexture, botLeftTexture)
@@ -434,6 +465,7 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 				triangle.Texture[1] = geom.Vec{0,1,0}
 				triangle.SetNormals(*topRightNormal, *botRightNormal, *botLeftNormal)
 				surfaces = append(surfaces, triangle)
+				faces = append(faces, Face{vertexIndicies[uIndex][vIndex], vertexIndicies[uIndex][vIndex+1], vertexIndicies[uIndex+1][vIndex+1]})
 			}
 		}
 	}
@@ -448,35 +480,32 @@ func renderSurfaces(frameNumber int, subframe int, pixels int, maxSubdivisions i
 		t, _ := template.New("some template").Parse(`
 ply
 format ascii 1.0
-element vertex 8
+element vertex {{ .Vertices | len }}
 property float32 x
 property float32 y
 property float32 z
-element face 6
+property float32 nx
+property float32 ny
+property float32 nz
+element face {{ .Faces | len }}
 property list uint8 int32 vertex_index
 end_header
-0 0 0
-0 0 1
-0 1 1
-0 1 0
-1 0 0
-1 0 1
-1 1 1
-1 1 0
-4 0 1 2 3
-4 7 6 5 4
-4 0 4 5 1
-4 1 5 6 2
-4 2 6 7 3
-4 3 7 4 0
+{{ range .Vertices }}{{.Vertex.X}} {{.Vertex.Y}} {{.Vertex.Z}} {{.Normal.X}} {{.Normal.Y}} {{.Normal.Z}}
+{{ end }}
+{{ range .Faces }}3 {{.A}} {{.B}} {{.C}}
+{{ end }}
 `)
 		f, _ := os.Create("mitsuba.ply")
-		t.Execute(f, "Hello")  // merge.
+		mesh := MeshType{}
+		mesh.Vertices = verticiesArray
+		mesh.Faces = faces
+		t.Execute(f, mesh)
+		envmap, _ := os.Create("mitsuba.rgbe")
+		rgbe.Encode(envmap, n, n, envmapArray)
 		return
 	}
 
 	s := surface.NewTree(surfaces...)
-	e := &FMEnv{t}
 
 	scene := render.NewScene(c, s, e)
 	framePath := fmt.Sprintf("images/%04v.png", frameNumber)
