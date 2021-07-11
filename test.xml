@@ -1,0 +1,43 @@
+<scene version="2.0.0">
+    <integrator type="path" />
+
+    <sensor type="perspective" id="Camera-camera">
+        <string name="fov_axis" value="smaller"/>
+        <float name="focus_distance" value="1.0"/>
+        <float name="fov" value="28.8415"/>
+        <transform name="to_world">
+            <lookat target="0, 0, 0" origin="0, 0, .15" up="0, 1, 0"/>
+        </transform>
+
+        <sampler type="independent">
+            <integer name="sample_count" value="64"/>
+        </sampler>
+
+        <film type="hdrfilm" id="film">
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
+            <string name="pixel_format" value="rgb"/>
+            <rfilter type="gaussian"/>
+        </film>
+    </sensor>
+    <bsdf type="twosided" id="object_bsdf">
+        <bsdf type="conductor">
+            <string name="material" value="Rh"/>
+        </bsdf>
+    </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="object_bsdf"/>
+    </shape>
+
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value=".0075"/>
+    </emitter>
+
+</scene>
