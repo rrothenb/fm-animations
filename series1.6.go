@@ -94,10 +94,10 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Z < -s.position.Len() {
 		return true
 	}
-	if projectedPoint.X < projectedPoint.Z/4 || projectedPoint.X > -projectedPoint.Z/4 {
+	if projectedPoint.X < projectedPoint.Z/2 || projectedPoint.X > -projectedPoint.Z/2 {
 		return true
 	}
-	if projectedPoint.Y < projectedPoint.Z/7 || projectedPoint.Y > -projectedPoint.Z/7 {
+	if projectedPoint.Y < projectedPoint.Z/6 || projectedPoint.Y > -projectedPoint.Z/6 {
 		return true
 	}
 	return false

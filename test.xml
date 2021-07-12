@@ -1,28 +1,35 @@
 <scene version="2.0.0">
     <integrator type="path" />
 
-    <sensor type="perspective" id="Camera-camera">
+    <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value="1.0"/>
-        <float name="fov" value="28.8415"/>
+        <float name="focus_distance" value=".045"/>
+        <float name="aperture_radius" value=".0001"/>
+        <float name="fov" value="75.0"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin="0, 0, .15" up="0, 1, 0"/>
+            <lookat target="0, 0, 0" origin="0, 0, .125" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3840"/>
-            <integer name="height" value="2160"/>
+            <integer name="width" value="10000"/>
+            <integer name="height" value="10000"/>
             <string name="pixel_format" value="rgb"/>
+            <integer name="crop_offset_x" value="100"/>
+            <integer name="crop_offset_y" value="3000"/>
+            <integer name="crop_width" value="2000"/>
+            <integer name="crop_height" value="4000"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
     <bsdf type="twosided" id="object_bsdf">
-        <bsdf type="conductor">
+        <bsdf type="roughconductor">
             <string name="material" value="Rh"/>
+            <string name="distribution" value="ggx"/>
+            <float name="alpha" value=".01"/>
         </bsdf>
     </bsdf>
 
@@ -37,7 +44,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value=".0075"/>
+        <float name="scale" value=".006"/>
     </emitter>
 
 </scene>
