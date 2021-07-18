@@ -1,4 +1,6 @@
-time go run series1.6.go -frame 0 -desiredtriangles 25000000
-cat data/0.header.ply data/0.data.ply > mitsuba.ply
-mv data/0.rgbe mitsuba.rgbe
+time go run series2.go -frame $1 -desiredtriangles 2500000
+cat data/$1.header.ply data/$1.data.ply > mitsuba.ply
+rm data/$1.data.ply
+mv data/$1.rgbe mitsuba.rgbe
 time mitsuba test.xml
+convert test.exr $1.jpg
