@@ -181,6 +181,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	}
 	envmapArray := []float32{}
 	roughnessArray := []float32{}
+	blendArray := []float32{}
 	numFaces := 0
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
@@ -188,8 +189,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(n) * pi
 			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 7)*50))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),4)*.09 + .01)
+			roughnessValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),20)*.3)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
+			blendValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),4))
+			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -236,6 +239,7 @@ end_header
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
 	roughnessPath := fmt.Sprintf("data/%v.roughness.rgbe", frameNumber)
+	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -245,6 +249,8 @@ end_header
 	rgbe.Encode(envmap, n, n, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
 	rgbe.Encode(roughness, n, n, roughnessArray)
+	blend, _ := os.Create(blendPath)
+	rgbe.Encode(blend, n, n, blendArray)
 }
 
 func main() {

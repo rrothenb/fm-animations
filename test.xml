@@ -25,14 +25,29 @@
             <rfilter type="gaussian"/>
         </film>
     </sensor>
-    <bsdf type="twosided" id="object_bsdf">
-        <bsdf type="roughconductor">
-            <string name="distribution" value="ggx"/>
-            <texture type="bitmap" name="alpha">
-                <string name="filename" value="mitsuba.roughness.rgbe"/>
-            </texture>
-            <spectrum name="eta" filename="test.eta.spd"/>
-            <spectrum name="k" filename="test.k.spd"/>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <string name="distribution" value="ggx"/>
+                <texture type="bitmap" name="alpha">
+                    <string name="filename" value="mitsuba.roughness.rgbe"/>
+                </texture>
+                <spectrum name="eta" filename="test.eta.spd"/>
+                <spectrum name="k" filename="test.k.spd"/>
+            </bsdf>
+        </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <string name="distribution" value="ggx"/>
+                <texture type="bitmap" name="alpha">
+                    <string name="filename" value="mitsuba.roughness.rgbe"/>
+                </texture>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
+            </bsdf>
         </bsdf>
     </bsdf>
 
