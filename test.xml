@@ -21,7 +21,7 @@
             <integer name="crop_offset_y" value="100"/>
             <integer name="crop_offset_x" value="6750"/>
             <integer name="crop_height" value="5250"/>
-            <integer name="crop_width" value="2500"/>
+            <integer name="crop_width" value="3280"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -35,8 +35,8 @@
                 <texture type="bitmap" name="alpha">
                     <string name="filename" value="mitsuba.roughness.rgbe"/>
                 </texture>
-                <spectrum name="eta" filename="test.eta.spd"/>
-                <spectrum name="k" filename="test.k.spd"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/10.spd"/>
             </bsdf>
         </bsdf>
             <bsdf type="roughdielectric">
@@ -44,7 +44,7 @@
                 <texture type="bitmap" name="alpha">
                     <string name="filename" value="mitsuba.roughness.rgbe"/>
                 </texture>
-                <float name="int_ior" value="1.5"/>
+                <float name="int_ior" value="3.0"/>
                 <float name="ext_ior" value="1.0"/>
             </bsdf>
     </bsdf>
