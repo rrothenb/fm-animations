@@ -4,7 +4,7 @@
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value=".045"/>
-        <float name="aperture_radius" value=".0002"/>
+        <float name="aperture_radius" value=".0001"/>
         <float name="fov" value="74.0"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin="0, 0, .125" up="0, 1, 0"/>
@@ -29,24 +29,24 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
+        <bsdf type="roughdielectric">
+            <string name="distribution" value="ggx"/>
+            <texture type="bitmap" name="alpha">
+                <string name="filename" value="mitsuba.roughness.rgbe"/>
+            </texture>
+            <float name="int_ior" value="2.0"/>
+            <float name="ext_ior" value="1.0"/>
+        </bsdf>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <string name="distribution" value="ggx"/>
                 <texture type="bitmap" name="alpha">
                     <string name="filename" value="mitsuba.roughness.rgbe"/>
                 </texture>
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+                <spectrum name="eta" filename="spd/5.spd"/>
+                <spectrum name="k" filename="spd/51.spd"/>
             </bsdf>
         </bsdf>
-            <bsdf type="roughdielectric">
-                <string name="distribution" value="ggx"/>
-                <texture type="bitmap" name="alpha">
-                    <string name="filename" value="mitsuba.roughness.rgbe"/>
-                </texture>
-                <float name="int_ior" value="3.0"/>
-                <float name="ext_ior" value="1.0"/>
-            </bsdf>
     </bsdf>
 
     <shape type="ply">
@@ -60,7 +60,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="2"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="-.7, 0, .7" angle="-45"/>
         </transform>
