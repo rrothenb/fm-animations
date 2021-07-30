@@ -189,7 +189,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(n) * pi
 			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 7)*50))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),20)*.3)
+			roughnessValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),20)*.25)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 			blendValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),4))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)

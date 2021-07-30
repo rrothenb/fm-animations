@@ -3,8 +3,8 @@
 
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".045"/>
-        <float name="aperture_radius" value=".0002"/>
+        <float name="focus_distance" value=".0475"/>
+        <float name="aperture_radius" value=".000175"/>
         <float name="fov" value="74.0"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin="0, 0, .125" up="0, 1, 0"/>
@@ -15,13 +15,13 @@
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="16000"/>
-            <integer name="height" value="16000"/>
+            <integer name="width" value="96000"/>
+            <integer name="height" value="96000"/>
             <string name="pixel_format" value="rgb"/>
-            <integer name="crop_offset_y" value="100"/>
-            <integer name="crop_offset_x" value="6750"/>
-            <integer name="crop_height" value="5250"/>
-            <integer name="crop_width" value="2500"/>
+            <integer name="crop_offset_y" value="$offset"/>
+            <integer name="crop_offset_x" value="40500"/>
+            <integer name="crop_height" value="100"/>
+            <integer name="crop_width" value="15000"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
