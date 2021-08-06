@@ -33,11 +33,11 @@ func texture(u, v, t float64) float64 {
 		3*u + 5*v + strength(.1+2*t)*sin(
 			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
 			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
-			11*u+13*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(23*v-11*u))
+			11*u+13*v) + strength(.6+13*t)*sin(5*u-5*v) + strength(.7+17*t)*sin(2*v-11*u))
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .075*pow(pow(texture(u, v, t), 2), 3)
+	return 1.0 + .025*texture(u, v, t)
 }
 
 type SLR2 struct {
@@ -86,6 +86,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	if projectedPoint.Z > 0.0 {
@@ -94,10 +95,10 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Z < -s.position.Len() {
 		return true
 	}
-	if projectedPoint.X < projectedPoint.Z/6 || projectedPoint.X > -projectedPoint.Z/6 {
+	if projectedPoint.X < projectedPoint.Z/2 || projectedPoint.X > -projectedPoint.Z/2 {
 		return true
 	}
-	if projectedPoint.Y < 0 || projectedPoint.Y > -projectedPoint.Z/2 {
+	if projectedPoint.Y < projectedPoint.Z/2 || projectedPoint.Y > -projectedPoint.Z/2 {
 		return true
 	}
 	return false
@@ -106,9 +107,9 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
 	return geom.Vec{
-		sin(v/2.0) * cos(u) * a,
-		sin(v/2.0) * sin(u) * a,
-		cos(v/2.0) * a,
+		sin(v/2.0+.7*sin(v)+.1*texture(u, v, t)) * cos(u-.7*sin(2*u)) * a,
+		sin(v/2.0+.7*sin(v)+.1*texture(u, v, t)) * sin(u+.7*sin(2*u)) * a,
+		cos(v/2.0-.7*sin(v)-.1*texture(u, v, t)) * a,
 	}
 }
 
@@ -189,7 +190,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(n) * pi
 			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 7)*50))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),20)*.1)
+			roughnessValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),20)*.25)+.025
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 			blendValue := float32(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),2))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
@@ -257,7 +258,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 5000, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

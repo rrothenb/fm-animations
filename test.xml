@@ -5,9 +5,9 @@
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value=".045"/>
         <float name="aperture_radius" value=".0001"/>
-        <float name="fov" value="74.0"/>
+        <float name="fov" value="120.0"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin="0, 0, .125" up="0, 1, 0"/>
+            <lookat target="0, 0, 0" origin=".125, 0, 0" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
@@ -15,13 +15,9 @@
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="16000"/>
-            <integer name="height" value="16000"/>
+            <integer name="width" value="3500"/>
+            <integer name="height" value="3500"/>
             <string name="pixel_format" value="rgb"/>
-            <integer name="crop_offset_y" value="100"/>
-            <integer name="crop_offset_x" value="6750"/>
-            <integer name="crop_height" value="5250"/>
-            <integer name="crop_width" value="3280"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -29,23 +25,23 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="roughdielectric">
-            <string name="distribution" value="ggx"/>
-            <texture type="bitmap" name="alpha">
-                <string name="filename" value="mitsuba.roughness.rgbe"/>
-            </texture>
-            <float name="int_ior" value="2.0"/>
-            <float name="ext_ior" value="1.0"/>
-        </bsdf>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <string name="distribution" value="ggx"/>
                 <texture type="bitmap" name="alpha">
                     <string name="filename" value="mitsuba.roughness.rgbe"/>
                 </texture>
-                <spectrum name="eta" filename="spd/5.spd"/>
-                <spectrum name="k" filename="spd/51.spd"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
             </bsdf>
+        </bsdf>
+        <bsdf type="roughdielectric">
+            <string name="distribution" value="ggx"/>
+            <texture type="bitmap" name="alpha">
+                <string name="filename" value="mitsuba.roughness.rgbe"/>
+            </texture>
+            <float name="int_ior" value="1.0"/>
+            <float name="ext_ior" value="1.5"/>
         </bsdf>
     </bsdf>
 
@@ -60,7 +56,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="5"/>
+        <float name="scale" value="1.25"/>
         <transform name="to_world">
             <rotate value="-.7, 0, .7" angle="-45"/>
         </transform>
