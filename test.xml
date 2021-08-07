@@ -3,20 +3,20 @@
 
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".045"/>
-        <float name="aperture_radius" value=".0001"/>
-        <float name="fov" value="120.0"/>
+        <float name="focus_distance" value=".06"/>
+        <float name="aperture_radius" value=".00025"/>
+        <float name="fov" value="60.0"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin=".125, 0, 0" up="0, 1, 0"/>
+            <lookat target="0, 0, 0" origin=".1, .1, .1" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3500"/>
-            <integer name="height" value="3500"/>
+            <integer name="width" value="2160"/>
+            <integer name="height" value="2160"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -35,13 +35,15 @@
                 <spectrum name="k" filename="spd/12.spd"/>
             </bsdf>
         </bsdf>
-        <bsdf type="roughdielectric">
-            <string name="distribution" value="ggx"/>
-            <texture type="bitmap" name="alpha">
-                <string name="filename" value="mitsuba.roughness.rgbe"/>
-            </texture>
-            <float name="int_ior" value="1.0"/>
-            <float name="ext_ior" value="1.5"/>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <string name="distribution" value="ggx"/>
+                <texture type="bitmap" name="alpha">
+                    <string name="filename" value="mitsuba.roughness.rgbe"/>
+                </texture>
+                <spectrum name="eta" filename="spd/12.spd"/>
+                <spectrum name="k" filename="spd/2.spd"/>
+            </bsdf>
         </bsdf>
     </bsdf>
 
@@ -56,7 +58,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1.25"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="-.7, 0, .7" angle="-45"/>
         </transform>
