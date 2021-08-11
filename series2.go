@@ -23,17 +23,47 @@ var cos = math.Cos
 var pow = math.Pow
 var sqrt = math.Sqrt
 var pi = math.Pi
+var abs = math.Abs
+var min = math.Min
+var max = math.Max
+func sign(x float64) float64 {
+	if x < 0 {
+		return -1
+	} else {
+		return 1
+	}
+}
+func spow(x, y float64) float64 {
+	return sign(x)*pow(abs(x), y)
+}
 
 func strength(x float64) float64 {
 	return sin(x)*.75 + .85
 }
 
+func subtexture1(u, v, t float64) float64 {
+	return sin(2*u+strength(.2+3*t)*sin(3*u))
+}
+
+func subtexture2(u, v, t float64) float64 {
+	return sin(7*v+strength(.4+2*t)*sin(5*v))
+}
+
+func subtexture3(u, v, t float64) float64 {
+	return sin(3*u+2*v+5*strength(.6+2*t)*sin(u-v))
+}
+
+func subtexture4(u, v, t float64) float64 {
+	return sin(3*v-5*u+5*strength(.7+2*t)*sin(u+v))
+}
+
 func texture(u, v, t float64) float64 {
 	return sin(
-		3*u + 5*v + strength(.1+2*t)*sin(
-			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
-			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
-			11*u+13*v) + strength(.6+13*t)*sin(5*u-5*v) + strength(.7+17*t)*sin(2*v-11*u))
+		3*u + 5*v +
+			strength(.1+2*t)*subtexture1(u, v, t) +
+			strength(.3+5*t)*subtexture2(u, v, t) +
+			strength(.5+3*t)*subtexture3(u, v, t) +
+			strength(.7+2*t)*subtexture4(u, v, t))
 }
 
 func radius(u, v, t float64) float64 {
@@ -128,9 +158,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	// this should speed up at t around pi
-	cameraT := 0.0
-	cameraLoc := geom.Vec{sin(cameraT), sin(cameraT), cos(cameraT)}.Scaled(.3).Plus(geom.Vec{0.0, 0.0, -.1})
+	cameraLoc := geom.Vec{sin(t), cos(t), 0}.Scaled(.14).Minus(geom.Vec{0,.07,0})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -188,11 +216,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < n; uIndex++ {
 			u := float64(uIndex) / float64(n) * 2 * pi
 			v := float64(vIndex) / float64(n) * pi
-			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 7)*50))
+			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t)*.025)+.025
+			roughnessValue := float32(pow(float64(envmapValue), 4)*.03+.005) // float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .25)*.5+.5, 20))*.3+.01
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
-			blendValue := float32(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t))
+			blendValue := float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.25)*.5+.5,.75))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -252,13 +280,45 @@ end_header
 	rgbe.Encode(roughness, n, n, roughnessArray)
 	blend, _ := os.Create(blendPath)
 	rgbe.Encode(blend, n, n, blendArray)
+	sensorFile, _ := os.Create("sensor.xml")
+
+	type sensor struct {
+		SampleCount int
+		Loc geom.Vec
+	}
+	sensorTemplate, _ := template.New("some template").Parse(`
+<scene version="2.0.0">
+    <sensor type="thinlens" id="Camera-camera">
+        <string name="fov_axis" value="smaller"/>
+        <float name="focus_distance" value=".14"/>
+        <float name="aperture_radius" value=".000001"/>
+        <float name="fov" value="50.0"/>
+        <transform name="to_world">
+            <lookat target="0, 0, 0" origin=".07, 0, 0" up="0, 0, 1"/>
+        </transform>
+
+        <sampler type="independent">
+            <integer name="sample_count" value="{{ .SampleCount }}"/>
+        </sampler>
+
+        <film type="hdrfilm" id="film">
+            <integer name="width" value="1200"/>
+            <integer name="height" value="1200"/>
+            <string name="pixel_format" value="rgb"/>
+            <rfilter type="gaussian"/>
+        </film>
+    </sensor>
+</scene>
+`)
+	fmt.Println(cameraLoc)
+	sensorTemplate.Execute(sensorFile,sensor{64, cameraLoc})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 100, "Max frames")
+	maxFrames := flag.Int("maxframes", 25, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
