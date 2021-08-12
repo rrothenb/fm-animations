@@ -38,7 +38,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="3"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="-.7, 0, .7" angle="-45"/>
         </transform>

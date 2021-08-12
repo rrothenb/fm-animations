@@ -297,11 +297,11 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".145"/>
+        <float name="focus_distance" value=".2"/>
         <float name="aperture_radius" value=".00001"/>
-        <float name="fov" value="94"/>
+        <float name="fov" value="35"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin="0, .07, 0" up="0, 0, 1"/>
+            <lookat target="0, 0, 0" origin=".07, .07, 0" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
@@ -310,7 +310,7 @@ end_header
 
         <film type="hdrfilm" id="film">
             <integer name="width" value="3800"/>
-            <integer name="height" value="3800"/>
+            <integer name="height" value="2138"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -325,7 +325,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 240, "Max frames")
+	maxFrames := flag.Int("maxframes", 50, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
