@@ -158,7 +158,12 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{sin(t), cos(t), 0}.Scaled(.14).Minus(geom.Vec{0,.07,0})
+	cornerosity := abs(sin(2*t))
+	cameraLoc := geom.Vec{-cos(t), sin(t), 0}.Scaled(.17)
+	focusDistance := (1-cornerosity)*.03+.065
+	fov := (1-cornerosity)*20+50
+	aperture := (1-cornerosity)*.01+.00001
+	fmt.Printf("frame: %v, cornerosity: %v, fov: %v, focusDistance: %v, aperture: %v\n", frameNumber, cornerosity, fov, focusDistance, aperture)
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -285,16 +290,19 @@ end_header
 	type sensor struct {
 		SampleCount int
 		Loc geom.Vec
+		FocusDistance float64
+		FOV float64
+		Aperture float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".14"/>
-        <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="50.0"/>
+        <float name="focus_distance" value="{{ .FocusDistance }}"/>
+        <float name="aperture_radius" value="{{ .Aperture }}"/>
+        <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin=".07, 0, 0" up="0, 0, 1"/>
+            <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
@@ -311,14 +319,14 @@ end_header
 </scene>
 `)
 	fmt.Println(cameraLoc)
-	sensorTemplate.Execute(sensorFile,sensor{64, cameraLoc})
+	sensorTemplate.Execute(sensorFile,sensor{64, cameraLoc, focusDistance, fov, aperture})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 25, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
