@@ -46,7 +46,7 @@ func subtexture1(u, v, t float64) float64 {
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(11*u+13*v+strength(1.0+4*t)*subtexture3(u, v, t))
+	return sin(11*u+13*v+20*strength(1.0+4*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -54,13 +54,12 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return sin(
-		3*u + 5*v +
-			strength(2*t)*subtexture1(u, v, t))
+	return spow(sin(
+		7*u + 5*v+.1*subtexture2(u, v, t)), 4)
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*texture(u, v, t)
+	return 1.0 - .1*pow(texture(u, v, t),10)
 }
 
 type SLR2 struct {
@@ -284,7 +283,7 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value=".175"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="40"/>
+        <float name="fov" value="60"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin=".175, 0, 0" up="0, 0, 1"/>
         </transform>

@@ -3,29 +3,13 @@
 
     <include filename="sensor.xml"/>
 
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.blend.rgbe"/>
-        </texture>
-        <bsdf type="twosided">
+        <bsdf type="twosided" id="object_bsdf">
             <bsdf type="roughconductor">
                     <string name="distribution" value="ggx"/>
-                    <texture type="bitmap" name="alpha">
-                        <string name="filename" value="mitsuba.roughness.rgbe"/>
-                    </texture>
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/12.spd"/>
+                <float name="alpha" value=".05"/>
+                <string name="material" value="Cu_palik"/>
             </bsdf>
         </bsdf>
-        <bsdf type="roughdielectric">
-                <string name="distribution" value="ggx"/>
-                <texture type="bitmap" name="alpha">
-                    <string name="filename" value="mitsuba.roughness.rgbe"/>
-                </texture>
-            <float name="int_ior" value="1.0"/>
-            <float name="ext_ior" value="1.5"/>
-        </bsdf>
-    </bsdf>
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
