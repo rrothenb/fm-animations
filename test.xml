@@ -3,13 +3,26 @@
 
     <include filename="sensor.xml"/>
 
-        <bsdf type="twosided" id="object_bsdf">
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
             <bsdf type="roughconductor">
-                    <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".05"/>
-                <string name="material" value="Cu_palik"/>
+                <string name="distribution" value="ggx"/>
+                <float name="alpha" value=".1"/>
+                <string name="material" value="Ag"/>
             </bsdf>
         </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <string name="distribution" value="ggx"/>
+                <float name="alpha" value=".01"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/10.spd"/>
+            </bsdf>
+        </bsdf>
+    </bsdf>
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -22,7 +35,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1.5"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="-.7, 0, .7" angle="-45"/>
         </transform>

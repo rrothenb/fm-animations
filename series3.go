@@ -38,7 +38,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.5 + 2
+	return sin(x)*.5 + .75
 }
 
 func subtexture1(u, v, t float64) float64 {
@@ -46,20 +46,23 @@ func subtexture1(u, v, t float64) float64 {
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(11*u+13*v+20*strength(1.0+4*t)*subtexture3(u, v, t))
+	return sin(11*u+13*v+strength(1.0+4*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
-	return sin(17*u+19*v)
+	return sin(2*u+3*v)
 }
 
 func texture(u, v, t float64) float64 {
-	return spow(sin(
-		7*u + 5*v+.1*subtexture2(u, v, t)), 4)
+	return pow(spow(sin(5*(u-v)+subtexture2(u, v, t))*sin(5*(u+v)+subtexture2(v, u, t)),2), 2)
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .1*pow(texture(u, v, t),10)
+	return 1.0 - .1*texture(u, v, t)
+}
+
+func pushdown(x, n float64) float64 {
+	return pow(x/2+.5, n)*2-1
 }
 
 type SLR2 struct {
@@ -283,7 +286,7 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value=".175"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="60"/>
+        <float name="fov" value="37"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin=".175, 0, 0" up="0, 0, 1"/>
         </transform>
@@ -309,7 +312,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 240, "Max frames")
+	maxFrames := flag.Int("maxframes", 10, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
