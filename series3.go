@@ -54,11 +54,11 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return pow(spow(sin(5*(u-v)+subtexture2(u, v, t))*sin(5*(u+v)+subtexture2(v, u, t)),2), 2)
+	return pow(spow(sin(2*u-2*v+subtexture2(u, v, t))*sin(u+v+subtexture2(v, u, t)),1.2), 4)
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .1*texture(u, v, t)
+	return 1.0 - .2*texture(u, v, t)
 }
 
 func pushdown(x, n float64) float64 {
@@ -153,7 +153,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{-cos(t), sin(t), 0}.Scaled(.17)
+	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.115).Plus(geom.Vec{0.0, 0.0, -.025})
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -213,7 +213,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(n) * pi
 			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(pow(float64(envmapValue), 4)*.03+.005) // float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .25)*.5+.5, 20))*.3+.01
+			roughnessValue := float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 			blendValue := float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.25)*.5+.5,.75))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
@@ -286,9 +286,9 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value=".175"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="37"/>
+        <float name="fov" value="40"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin=".175, 0, 0" up="0, 0, 1"/>
+            <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
@@ -296,8 +296,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2800"/>
-            <integer name="height" value="2800"/>
+            <integer name="width" value="3800"/>
+            <integer name="height" value="3800"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -312,7 +312,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 10, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

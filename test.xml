@@ -10,7 +10,7 @@
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".1"/>
+                <float name="alpha" value=".3"/>
                 <string name="material" value="Ag"/>
             </bsdf>
         </bsdf>
@@ -18,8 +18,8 @@
             <bsdf type="roughconductor">
                 <string name="distribution" value="ggx"/>
                 <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
     </bsdf>
