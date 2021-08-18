@@ -153,7 +153,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{math.Sin(t), math.Sin(t), math.Cos(t)}.Scaled(.115).Plus(geom.Vec{0.0, 0.0, -.025})
+	cameraLoc := geom.Vec{math.Sin(t)*.707, math.Sin(t)*.707, math.Cos(t)}.Scaled(.14)
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -286,18 +286,18 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value=".175"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="40"/>
+        <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3800"/>
-            <integer name="height" value="3800"/>
+            <integer name="width" value="1280"/>
+            <integer name="height" value="720"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -312,7 +312,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 480, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
