@@ -38,15 +38,11 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.5 + .75
-}
-
-func subtexture1(u, v, t float64) float64 {
-	return sin(2*u+7*v+strength(.5+3*t)*subtexture2(u, v, t))
+	return sin(x)*.9 + 1
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(11*u+13*v+strength(1.0+4*t)*subtexture3(u, v, t))
+	return sin(11*u+13*v+strength(4*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -54,7 +50,7 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return pow(spow(sin(2*u-2*v+subtexture2(u, v, t))*sin(u+v+subtexture2(v, u, t)),1.2), 4)
+	return pow(spow(sin(2*u-2*v+strength(5*t)*subtexture2(u, v, t))*sin(u+v+strength(7*t)*subtexture2(v, u, t)),3), 2)
 }
 
 func radius(u, v, t float64) float64 {
@@ -111,12 +107,12 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	if projectedPoint.Z > 0.0 {
 		return true
 	}
+	return false
 	if projectedPoint.Z < -s.position.Len() {
 		return true
 	}
@@ -213,7 +209,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(n) * pi
 			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
+			roughnessValue := float32(0.0) // float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 			blendValue := float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.25)*.5+.5,.75))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
@@ -296,8 +292,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="6000"/>
-            <integer name="height" value="3375"/>
+            <integer name="width" value="4000"/>
+            <integer name="height" value="2250"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -312,7 +308,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 480, "Max frames")
+	maxFrames := flag.Int("maxframes", 1440, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
