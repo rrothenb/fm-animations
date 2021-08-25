@@ -38,11 +38,11 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.9 + 1
+	return sin(x)*.5 + .6
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(11*u+13*v+strength(4*t)*subtexture3(u, v, t))
+	return (sin(7*u+strength(4*t)*subtexture3(u, v, t))+sin(3*v+strength(4*t)*subtexture3(u, v, t)))/2
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -50,11 +50,11 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return sin(3*2*u-3*2*v+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
+	return sin(3*u+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*texture(u, v, t)
+	return 1.0 + .3*texture(u, v, t)
 }
 
 func pushdown(x, n float64) float64 {
@@ -286,12 +286,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2000"/>
-            <integer name="height" value="2000"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
