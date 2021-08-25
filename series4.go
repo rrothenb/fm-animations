@@ -50,11 +50,11 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return pow(spow(sin(2*u-2*v+strength(5*t)*subtexture2(u, v, t))*sin(u+v+strength(7*t)*subtexture2(v, u, t)),3), 2)
+	return sin(3*2*u-3*2*v+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .75*texture(u, v, t)
+	return 1.0 + .1*texture(u, v, t)
 }
 
 func pushdown(x, n float64) float64 {
@@ -128,9 +128,9 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
 	return geom.Vec{
-		sin(v/2.0) * cos(u) * a,
-		sin(v/2.0) * sin(u) * a,
-		cos(v/2.0) * a,
+		u/pi - 1,
+		v*2/pi - 1,
+		a,
 	}
 }
 
@@ -149,7 +149,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{math.Sin(t)*.707, math.Sin(t)*.707, math.Cos(t)}.Scaled(.14)
+	cameraLoc := geom.Vec{0, 0, 1}.Scaled(.14)
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -205,13 +205,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
-			u := float64(uIndex) / float64(n) * 2 * pi
+			// u := float64(uIndex) / float64(n) * 2 * pi
 			v := float64(vIndex) / float64(n) * pi
-			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
+			envmapValue := float32(v/pi) // float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(0.0) // float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
-			blendValue := float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.25)*.5+.5,.75))
+			blendValue := float32(.5-spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.5)*.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -278,22 +278,20 @@ end_header
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
-    <sensor type="thinlens" id="Camera-camera">
-        <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".175"/>
-        <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="35"/>
+    <sensor type="orthographic" id="Camera-camera">
+        <float name="focus_distance" value=".1"/>
         <transform name="to_world">
+			<scale x=".05" y=".05"/>
             <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="4000"/>
-            <integer name="height" value="2250"/>
+            <integer name="width" value="2000"/>
+            <integer name="height" value="2000"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>

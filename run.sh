@@ -1,4 +1,4 @@
-time go run series3.go -frame $1 -desiredtriangles $2
+time go run series4.go -frame $1 -desiredtriangles $2
 cat data/$1.header.ply data/$1.data.ply > mitsuba.ply
 rm data/$1.data.ply
 mv data/$1.rgbe mitsuba.rgbe
