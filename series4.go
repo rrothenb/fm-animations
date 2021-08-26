@@ -42,7 +42,7 @@ func strength(x float64) float64 {
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return (sin(7*u+strength(4*t)*subtexture3(u, v, t))+sin(3*v+strength(4*t)*subtexture3(u, v, t)))/2
+	return sin(7*u+5*v+strength(4*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -50,11 +50,11 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return sin(3*u+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
+	return sin(3*u-3*v+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .3*texture(u, v, t)
+	return 1.0 + .2*texture(u, v, t)
 }
 
 func pushdown(x, n float64) float64 {
