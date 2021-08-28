@@ -38,11 +38,11 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.5 + .6
+	return sin(x)*.75 + .8
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+5*v+strength(4*t)*subtexture3(u, v, t))
+	return sin(7*u+strength(4*t)*subtexture3(u, v, t))+sin(5*v+strength(3*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -54,7 +54,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .2*texture(u, v, t)
+	return 1.0 + (sin(2*t)*.3)*texture(u, v, t)
 }
 
 func pushdown(x, n float64) float64 {
@@ -205,13 +205,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
-			// u := float64(uIndex) / float64(n) * 2 * pi
+			u := float64(uIndex) / float64(n) * 2 * pi
 			v := float64(vIndex) / float64(n) * pi
-			envmapValue := float32(v/pi) // float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
+			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(0.0) // float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
-			blendValue := float32(.5-spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.5)*.5)
+			blendValue := float32(pow(.5-spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t),.5)*.5, pow(10, sin(t))))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -286,12 +286,16 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="3800"/>
+            <integer name="height" value="3800"/>
+            <integer name="crop_offset_x" value="0"/>
+            <integer name="crop_offset_y" value="0"/>
+            <integer name="crop_width" value="1900"/>
+            <integer name="crop_height" value="3800"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
