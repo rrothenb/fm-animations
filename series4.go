@@ -290,12 +290,12 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3800"/>
-            <integer name="height" value="3800"/>
+            <integer name="width" value="1280"/>
+            <integer name="height" value="1280"/>
             <integer name="crop_offset_x" value="0"/>
             <integer name="crop_offset_y" value="0"/>
-            <integer name="crop_width" value="1900"/>
-            <integer name="crop_height" value="3800"/>
+            <integer name="crop_width" value="640"/>
+            <integer name="crop_height" value="1280"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -310,7 +310,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1440, "Max frames")
+	maxFrames := flag.Int("maxframes", 2880, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
