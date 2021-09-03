@@ -9,19 +9,15 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
+                <float name="alpha" value=".5"/>
                 <spectrum name="eta" filename="spd/15.spd"/>
                 <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
-        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/15i.spd"/>
-                <spectrum name="k" filename="spd/11i.spd"/>
-            </bsdf>
+        <bsdf type="roughdielectric">
+            <float name="alpha" value=".5"/>
+            <float name="int_ior" value="1.3"/>
+            <float name="ext_ior" value="1.0"/>
         </bsdf>
     </bsdf>
 
@@ -36,7 +32,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="2"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="90"/>
         </transform>
