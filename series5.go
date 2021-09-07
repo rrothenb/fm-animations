@@ -50,11 +50,15 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return pow(spow(sin(2*u-2*v+strength(5*t)*subtexture2(u, v, t))*sin(u+v+strength(7*t)*subtexture2(v, u, t)),3), 2)
+	level := spow(sin(v/2), 1.2)
+	return (level*sin(u + strength(3*t)*subtexture2(u, v, t)) +
+		sin(v + strength(5*t)*subtexture2(0, v, t)) +
+		level*sin(u - v + strength(7*t)*subtexture2(u, v, t)) +
+		level*sin(u + v + strength(11*t)*subtexture2(u, v, t)))/4
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 // + .05*texture(u, v, t)
+	return 1.0 - .01*strength(t)*pow(texture(u, v, t), 2)
 }
 
 func pushdown(x, n float64) float64 {
@@ -154,7 +158,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
-	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
+	// distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
+	distance := focusPoint.Minus(geom.Vec{0, 0, .035}).Len()
 	n := int(float64(pixels) / distance * 3)
 	if n > maxSubdivisions {
 		n = maxSubdivisions
@@ -205,14 +210,14 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
-			u := float64(uIndex) / float64(n) * 2 * pi
+			//u := float64(uIndex) / float64(n) * 2 * pi
 			v := float64(vIndex) / float64(n) * pi
-			envmapValue := float32((1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10)))
+			envmapValue := float32(pow(sin(v/2),10)) // float32((1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(0.0) // float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
-			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
-			blendValue := float32(pow(spow(pow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .333)*2-1,.333)*.5+.5,.333))
+			blendValue := float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .1*strength(3*t))*.5+.5, 10*strength(2*t)))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
+			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -275,25 +280,26 @@ end_header
 
 	type sensor struct {
 		Loc geom.Vec
+		Distance float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".075"/>
-        <float name="aperture_radius" value=".00001"/>
-        <float name="fov" value="50"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="aperture_radius" value=".000001"/>
+        <float name="fov" value="55"/>
         <transform name="to_world">
-            <lookat target="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" origin="0, 0, 0" up="0, 1, 0"/>
+            <lookat target="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" origin="0, 0, .035" up="1, 0, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1800"/>
-            <integer name="height" value="1800"/>
+            <integer name="width" value="2750"/>
+            <integer name="height" value="2750"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -301,14 +307,14 @@ end_header
 </scene>
 `)
 	fmt.Println(cameraLoc)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, distance})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 250, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
