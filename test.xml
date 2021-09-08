@@ -9,11 +9,11 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="conductor">
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
+                <spectrum name="eta" filename="spd/5.spd"/>
+                <spectrum name="k" filename="spd/30.spd"/>
             </bsdf>
         </bsdf>
-        <bsdf type="thindielectric">
+        <bsdf type="dielectric">
             <float name="int_ior" value="1.5"/>
             <float name="ext_ior" value="1.0"/>
         </bsdf>
@@ -30,7 +30,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="10"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="45"/>
         </transform>

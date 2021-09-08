@@ -58,7 +58,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .01*strength(t)*pow(texture(u, v, t), 2)
+	return 1.0 - strength(t)*pow(texture(u, v, t), 2)
 }
 
 func pushdown(x, n float64) float64 {
@@ -131,10 +131,12 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
+	R := .6
+	r := .4*a
 	return geom.Vec{
-		sin(v/2.0) * cos(u) * a,
-		sin(v/2.0) * sin(u) * a,
-		cos(v/2.0) * a,
+		(R + r*cos(u))*cos(v),
+		(R + r*cos(u))*sin(v),
+		r*sin(u),
 	}
 }
 
@@ -288,18 +290,18 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="55"/>
+        <float name="fov" value="75"/>
         <transform name="to_world">
-            <lookat target="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" origin="0, 0, .035" up="1, 0, 0"/>
+            <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="1, 0, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="750"/>
-            <integer name="height" value="750"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
