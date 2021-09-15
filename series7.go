@@ -58,7 +58,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - 2*pow(texture(31*u, v, t), 2)
+	return 1.0 - 2*pow(texture(u, 11*v, t), 2)
 }
 
 func pushdown(x, n float64) float64 {
@@ -133,8 +133,10 @@ func circle(x float64) geom.Vec {
 	return geom.Vec{sin(x), cos(x), 0}
 }
 
-func torusKnot(x, r float64, p, q int) geom.Vec {
-	return geom.Vec{r*cos(float64(p)*x), r*sin(float64(p)*x), -sin(float64(q)*x)}
+func torusKnot(t, R, r float64, pInt, qInt int) geom.Vec {
+	p := float64(pInt)
+	q := float64(qInt)
+	return geom.Vec{(R+r*cos(p*t))*cos(q*t), (R+r*cos(p*t))*sin(q*t), r*sin(p*t)}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -147,12 +149,12 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 }
 
 func path(x float64) geom.Vec {
-	return torusKnot(x, .4, 24, 25).Scaled(.9)
+	return torusKnot(x, .21, .1, 8, 7).Scaled(.9)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
-	r := .025*a
+	r := .035*a
 	return pathWrapper(u, v, r, path)
 }
 
@@ -313,7 +315,7 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".0001"/>
-        <float name="fov" value="90"/>
+        <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="1, 0, 0"/>
         </transform>
@@ -323,12 +325,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="7000"/>
-            <integer name="height" value="6000"/>
-            <integer name="crop_offset_x" value="1000"/>
-            <integer name="crop_offset_y" value="0"/>
-            <integer name="crop_width" value="6000"/>
-            <integer name="crop_height" value="6000"/>
+            <integer name="width" value="3800"/>
+            <integer name="height" value="3800"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
