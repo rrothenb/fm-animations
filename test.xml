@@ -3,9 +3,19 @@
 
     <include filename="sensor.xml"/>
 
-        <bsdf type="twosided" id="object_bsdf">
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
             <bsdf type="conductor">
-                <string name="material" value="Ag"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
+            </bsdf>
+        </bsdf>
+        <bsdf type="dielectric">
+            <float name="int_ior" value="1.5"/>
+            <float name="ext_ior" value="1.0"/>
             </bsdf>
         </bsdf>
 
@@ -20,7 +30,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="45"/>
         </transform>
