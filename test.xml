@@ -9,15 +9,15 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="conductor">
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
+                <string name="material" value="Ag"/>
             </bsdf>
         </bsdf>
-        <bsdf type="dielectric">
-            <float name="int_ior" value="1.5"/>
-            <float name="ext_ior" value="1.0"/>
+        <bsdf type="twosided">
+            <bsdf type="conductor">
+                <string name="material" value="Cu"/>
             </bsdf>
         </bsdf>
+    </bsdf>
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
