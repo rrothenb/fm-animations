@@ -9,12 +9,14 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="conductor">
-                <string name="material" value="Ag"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
         <bsdf type="twosided">
             <bsdf type="conductor">
-                <string name="material" value="Cu"/>
+                <spectrum name="eta" filename="spd/15i.spd"/>
+                <spectrum name="k" filename="spd/11i.spd"/>
             </bsdf>
         </bsdf>
     </bsdf>

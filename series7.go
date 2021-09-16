@@ -173,7 +173,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{0, math.Sin(t), math.Cos(t)}.Scaled(.05)
+	cameraLoc := geom.Vec{0, math.Sin(t), math.Cos(t)}.Scaled(.04)
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -313,9 +313,9 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
-        <float name="focus_distance" value=".0275"/>
-        <float name="aperture_radius" value=".00025"/>
-        <float name="fov" value="30"/>
+        <float name="focus_distance" value=".0175"/>
+        <float name="aperture_radius" value=".00005"/>
+        <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="1, 0, 0"/>
         </transform>
@@ -325,8 +325,12 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3800"/>
-            <integer name="height" value="7600"/>
+            <integer name="width" value="4725"/>
+            <integer name="height" value="6150"/>
+            <integer name="crop_offset_x" value="925"/>
+            <integer name="crop_offset_y" value="0"/>
+            <integer name="crop_width" value="3800"/>
+            <integer name="crop_height" value="6150"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
