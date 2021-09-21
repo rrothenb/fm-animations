@@ -8,13 +8,15 @@
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
         <bsdf type="twosided">
-            <bsdf type="conductor">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".05"/>
                 <spectrum name="eta" filename="spd/15.spd"/>
                 <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
         <bsdf type="twosided">
-            <bsdf type="conductor">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".01"/>
                 <spectrum name="eta" filename="spd/15i.spd"/>
                 <spectrum name="k" filename="spd/11i.spd"/>
             </bsdf>
