@@ -1,4 +1,4 @@
-time go run series7.go -frame $1 -desiredtriangles $2
+time go run series8.go -frame $1 -desiredtriangles $2
 cat data/$1.header.ply data/$1.data.ply > mitsuba.ply
 rm data/$1.data.ply
 #exit

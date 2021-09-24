@@ -10,18 +10,17 @@
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <float name="alpha" value=".05"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
-            </bsdf>
-        </bsdf>
-        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
                 <spectrum name="eta" filename="spd/15i.spd"/>
                 <spectrum name="k" filename="spd/11i.spd"/>
             </bsdf>
         </bsdf>
-    </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".05"/>
+                <string name="material" value="Cu"/>
+            </bsdf>
+        </bsdf>
+            </bsdf>
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -34,7 +33,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="3"/>
+        <float name="scale" value="4"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="45"/>
         </transform>
