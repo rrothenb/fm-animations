@@ -1,4 +1,4 @@
-time go run series8.go -frame $1 -desiredtriangles $2
+time go run series9.go -frame $1 -desiredtriangles $2
 cat data/$1.header.ply data/$1.data.ply > mitsuba.ply
 rm data/$1.data.ply
 #exit
@@ -8,5 +8,6 @@ mv data/$1.roughness.rgbe mitsuba.roughness.rgbe
 #convert mitsuba.roughness.rgbe $1.roughness.jpg
 mv data/$1.blend.rgbe mitsuba.blend.rgbe
 #convert mitsuba.blend.rgbe $1.blend.jpg
+mv data/$1.metal.blend.rgbe mitsuba.metal.blend.rgbe
 time mitsuba test.xml
 convert test.exr $1.jpg
