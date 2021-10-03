@@ -7,26 +7,17 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="dielectric">
+        <bsdf type="thindielectric">
+            <string name="int_ior" value="vacuum"/>
+            <string name="ext_ior" value="vacuum"/>
         </bsdf>
-        <bsdf type="blendbsdf">
-            <texture type="bitmap" name="weight">
-                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-            </texture>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
-                    <float name="alpha" value=".05"/>
+                    <float name="alpha" value=".1"/>
                 <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
                 </bsdf>
             </bsdf>
-            <bsdf type="twosided">
-                <bsdf type="roughconductor">
-                    <float name="alpha" value=".05"/>
-                    <string name="material" value="Cu"/>
-                </bsdf>
-            </bsdf>
-        </bsdf>
     </bsdf>
 
     <shape type="ply">
@@ -40,7 +31,7 @@
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="4"/>
+        <float name="scale" value="10"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="45"/>
         </transform>

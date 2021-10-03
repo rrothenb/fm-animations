@@ -7,7 +7,7 @@ mv data/$1.rgbe mitsuba.rgbe
 mv data/$1.roughness.rgbe mitsuba.roughness.rgbe
 #convert mitsuba.roughness.rgbe $1.roughness.jpg
 mv data/$1.blend.rgbe mitsuba.blend.rgbe
-#convert mitsuba.blend.rgbe $1.blend.jpg
+convert mitsuba.blend.rgbe mitsuba.blend.jpg
 mv data/$1.metal.blend.rgbe mitsuba.metal.blend.rgbe
 time mitsuba test.xml
 convert test.exr $1.jpg
