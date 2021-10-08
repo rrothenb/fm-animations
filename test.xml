@@ -13,7 +13,9 @@
         </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
-                    <float name="alpha" value=".1"/>
+                    <texture type="bitmap" name="alpha">
+                        <string name="filename" value="mitsuba.roughness.rgbe"/>
+                    </texture>
                 <spectrum name="eta" filename="spd/2.spd"/>
                 <spectrum name="k" filename="spd/12.spd"/>
                 </bsdf>
