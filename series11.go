@@ -208,8 +208,11 @@ func knot(t float64) geom.Vec {
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
-	r := .1*a
-	return pathWrapper(u, v, r, knot)
+	return geom.Vec{
+		sin(v/2.0) * cos(u) * a,
+		sin(v/2.0) * sin(u) * a,
+		cos(v/2.0) * a,
+	}
 }
 
 func index2radians(index float64, n int) float64 {
@@ -399,12 +402,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="400"/>
-            <integer name="height" value="400"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -418,7 +421,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 500, "Max frames")
+	maxFrames := flag.Int("maxframes", 30, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
