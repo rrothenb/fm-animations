@@ -7,9 +7,9 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="thindielectric">
-            <string name="int_ior" value="vacuum"/>
-            <string name="ext_ior" value="vacuum"/>
+        <bsdf type="dielectric">
+            <string name="int_ior" value="bk7"/>
+            <string name="ext_ior" value="air"/>
         </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
