@@ -44,40 +44,41 @@ func strength(x float64) float64 {
 	return sin(x)*.75 + 1.00
 }
 
-func subtexture2(u, v, t float64) float64 {
-	return sin(13*v+3*strength(4*t)*subtexture3(u, v, t))
+func subtexture2(x, y, z, t float64) float64 {
+	return sin(13*x - 3*y - 2*z +4*strength(4*t)*subtexture3(x, y, z, t))
 }
 
-func subtexture3(u, v, t float64) float64 {
-	return sin(17*u+11*v)
+func subtexture3(x, y, z, t float64) float64 {
+	return sin(17*x+23*y+19*z)
 }
 
-func blendTexture(u, v, t float64) float64 {
-	loc := geom.Vec{
-		sin(v/2.0) * cos(u),
-		sin(v/2.0) * sin(u),
-		cos(v/2.0),
-	}
-	return spow(texture(loc.X, loc.Y, loc.Z, t), .1)/2+.5
+func blendTexture(x, y, z, t float64) float64 {
+	return pow(spow(texture(x, y, z, t), .1)/2+.5, .25)
 }
 
-func roughnessTexture(u, v, t float64) float64 {
-	return spow(sin(5*v + 7*u + 3*strength(2+5*t)*subtexture1(u, v, t)), .1)*.4 + .41
+func roughnessTexture(x, y, z, t float64) float64 {
+	return spow(sin(5*x + 7*y - 3*z + 3*strength(2+5*t)*subtexture1(x, y, z, t)), .1)*.4 + .41
 }
 
-func subtexture1(u, v, t float64) float64 {
-	return spow(sin(5*v + 7*u + 1.5*strength(3+7*t)*subtexture2(u, v, t)), .5)
+func subtexture1(x, y, z, t float64) float64 {
+	subtexture1 := spow(sin(5*x - 7*y +3*z + 3*strength(3+7*t)*subtexture2(x, y, z, t)), .5)
+	//fmt.Printf("subtexture1: %v\n", subtexture1)
+	return subtexture1
 }
 
 func texture(x, y, z, t float64) float64 {
-	max := strength(2*t)+strength(3*t)+strength(5*t)
-	return spow(pushdown(
-		1/max*(strength(2*t)*subtexture1(x, y, t) +
-			strength(3*t)*subtexture1(y, z, t) +
-			strength(5*t)*subtexture1(z, x, t)), strength(t)*2), strength(7*t))}
+	texture := spow(pushdown(sin(z - x + subtexture1(x, y, z, t)), strength(t)), strength(7*t))
+	//fmt.Printf("texture: %v\n", texture)
+	return texture
+}
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .03*strength(t)*texture(x, y, z, t)
+	return 1.0 + .04*strength(t)*texture(x, y, z, t)
+}
+
+func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
+	loc := shape(u, v, t)
+	return texture(loc.X, loc.Y, loc.Z, t)
 }
 
 func pushdown(x, n float64) float64 {
@@ -176,6 +177,15 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 func circle(x float64) geom.Vec {
 	return geom.Vec{sin(x), cos(x), 0}
 }
+
+func sphere(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0) * cos(u),
+		sin(v/2.0) * sin(u),
+		cos(v/2.0),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -215,12 +225,9 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := geom.Vec{
-		sin(v/2.0) * cos(u),
-		sin(v/2.0) * sin(u),
-		cos(v/2.0),
-	}
+	loc := sphere(u, v, t)
 	a := radius(loc.X, loc.Y, loc.Z, t)
+	//fmt.Printf("loc: %v, a: %v\n", loc, a)
 	return loc.Scaled(a)
 }
 
@@ -239,7 +246,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := circle(t).Scaled(.15).Plus(geom.Vec{0, .05, 0})
+	cameraLoc := circle(t).Scaled(.175).Plus(geom.Vec{0, 0, .025})
 	focusPoint := unitLissajousKnot(t, 2, 3, 5).Scaled(.005/cameraLoc.Len())
 	//focusPoint = geom.Vec{0,0,0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -264,6 +271,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for vIndex := 1; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
 			if !c.invisible(vertex) {
+				//fmt.Println(vertex)
 				numTriangles++
 				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
 				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius).Scaled(.075)
@@ -274,8 +282,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				maxX = math.Max(maxX, math.Abs(vertex.X))
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
 				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
-				blendValue := float32(blendTexture(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t))
-				if (blendValue > .5 && cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len()) {
+				if (cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len()) {
 					closestPoint = vertex
 				}
 			}
@@ -328,12 +335,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < nU; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(blendTexture(u, v, t), 2), pow(1-v/pi, 3)*10)))
+			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(roughnessTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
-			blendValue := float32(blendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
+			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
+			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(subtexture2(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/2+.5)
+			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, subtexture1, sphere)/2+.5)
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
@@ -416,12 +423,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
