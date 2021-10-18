@@ -20,14 +20,15 @@
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
                     <float name="alpha" value=".05"/>
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/10.spd"/>
+                    <spectrum name="eta" filename="spd/27.spd"/>
+                    <spectrum name="k" filename="spd/12.spd"/>
                 </bsdf>
             </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
                     <float name="alpha" value=".3"/>
-                    <string name="material" value="Cu"/>
+                    <spectrum name="eta" filename="spd/2.spd"/>
+                    <spectrum name="k" filename="spd/12.spd"/>
                 </bsdf>
             </bsdf>
         </bsdf>

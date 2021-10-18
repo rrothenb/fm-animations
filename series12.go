@@ -1,4 +1,3 @@
-// This is actually 6b at this point (still torus)
 package main
 
 import (
@@ -41,11 +40,11 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + 1.00
+	return sin(x)*1.4 + 1.5
 }
 
 func subtexture2(x, y, z, t float64) float64 {
-	return sin(13*x - 3*y - 2*z +4*strength(4*t)*subtexture3(x, y, z, t))
+	return sin(13*x - 31*y - 23*z +3*strength(4*t)*subtexture3(x, y, z, t))
 }
 
 func subtexture3(x, y, z, t float64) float64 {
@@ -61,19 +60,23 @@ func roughnessTexture(x, y, z, t float64) float64 {
 }
 
 func subtexture1(x, y, z, t float64) float64 {
-	subtexture1 := spow(sin(5*x - 7*y +3*z + 3*strength(3+7*t)*subtexture2(x, y, z, t)), .5)
+	subtexture1 := spow(sin(5*x - 7*y + 2*strength(3+7*t)*subtexture2(x, y, z, t)), .5)
 	//fmt.Printf("subtexture1: %v\n", subtexture1)
 	return subtexture1
 }
 
 func texture(x, y, z, t float64) float64 {
-	texture := spow(pushdown(sin(z - x + subtexture1(x, y, z, t)), strength(t)), strength(7*t))
+	texture := spow(pushdown(sin(
+		x +
+		subtexture1(x, y, z, t) +
+		subtexture2(x, y, z, t) *
+		subtexture3(x, y, z, t)), strength(t)), strength(7*t))
 	//fmt.Printf("texture: %v\n", texture)
 	return texture
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .04*strength(t)*texture(x, y, z, t)
+	return 1.0 + .1*strength(t)*texture(x, y, z, t)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -246,13 +249,11 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := circle(t).Scaled(.175).Plus(geom.Vec{0, 0, .025})
-	focusPoint := unitLissajousKnot(t, 2, 3, 5).Scaled(.005/cameraLoc.Len())
-	//focusPoint = geom.Vec{0,0,0}
+	cameraLoc := circle(t).Scaled(.25).Plus(geom.Vec{0, .025, 0})
+	focusPoint := geom.Vec{0, 0, cos(t)}.Scaled(.006/cameraLoc.Len())
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len() - .23
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
-	// TODO replace n with nU and nV
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -442,7 +443,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 100, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
