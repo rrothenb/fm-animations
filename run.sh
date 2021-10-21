@@ -11,4 +11,4 @@ mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
 convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 #exit
 time mitsuba test.xml
-convert test.exr -auto-gamma $2.jpg
+convert test.exr -auto-gamma -brightness-contrast -5 $2.jpg

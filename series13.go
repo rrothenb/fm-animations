@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.4 + 1.5
+	return sin(x)*.75 + 1
 }
 
 func subtexture2(x, y, z, t float64) float64 {
@@ -76,7 +76,7 @@ func texture(x, y, z, t float64) float64 {
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .1*strength(t)*texture(x, y, z, t)
+	return 1.0 + .01*strength(t)*texture(x, y, z, t)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -168,6 +168,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Y < projectedPoint.Z*factor || projectedPoint.Y > -projectedPoint.Z*factor {
 		return true
 	}
+	return false
 	if projectedPoint.Z > 0.0 {
 		return true
 	}
@@ -207,11 +208,11 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .75+.1*strength(2*t), 4, 7, circle)
+	return torusKnot(t, 1, .25, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+.025*strength(3*t), 3, 11, outerKnot)
+	return torusKnot(t, 1, .15, 3, 2, outerKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -228,10 +229,11 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
-	a := radius(loc.X, loc.Y, loc.Z, t)
-	//fmt.Printf("loc: %v, a: %v\n", loc, a)
-	return loc.Scaled(a)
+	loc := pathWrapper(u, v, .1, innerKnot)
+	return loc.Plus(geom.Vec{
+		.025*subtexture1(loc.X, loc.Y, loc.Z, t),
+		.05*subtexture2(loc.X, loc.Y, loc.Z, t),
+		.1*subtexture3(loc.X, loc.Y, loc.Z, t)})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -249,8 +251,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := circle(t).Scaled(.25).Plus(geom.Vec{0, .025, 0})
-	focusPoint := geom.Vec{0, 0, cos(t)}.Scaled(.006/cameraLoc.Len())
+	cameraLoc := circle(t).Scaled(.2)
+	focusPoint := geom.Vec{cos(2*t),0,  0 }.Scaled(.0125/cameraLoc.Len())
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len() - .23
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -292,7 +294,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	_, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	//distance = cameraLoc.Minus(closestPoint).Len()
+	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -352,20 +354,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			if vIndex != 0 {
-				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
-				numFaces++
-			}
-			if vIndex != nV-1 {
-				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-				numFaces++
-			}
+			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
+			numFaces++
+			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+			numFaces++
 		}
 	}
 
@@ -417,7 +415,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="aperture_radius" value=".00001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -428,8 +426,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="2400"/>
             <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
@@ -443,7 +441,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
