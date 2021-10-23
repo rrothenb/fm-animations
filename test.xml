@@ -9,20 +9,19 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/3.spd"/>
-                <spectrum name="k" filename="spd/15.spd"/>
+                <float name="alpha" value=".1"/>
+                <spectrum name="eta" filename="spd/27.spd"/>
+                <spectrum name="k" filename="spd/10.spd"/>
             </bsdf>
         </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
                     <float name="alpha" value=".5"/>
                     <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/12.spd"/>
+                    <spectrum name="k" filename="spd/3.spd"/>
                 </bsdf>
             </bsdf>
     </bsdf>
-
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
