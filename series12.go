@@ -428,9 +428,12 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
-            <string name="pixel_format" value="rgb"/>
+            <integer name="width" value="13500"/>
+            <integer name="height" value="9000"/>
+            <integer name="crop_offset_x" value="0"/>
+            <integer name="crop_offset_y" value="0"/>
+            <integer name="crop_width" value="9000"/>
+            <integer name="crop_height" value="9000"/>            <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
