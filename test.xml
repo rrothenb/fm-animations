@@ -9,7 +9,7 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
+                <float name="alpha" value=".05"/>
                 <string name="material" value="Ag"/>
             </bsdf>
         </bsdf>
@@ -20,7 +20,7 @@
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
                     <float name="alpha" value=".05"/>
-                <spectrum name="eta" filename="spd/27.spd"/>
+                    <spectrum name="eta" filename="spd/2.spd"/>
                     <spectrum name="k" filename="spd/12.spd"/>
             </bsdf>
         </bsdf>

@@ -40,43 +40,30 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.4 + 1.5
-}
-
-func subtexture2(x, y, z, t float64) float64 {
-	return sin(13*x - 31*y - 23*z +3*strength(4*t)*subtexture3(x, y, z, t))
-}
-
-func subtexture3(x, y, z, t float64) float64 {
-	return sin(17*x+23*y+19*z)
-}
-
-func blendTexture(x, y, z, t float64) float64 {
-	return pow(spow(texture(x, y, z, t), .1)/2+.5, .25)
-}
-
-func roughnessTexture(x, y, z, t float64) float64 {
-	return spow(sin(5*x + 7*y - 3*z + 3*strength(2+5*t)*subtexture1(x, y, z, t)), .1)*.4 + .41
-}
-
-func subtexture1(x, y, z, t float64) float64 {
-	subtexture1 := spow(sin(5*x - 7*y + 2*strength(3+7*t)*subtexture2(x, y, z, t)), .5)
-	//fmt.Printf("subtexture1: %v\n", subtexture1)
-	return subtexture1
+	return sin(x)*.75 + .85
 }
 
 func texture(x, y, z, t float64) float64 {
-	texture := spow(pushdown(sin(
-		x +
-		subtexture1(x, y, z, t) +
-		subtexture2(x, y, z, t) *
-		subtexture3(x, y, z, t)), strength(t)), strength(7*t))
-	//fmt.Printf("texture: %v\n", texture)
-	return texture
+	return sin(
+		3*x + 5*y +
+			strength(.1+2*t)*sin(2*x+strength(.2+3*t)*sin(3*x)) +
+			strength(.3+5*t)*sin(7*y+strength(.4+7*t)*sin(5*y)) +
+			strength(.5+5*t)*sin(3*z+strength(.6+7*t)*sin(5*z)) +
+			strength(.7+11*t)*sin(11*x+13*y) +
+			strength(.8+13*t)*sin(17*y-5*z) +
+			strength(.9+17*t)*sin(23*z-11*x))
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .1*strength(t)*texture(x, y, z, t)
+	return 1.0 + .075*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
+}
+
+func blendTexture(x, y, z, t float64) float64 {
+	return pow(pow(texture(x, y, z, t), 2), .1)
+}
+
+func roughnessTexture(x, y, z, t float64) float64 {
+	return spow(sin(5*x + 7*y - 3*z + 3*strength(2+5*t)*texture(x, y, z, t)), .1)*.4 + .41
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -214,6 +201,14 @@ func innerKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, .5+.025*strength(3*t), 3, 11, outerKnot)
 }
 
+func cameraPath(t float64) geom.Vec {
+	return unitLissajousKnot(t+1, 5, 3, 4).Scaled(2.5 - sin(7*t)*.25)
+}
+
+func focusPath(t float64) geom.Vec {
+	return unitLissajousKnot(t+2, 3, 4, 5).Scaled(.4 - sin(5*t)*.2)
+}
+
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	delta := .01
 	center := path(v)
@@ -249,8 +244,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := circle(t).Scaled(.25).Plus(geom.Vec{0, .025, 0})
-	focusPoint := geom.Vec{0, 0, cos(t)}.Scaled(.006/cameraLoc.Len())
+	cameraLoc := cameraPath(t).Scaled(.075)
+	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len() - .23
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -341,7 +336,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
 			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, subtexture1, sphere)/2+.5)
+			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5)
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
@@ -428,12 +423,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="13500"/>
-            <integer name="height" value="9000"/>
-            <integer name="crop_offset_x" value="0"/>
-            <integer name="crop_offset_y" value="0"/>
-            <integer name="crop_width" value="9000"/>
-            <integer name="crop_height" value="9000"/>            <string name="pixel_format" value="rgb"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
