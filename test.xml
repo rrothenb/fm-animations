@@ -9,31 +9,17 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".05"/>
-                <string name="material" value="Ag"/>
+                <float name="alpha" value=".1"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
-        <bsdf type="blendbsdf">
-            <texture type="bitmap" name="weight">
-                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-            </texture>
-            <bsdf type="twosided">
-                <bsdf type="roughconductor">
-                    <float name="alpha" value=".05"/>
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/12.spd"/>
-            </bsdf>
+        <bsdf type="roughdielectric">
+            <float name="alpha" value=".1"/>
+            <float name="int_ior" value="1.5"/>
+            <float name="ext_ior" value="1.0"/>
         </bsdf>
-            <bsdf type="twosided">
-                <bsdf type="roughconductor">
-                    <float name="alpha" value=".3"/>
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/12.spd"/>
-                </bsdf>
-                </bsdf>
-            </bsdf>
     </bsdf>
-
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>

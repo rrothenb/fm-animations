@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .85
+	return sin(x) + 1.01
 }
 
 func texture(x, y, z, t float64) float64 {
@@ -48,18 +48,18 @@ func texture(x, y, z, t float64) float64 {
 		3*x + 5*y +
 			strength(.1+2*t)*sin(2*x+strength(.2+3*t)*sin(3*x)) +
 			strength(.3+5*t)*sin(7*y+strength(.4+7*t)*sin(5*y)) +
-			strength(.5+5*t)*sin(3*z+strength(.6+7*t)*sin(5*z)) +
-			strength(.7+11*t)*sin(11*x+13*y) +
-			strength(.8+13*t)*sin(17*y-5*z) +
-			strength(.9+17*t)*sin(23*z-11*x))
+			strength(.5+5*t)*sin(3*z+strength(.6+7*t)*sin(2*z)) +
+			strength(.7+11*t)*sin(5*x+7*y) +
+			strength(.8+13*t)*sin(7*y-5*z) +
+			strength(.9+17*t)*sin(7*z-11*x))
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .075*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
+	return 1.0 + .5*sin(19*t)*pow(texture(x, y, z, t)/2+.5, pow(10, sin(3*t)))
 }
 
 func blendTexture(x, y, z, t float64) float64 {
-	return pow(pow(texture(x, y, z, t), 2), .1)
+	return pow(texture(x, y, z, t)/2+.5, pow(10, sin(4*t)/2-.5))
 }
 
 func roughnessTexture(x, y, z, t float64) float64 {
@@ -155,6 +155,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Y < projectedPoint.Z*factor || projectedPoint.Y > -projectedPoint.Z*factor {
 		return true
 	}
+	return false
 	if projectedPoint.Z > 0.0 {
 		return true
 	}
@@ -194,7 +195,7 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .75+.1*strength(2*t), 4, 7, circle)
+	return torusKnot(t, 1, 1.5, 9, 10, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
@@ -202,11 +203,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+1, 5, 3, 4).Scaled(2.5 - sin(7*t)*.25)
+	return unitLissajousKnot(t+1, 5, 3, 4).Scaled(7 - sin(7*t)*.5)
 }
 
 func focusPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+2, 3, 4, 5).Scaled(.4 - sin(5*t)*.2)
+	return unitLissajousKnot(t+2, 3, 4, 5).Scaled(.5)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -223,10 +224,9 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
-	a := radius(loc.X, loc.Y, loc.Z, t)
+	loc := pathWrapper(u, v, 2, outerKnot)
 	//fmt.Printf("loc: %v, a: %v\n", loc, a)
-	return loc.Scaled(a)
+	return pathWrapper(u, v, (.4+sin(19*t)*.05)*radius(loc.X, loc.Y, loc.Z, t), outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -334,7 +334,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
-			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
+			blendValue := 1 - float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5)
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
@@ -412,7 +412,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="aperture_radius" value=".00001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -437,7 +437,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
