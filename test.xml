@@ -9,18 +9,26 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
-            </bsdf>
-        </bsdf>
-        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
+                <float name="alpha" value=".1"/>
                 <spectrum name="eta" filename="spd/15i.spd"/>
                 <spectrum name="k" filename="spd/11i.spd"/>
+            </bsdf>
+        </bsdf>
+        <bsdf type="blendbsdf">
+            <texture type="bitmap" name="weight">
+                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
+            </texture>
+            <bsdf type="twosided">
+                <bsdf type="roughconductor">
+                    <float name="alpha" value=".05"/>
+                    <string name="material" value="Cu"/>
+                </bsdf>
+            </bsdf>
+            <bsdf type="twosided">
+                <bsdf type="roughconductor">
+                    <float name="alpha" value=".25"/>
+                    <string name="material" value="CuO"/>
+                </bsdf>
             </bsdf>
         </bsdf>
     </bsdf>
@@ -33,13 +41,5 @@
         </transform>
         <ref id="object_bsdf"/>
     </shape>
-
-    <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
-        <transform name="to_world">
-            <rotate value="1, 0, 0" angle="45"/>
-        </transform>
-    </emitter>
 
 </scene>
