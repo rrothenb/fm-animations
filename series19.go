@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .85
+	return sin(x)/4+.25
 }
 
 func texture(x, y, z, t float64) float64 {
@@ -49,17 +49,22 @@ func texture(x, y, z, t float64) float64 {
 			strength(.1+2*t)*sin(2*x+strength(.2+3*t)*sin(3*x)) +
 			strength(.3+5*t)*sin(7*y+strength(.4+7*t)*sin(5*y)) +
 			strength(.5+5*t)*sin(3*z+strength(.6+7*t)*sin(5*z)) +
-			strength(.7+11*t)*sin(11*x+13*y) +
-			strength(.8+13*t)*sin(17*y-5*z) +
-			strength(.9+17*t)*sin(23*z-11*x))
+			strength(.7+11*t)*sin(11*x+7*y) +
+			strength(.8+13*t)*sin(11*y-5*z) +
+			strength(.9+17*t)*sin(3*z-11*x))
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .075*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
+	return 1.0 + .1*strength(3*t)*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
 }
 
 func blendTexture(x, y, z, t float64) float64 {
-	return pow(pow(texture(x, y, z, t), 2), .1)
+	return 1-pushout(pow(texture(x, y, z, t)/2+.5, 10 + sin(5*t)), 20)
+}
+
+func metalBlendTexture(x, y, z, t float64) float64 {
+	// metalBlendValue := float32(pushout(pow(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5, .5), .1))
+	return 1-pushout(pow(texture(x+.05, y+.05, z+.05, t)/2+.5, 100), .1)
 }
 
 func roughnessTexture(x, y, z, t float64) float64 {
@@ -144,6 +149,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -176,6 +182,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func foldedSphere(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0) * cos(u) * (1.25 - pow(cos(5*v/2.0), 2)),
+		sin(v/2.0) * sin(u) * (1.25 - pow(cos(5*v/2.0), 2)),
+		cos(5*v/2.0),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -202,7 +216,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+1, 5, 3, 4).Scaled(2.5 - sin(7*t)*.25)
+	return circle(t).Plus(geom.Vec{0,0,1.25}).Scaled(3.5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -223,10 +237,10 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
-	a := radius(loc.X, loc.Y, loc.Z, t)
+	loc := foldedSphere(u, v, t)
+	//a := radius(loc.X, loc.Y, loc.Z, t)
 	//fmt.Printf("loc: %v, a: %v\n", loc, a)
-	return loc.Scaled(a)
+	return loc.Scaled(radius(loc.X, loc.Y, loc.Z, t))
 }
 
 func index2radians(index float64, n int) float64 {
@@ -245,7 +259,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	cameraLoc := cameraPath(t).Scaled(.075)
-	focusPoint := focusPath(t).Scaled(.075)
+	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len() - .23
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -287,7 +301,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	_, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	//distance = cameraLoc.Minus(closestPoint).Len()
+	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -331,12 +345,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < nU; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow(1-v/pi, 2)*2)))
+			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
-			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
+			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, foldedSphere))
+			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, foldedSphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5)
+			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, metalBlendTexture, foldedSphere))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
@@ -347,20 +361,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			if vIndex != 0 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
 				numFaces++
-			}
-			if vIndex != nV-1 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				numFaces++
-			}
 		}
 	}
 
@@ -406,31 +416,39 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
+		Angle float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="aperture_radius" value=".0025"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="480"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
+        </transform>
+    </emitter>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, 0})
 }
 
 func main() {
