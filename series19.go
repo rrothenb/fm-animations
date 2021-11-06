@@ -423,19 +423,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".0025"/>
+        <float name="aperture_radius" value=".001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="512"/>
-            <integer name="height" value="480"/>
+            <integer name="width" value="2880"/>
+            <integer name="height" value="2700"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>

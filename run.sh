@@ -2,13 +2,13 @@ time go run series$1.go -frame $2 -desiredtriangles $3
 cat data/$2.header.ply data/$2.data.ply > mitsuba.ply
 rm data/$2.data.ply
 mv data/$2.roughness.rgbe mitsuba.roughness.rgbe
-#convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
+convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
 mv data/$2.blend.rgbe mitsuba.blend.rgbe
-#convert mitsuba.blend.rgbe mitsuba.blend.jpg
+convert mitsuba.blend.rgbe mitsuba.blend.jpg
 mv data/$2.rgbe mitsuba.rgbe
-#convert mitsuba.rgbe mitsuba.env.jpg
+convert mitsuba.rgbe mitsuba.env.jpg
 mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
-#convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
+convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 #exit
 time mitsuba test.xml
 convert test.exr -auto-gamma -brightness-contrast -10 $2.jpg

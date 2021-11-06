@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .85
+	return sin(x)*.5 + .6
 }
 
 func texture(x, y, z, t float64) float64 {
@@ -55,11 +55,11 @@ func texture(x, y, z, t float64) float64 {
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .075*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
+	return 1.0 - .01*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
 }
 
 func blendTexture(x, y, z, t float64) float64 {
-	return pow(pow(texture(x, y, z, t), 2), .1)
+	return pow(texture(x, y, z, t)/2+.5, .5)
 }
 
 func roughnessTexture(x, y, z, t float64) float64 {
@@ -144,6 +144,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -176,6 +177,25 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func squareSphere(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+sin(2*t+.8)*sin(v)) * cos(u-sin(3*t+.8)*sin(2*u)),
+		sin(v/2.0+sin(2*t+.8)*sin(v)) * sin(u+sin(3*t+.8)*sin(2*u)),
+		cos(v/2.0-sin(5*t+.8)*sin(v)),
+	}
+}
+
+/*
+func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
+	a := radius(u, v, t)
+	return geom.Vec{
+		sin(v/2.0+.7*sin(v)) * cos(u-.7*sin(2*u)),
+		sin(v/2.0+.7*sin(v)) * sin(u+.7*sin(2*u)),
+		cos(v/2.0-.7*sin(v)),
+	}
+}
+ */
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -202,7 +222,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+1, 5, 3, 4).Scaled(2.5 - sin(7*t)*.25)
+	return unitLissajousKnot(t+1, 5, 3, 2).Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -223,7 +243,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
+	loc := squareSphere(u, v, t)
 	a := radius(loc.X, loc.Y, loc.Z, t)
 	//fmt.Printf("loc: %v, a: %v\n", loc, a)
 	return loc.Scaled(a)
@@ -245,7 +265,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	cameraLoc := cameraPath(t).Scaled(.075)
-	focusPoint := focusPath(t).Scaled(.075)
+	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len() - .23
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -331,12 +351,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < nU; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow(1-v/pi, 2)*2)))
+			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, squareSphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
-			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
+			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, squareSphere))
+			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, squareSphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5)
+			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, squareSphere)/2+.5)
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
