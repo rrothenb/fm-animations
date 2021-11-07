@@ -40,31 +40,31 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)/4+.25
+	return sin(x)+1.01
 }
 
 func texture(x, y, z, t float64) float64 {
 	return sin(
-		3*x + 5*y +
-			strength(.1+2*t)*sin(2*x+strength(.2+3*t)*sin(3*x)) +
+		13*x + 11*y +
+			strength(.1+2*t)*sin(5*x+strength(.2+3*t)*sin(3*x)) +
 			strength(.3+5*t)*sin(7*y+strength(.4+7*t)*sin(5*y)) +
-			strength(.5+5*t)*sin(3*z+strength(.6+7*t)*sin(5*z)) +
-			strength(.7+11*t)*sin(11*x+7*y) +
-			strength(.8+13*t)*sin(11*y-5*z) +
-			strength(.9+17*t)*sin(3*z-11*x))
+			strength(.5+5*t)*sin(11*z+strength(.6+7*t)*sin(2*z)) +
+			strength(.7+11*t)*sin(11*x+13*y) +
+			strength(.8+13*t)*sin(11*y-17*z) +
+			strength(.9+17*t)*sin(13*z-11*x))
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .1*strength(3*t)*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
+	return 1.0 + 0.01*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
 }
 
 func blendTexture(x, y, z, t float64) float64 {
-	return 1-pushout(pow(texture(x, y, z, t)/2+.5, 10 + sin(5*t)), 20)
+	return 1-pushout(pow(texture(x, y, z, t)/2+.5, 2), .1)
 }
 
 func metalBlendTexture(x, y, z, t float64) float64 {
 	// metalBlendValue := float32(pushout(pow(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5, .5), .1))
-	return 1-pushout(pow(texture(x+.05, y+.05, z+.05, t)/2+.5, 100), .1)
+	return 1-pushout(pow(texture(y, z, x, t)/2+.5, 2), .5)
 }
 
 func roughnessTexture(x, y, z, t float64) float64 {
@@ -190,6 +190,26 @@ func foldedSphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func unitStrength(x float64) float64 {
+	return .5-cos(x)/2
+}
+
+func squareSphere(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+sin(2*t+.8)*sin(v)) * cos(u-sin(3*t+.8)*sin(2*u)),
+		sin(v/2.0+sin(2*t+.8)*sin(v)) * sin(u+sin(3*t+.8)*sin(2*u)),
+		cos(v/2.0-sin(5*t+.8)*sin(v)),
+	}
+}
+
+func foldedGeneralizedSphere(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+unitStrength(2*t)/2*sin(v)) * cos(u-unitStrength(3*t)/2*sin(2*u)) * (1 - pow(cos(7*v/2.0), 2)),
+		sin(v/2.0+unitStrength(2*t)/2*sin(v)) * sin(u+unitStrength(3*t)/2*sin(2*u)) * (1 - pow(cos(7*v/2.0), 2)),
+		cos(7*v/2.0),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -216,7 +236,9 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Plus(geom.Vec{0,0,1.25}).Scaled(3.5)
+	// return circle(t).Plus(geom.Vec{0,0,1.25}).Scaled(2.75)
+	return torusKnot(t, 0, 5, 2, 3, circle)
+	// return unitLissajousKnot(t, 3, 2, 5).Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -237,7 +259,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := foldedSphere(u, v, t)
+	loc := foldedGeneralizedSphere(u, v, t)
 	//a := radius(loc.X, loc.Y, loc.Z, t)
 	//fmt.Printf("loc: %v, a: %v\n", loc, a)
 	return loc.Scaled(radius(loc.X, loc.Y, loc.Z, t))
@@ -343,14 +365,15 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := 0; vIndex < nV; vIndex++ {
 		for uIndex := 0; uIndex < nU; uIndex++ {
-			u := float64(uIndex) / float64(nU) * 2 * pi
+			//u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
+			//envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
+			envmapValue := float32(pow(sin(v/2),15)) // float32((1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
-			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, foldedSphere))
-			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, foldedSphere))
+			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, foldedGeneralizedSphere))
+			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, foldedGeneralizedSphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, metalBlendTexture, foldedSphere))
+			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, metalBlendTexture, foldedGeneralizedSphere))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
@@ -423,7 +446,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -434,8 +457,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2880"/>
-            <integer name="height" value="2700"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -448,14 +471,14 @@ end_header
     </emitter>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, 0})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, -90})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 99, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
