@@ -7,15 +7,26 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
+        <bsdf type="blendbsdf">
+            <texture type="bitmap" name="weight">
+                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
+            </texture>
+            <bsdf type="twosided">
+                <bsdf type="conductor">
+                    <spectrum name="eta" filename="spd/2.spd"/>
+                    <spectrum name="k" filename="spd/3.spd"/>
+                </bsdf>
+            </bsdf>
             <bsdf type="twosided">
                 <bsdf type="conductor">
                     <spectrum name="eta" filename="spd/27.spd"/>
                     <spectrum name="k" filename="spd/10.spd"/>
                 </bsdf>
             </bsdf>
+        </bsdf>
         <bsdf type="dielectric">
             <string name="int_ior" value="air"/>
-            <string name="ext_ior" value="air"/>
+            <string name="ext_ior" value="bk7"/>
         </bsdf>
     </bsdf>
 
