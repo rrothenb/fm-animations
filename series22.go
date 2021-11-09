@@ -39,11 +39,11 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .8
+	return sin(x)*.75 + .75
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+strength(4*t)*subtexture3(u, v, t))+sin(5*v+strength(3*t)*subtexture3(u, v, t))
+	return sin(7*u+u*strength(4*t)*subtexture3(u, v, t))+sin(5*v+u*strength(3*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -51,11 +51,11 @@ func subtexture3(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	return sin(3*u-3*v+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
+	return sin(3*u-3*v+u*strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+u*strength(7*t)*subtexture2(3*v, 3*u, t))
 }
 
 func blend(u, v, t float64) float64 {
-	return spow(texture(u, v, t), .1)/2+.5
+	return spow(texture(u, v, t), sin(5*t)*.1+.3)/2+.5
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -139,7 +139,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .3
+	factor := .35
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -202,11 +202,11 @@ func innerKnot(t float64) geom.Vec {
 	}
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+2, 2, 5, 3)
+	return unitLissajousKnot(t, 3, 5, 2)
 }
 
 func focusPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+1, 5, 2, 3)
+	return unitLissajousKnot(t, 2, 3, 5)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -223,7 +223,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	return geom.Vec{u-pi, v-pi, .1*pow(spow(texture(u, v, t), pow(10, sin(2*t)-1))/2+.5, pow(10, sin(t)))}
+	return geom.Vec{u-pi, v-pi, .1*pow(spow(texture(u, v, t), pow(10, sin(2*t)-1))/2+.5, pow(10, sin(3*t)))}
 }
 
 func index2radians(index float64, n int) float64 {
@@ -241,9 +241,9 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	angle := (t - pi)/pi*180
-	cameraLoc := cameraPath(t).By(geom.Vec{2.5, 2.5, 1.25}).Plus(geom.Vec{0,0,1.5})
-	focusPoint := focusPath(t).By(geom.Vec{2.5, 2.5, 1.25}).Plus(geom.Vec{0,0,-1.5})
+	angle := t/pi*45+45
+	cameraLoc := cameraPath(t).By(geom.Vec{2.25, 2.25, 1.5}).Plus(geom.Vec{0,0,1.6})
+	focusPoint := focusPath(t).By(geom.Vec{2.25, 2.25, 1.5}).Plus(geom.Vec{0,0,-1.6})
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()*cameraLoc.Z/(-focusPoint.Z)
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -260,13 +260,17 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxX := 0.0
 	maxY := 0.0
 	maxZ := 0.0
+	minU := 500
+	minV := 500
+	maxU := 0
+	maxV := 0
 	closestPoint := geom.Vec{0,0,0}
 	for uIndex := 1; uIndex <= 500; uIndex++ {
 		for vIndex := 1; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t)
-				if !c.invisible(vertex) {
+			if !c.invisible(vertex) {
 				//fmt.Println(vertex)
-					numTriangles++
+				numTriangles++
 				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t)
 				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t)
 				totalWidth += vertex.Minus(vertexLeft).Len()
@@ -276,12 +280,25 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				maxX = math.Max(maxX, math.Abs(vertex.X))
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
 				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
+				if (minU > uIndex) {
+					minU = uIndex
+				}
+				if (minV > vIndex) {
+					minV = vIndex
+				}
+				if (maxU < uIndex) {
+					maxU = uIndex
+				}
+				if (maxV < vIndex) {
+					maxV = vIndex
+				}
 				if (cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len()) {
 					closestPoint = vertex
 				}
 			}
 		}
 	}
+	fmt.Printf("\nminU: %v, maxU: %v, minV: %v, maxV: %v\n", minU, maxU, minV, maxV)
 	triangle := surface.NewTriangle(geom.Vec{-100, -100, 0}, geom.Vec{-100, 100, 0}, geom.Vec{100, 0, 0})
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	dir, _ := focusPoint.Minus(cameraLoc).Unit()
@@ -330,7 +347,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < nU; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))
+			envmapValue := .9*float32(pow(sin(v/2),10))+0.05*float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))+0.05*float32(1-pow(1-pow(texture(2*pi-u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(0.0) // float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
@@ -419,12 +436,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="1000"/>
+            <integer name="height" value="1000"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -444,7 +461,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
