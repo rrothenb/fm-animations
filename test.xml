@@ -7,26 +7,17 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="blendbsdf">
-            <texture type="bitmap" name="weight">
-                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-            </texture>
-            <bsdf type="twosided">
-                <bsdf type="conductor">
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/3.spd"/>
-                </bsdf>
-            </bsdf>
-            <bsdf type="twosided">
-                <bsdf type="conductor">
-                    <spectrum name="eta" filename="spd/27.spd"/>
-                    <spectrum name="k" filename="spd/10.spd"/>
-                </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughplastic">
+                <float name="alpha" value=".2"/>
+                <texture type="bitmap" name="diffuse_reflectance">
+                    <string name="filename" value="mitsuba.texture.rgbe"/>
+                </texture>
             </bsdf>
         </bsdf>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".1"/>
+                <float name="alpha" value=".05"/>
                 <spectrum name="eta" filename="spd/2.spd"/>
                 <spectrum name="k" filename="spd/3.spd"/>
             </bsdf>
