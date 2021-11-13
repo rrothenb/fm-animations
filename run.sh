@@ -5,6 +5,7 @@ mv data/$2.roughness.rgbe mitsuba.roughness.rgbe
 convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
 mv data/$2.blend.rgbe mitsuba.blend.rgbe
 convert mitsuba.blend.rgbe mitsuba.blend.jpg
+#cp mitsuba.blend.jpg $2.blend.jpg
 mv data/$2.rgbe mitsuba.rgbe
 #convert mitsuba.rgbe -rotate 180 mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg

@@ -9,7 +9,8 @@
         </texture>
         <bsdf type="twosided">
             <bsdf type="roughplastic">
-                <float name="alpha" value=".2"/>
+                <float name="alpha" value=".01"/>
+                <string name="int_ior" value="fused quartz"/>
                 <texture type="bitmap" name="diffuse_reflectance">
                     <string name="filename" value="mitsuba.texture.rgbe"/>
                 </texture>
@@ -17,9 +18,8 @@
         </bsdf>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".05"/>
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/3.spd"/>
+                <float name="alpha" value=".01"/>
+                <string name="material" value="Au"/>
             </bsdf>
         </bsdf>
     </bsdf>
