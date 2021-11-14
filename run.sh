@@ -1,8 +1,8 @@
 time go run series$1.go -frame $2 -desiredtriangles $3
 cat data/$2.header.ply data/$2.data.ply > mitsuba.ply
 rm data/$2.data.ply
-mv data/$2.roughness.rgbe mitsuba.roughness.rgbe
-convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
+#mv data/$2.roughness.rgbe mitsuba.roughness.rgbe
+#convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
 mv data/$2.blend.rgbe mitsuba.blend.rgbe
 convert mitsuba.blend.rgbe mitsuba.blend.jpg
 #cp mitsuba.blend.jpg $2.blend.jpg
