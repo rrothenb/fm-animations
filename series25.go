@@ -404,7 +404,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(nV) * pi
 			//envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
 			//envmapValue := float32(pow(0.5*(1-pow(sin(v/2),.5))+0.25*(1-pow(1-pow(texture(u, v, 0, t), 2), pow(1-v/pi, 3)*10))+0.25*(1-pow(1-pow(texture(2*pi-u, v, 0, t), 2), pow(1-v/pi, 3)*10)), .5))
-			envmapValue := .99*float32(pow(sin(v/2),10)) + .01*float32((1-pow(1-pow(texture(u, v, 0, t), 2), pow(1-v/pi, 3)*10)))
+			envmapValue := .98*float32(pow(sin(v/2),10)) + .01*float32((1-pow(1-pow(texture(u, v, 0, t), 2), pow(1-v/pi, 3)*10))) + .01*float32((1-pow(1-pow(texture(2*pi-u, v, 0, t), 2), pow(1-v/pi, 3)*10)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, layeredSphere))
 			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, layeredSphere))
@@ -420,20 +420,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			if vIndex != 0 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
 				numFaces++
-			}
-			if vIndex != nV-1 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				numFaces++
-			}
 		}
 	}
 
@@ -493,12 +489,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="3000"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
