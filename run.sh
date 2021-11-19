@@ -15,4 +15,4 @@ mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba test.xml
-convert test.exr -auto-gamma -brightness-contrast -1x20 $2.jpg
+convert test.exr -auto-gamma -brightness-contrast 10x20 $2.jpg
