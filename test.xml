@@ -7,12 +7,9 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="twosided">
-            <bsdf type="plastic">
-                <texture type="bitmap" name="diffuse_reflectance">
-                    <string name="filename" value="mitsuba.texture.rgbe"/>
-                </texture>
-            </bsdf>
+        <bsdf type="dielectric">
+            <string name="int_ior" value="bk7"/>
+            <string name="ext_ior" value="air"/>
         </bsdf>
         <bsdf type="blendbsdf">
             <texture type="bitmap" name="weight">
