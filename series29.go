@@ -39,7 +39,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .75
+	return sin(x)*.5 + .5
 }
 
 func subtexture2(u, v, t float64) float64 {
@@ -59,7 +59,7 @@ func metalBlend(u, v, t float64) float64 {
 }
 
 func blend(u, v, t float64) float64 {
-	return .5-spow(cos(v/2), sin(5*t)*.1+.3)/2
+	return .5-spow(cos(v/2+.1*strength(2*t)*sin(5*u+.1*strength(7*t)*sin(7*u))), sin(5*t)*.1+.3)/2
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -140,6 +140,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -210,11 +211,14 @@ func innerKnot(t float64) geom.Vec {
 	}
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t, 3, 5, 2)
+	// return circle(t).Scaled(6+3*sin(t)).Plus(geom.Vec{2, 2, 12})
+	// return torusKnot(t, 0, 13, 3, 4, circle)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.75+sin(5*t)}).Unit()
+	return loc.Scaled(10.5+3.5*spow(sin(7*t), .5))
 }
 
 func focusPath(t float64) geom.Vec {
-	return lissajous(t, 2, 3)
+	return geom.Vec{0, 0, .5}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -231,11 +235,11 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphere(u, v, t).By(geom.Vec{3, 3, .25})
+	loc := sphere(u, v, t).Scaled(3)
 	return loc.Plus(geom.Vec{
 		0,
 		0,
-		3*loc.Z*blend(u, v, t)*metalBlend(loc.X, loc.Y, t) + .5*loc.Z*(1-blend(u, v, t))*subtexture2(loc.X, loc.Y, t),
+		.1*loc.Z*(1-blend(u, v, t))*subtexture2(loc.X, loc.Y, t) - .5*loc.Z*blend(u, v, t)*metalBlend(loc.X, loc.Y, t),
 	})
 }
 
@@ -255,8 +259,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	angle := t/pi*45+45
-	cameraLoc := cameraPath(t).By(geom.Vec{3, 3, 2}).Plus(geom.Vec{0,0,1.75})
-	focusPoint := focusPath(t).By(geom.Vec{2, 2, 0}).Plus(geom.Vec{0,0,-.2})
+	cameraLoc := cameraPath(t)
+	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()*cameraLoc.Z/(-focusPoint.Z)
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -317,7 +321,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	_, distance = triangle.Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	//distance = cameraLoc.Minus(closestPoint).Len()
-	//distance = cameraLoc.Len()
+	distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -448,19 +452,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".00001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="16"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="600"/>
+            <integer name="height" value="600"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -480,7 +484,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

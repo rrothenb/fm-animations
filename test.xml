@@ -11,23 +11,13 @@
             <string name="int_ior" value="bk7"/>
             <string name="ext_ior" value="air"/>
         </bsdf>
-        <bsdf type="blendbsdf">
-            <texture type="bitmap" name="weight">
-                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-            </texture>
-            <bsdf type="twosided">
-                <bsdf type="conductor">
-                    <string name="material" value="Au"/>
-                </bsdf>
-            </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
                     <float name="alpha" value=".1"/>
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/12.spd"/>
+                    <spectrum name="eta" filename="spd/15.spd"/>
+                    <spectrum name="k" filename="spd/11.spd"/>
                 </bsdf>
             </bsdf>
-        </bsdf>
     </bsdf>
 
     <shape type="ply">
