@@ -155,7 +155,14 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Z > 0.0 {
 		return true
 	}
+	return false
 	if projectedPoint.Z < -s.position.Len() {
+		return true
+	}
+	if projectedPoint.X < projectedPoint.Z/2 || projectedPoint.X > -projectedPoint.Z/2 {
+		return true
+	}
+	if projectedPoint.Y < projectedPoint.Z/2 || projectedPoint.Y > -projectedPoint.Z/2 {
 		return true
 	}
 	return false
@@ -236,7 +243,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
+func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, row int) {
 	t := float64(frameNumber) * dt
 	cameraLoc := cameraPath(t).By(geom.Vec{2.5, 2.5, 1.25}).Plus(geom.Vec{0,0,1.5})
 	focusPoint := focusPath(t).By(geom.Vec{2.5, 2.5, 1.25}).Plus(geom.Vec{0,0,-1.5})
@@ -256,9 +263,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxX := 0.0
 	maxY := 0.0
 	maxZ := 0.0
+	minU := 500
+	minV := 500
+	maxU := 0
+	maxV := 0
 	closestPoint := geom.Vec{0,0,0}
-	for uIndex := 1; uIndex <= 500; uIndex++ {
-		for vIndex := 1; vIndex <= 500; vIndex++ {
+	for uIndex := 0; uIndex <= 500; uIndex++ {
+		for vIndex := 0; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t)
 			if !c.invisible(vertex) {
 				//fmt.Println(vertex)
@@ -272,12 +283,25 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				maxX = math.Max(maxX, math.Abs(vertex.X))
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
 				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
+				if (minU > uIndex) {
+					minU = uIndex
+				}
+				if (minV > vIndex) {
+					minV = vIndex
+				}
+				if (maxU < uIndex) {
+					maxU = uIndex
+				}
+				if (maxV < vIndex) {
+					maxV = vIndex
+				}
 				if (cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len()) {
 					closestPoint = vertex
 				}
 			}
 		}
 	}
+	fmt.Printf("\nminU: %v, maxU: %v, minV: %v, maxV: %v\n", minU, maxU, minV, maxV)
 	triangle := surface.NewTriangle(geom.Vec{-100, -100, 0}, geom.Vec{-100, 100, 0}, geom.Vec{100, 0, 0})
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	dir, _ := focusPoint.Minus(cameraLoc).Unit()
@@ -290,15 +314,19 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
+	startUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(minU))
+	endUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(maxU))
+	startVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(minV))
+	endVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(maxV))
 	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
 	vertexIndicies := make([][]int32, nU+1)
 	numVerticies := 0
 	plyDataPath := fmt.Sprintf("data/%v.data.ply", frameNumber)
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
-	for uIndex := 0; uIndex <= nU; uIndex++ {
+	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
-		for vIndex := 0; vIndex <= nV; vIndex++ {
+		for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)
 			if c.invisible(vertex) {
 				vertexIndicies[uIndex][vIndex] = -1
@@ -313,20 +341,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.X))
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Y))
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Z))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex), nU)/pi/2))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex), nV)/pi/2))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex-startUIndex), endUIndex-startUIndex)/pi/2))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex-startVIndex), endVIndex-startVIndex)/pi/2))
 		}
 	}
 	envmapArray := []float32{}
 	roughnessArray := []float32{}
 	blendArray := []float32{}
 	numFaces := 0
-	for vIndex := 0; vIndex < nV; vIndex++ {
-		for uIndex := 0; uIndex < nU; uIndex++ {
-			u := float64(uIndex) / float64(nU) * 2 * pi
-			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(blendTexture(u, v, t), 2), pow(1-v/pi, 2)*2)))
-			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
+	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
+		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
 			blendValue := 1 - float32(texture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
@@ -339,20 +363,24 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			if vIndex != 0 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
 				numFaces++
-			}
-			if vIndex != nV-1 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				numFaces++
-			}
+		}
+	}
+	for vIndex := 0; vIndex < 3000; vIndex++ {
+		for uIndex := 0; uIndex < 3000; uIndex++ {
+			u := float64(uIndex) / float64(3000) * 2 * pi
+			v := float64(vIndex) / float64(3000) * pi
+			envmapValue := float32((1-pow(1-pow(blendTexture(u, v, t), 2), pow(1-v/pi, 2)*2)))
+			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
 
@@ -384,17 +412,18 @@ end_header
 	mesh.NumFaces = numFaces
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
-	rgbe.Encode(envmap, nU, nV, envmapArray)
+	rgbe.Encode(envmap, 3000, 3000, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
-	rgbe.Encode(roughness, nU, nV, roughnessArray)
+	rgbe.Encode(roughness, endUIndex-startUIndex, endVIndex-startVIndex, roughnessArray)
 	blend, _ := os.Create(blendPath)
-	rgbe.Encode(blend, nU, nV, blendArray)
+	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
+		Offset int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -412,18 +441,28 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="8250"/>
+            <integer name="height" value="7050"/>
+            <integer name="crop_offset_y" value="{{ .Offset }}"/>
+            <integer name="crop_height" value="705"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, row*705})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
+	row := flag.Int("row", 0, "Specify row")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
 	maxFrames := flag.Int("maxframes", 720, "Max frames")
@@ -431,5 +470,5 @@ func main() {
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
-	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles)
+	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles, *row)
 }

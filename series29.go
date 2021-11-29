@@ -459,12 +459,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="600"/>
-            <integer name="height" value="600"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
