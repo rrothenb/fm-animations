@@ -239,7 +239,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
+func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, row int) {
 	t := float64(frameNumber) * dt
 	angle := t/pi*45+45
 	cameraLoc := cameraPath(t).By(geom.Vec{2.25, 2.25, 1.5}).Plus(geom.Vec{0,0,1.6})
@@ -381,10 +381,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			}
 		}
 	}
-	for vIndex := 0; vIndex < 1000; vIndex++ {
-		for uIndex := 0; uIndex < 1000; uIndex++ {
-			u := float64(uIndex) / float64(1000) * 2 * pi
-			v := float64(vIndex) / float64(1000) * pi
+	for vIndex := 0; vIndex < 3000; vIndex++ {
+		for uIndex := 0; uIndex < 3000; uIndex++ {
+			u := float64(uIndex) / float64(3000) * 2 * pi
+			v := float64(vIndex) / float64(3000) * pi
 			envmapValue := 0.9*float32(1-pow(sin(v/2),.5))+0.05*float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))+0.05*float32(1-pow(1-pow(texture(2*pi-u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -419,7 +419,7 @@ end_header
 	mesh.NumFaces = numFaces
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
-	rgbe.Encode(envmap, 1000, 1000, envmapArray)
+	rgbe.Encode(envmap, 3000, 3000, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
 	rgbe.Encode(roughness, endUIndex-startUIndex, endVIndex-startVIndex, roughnessArray)
 	blend, _ := os.Create(blendPath)
@@ -432,6 +432,7 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
+		Offset int
 		Angle float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
@@ -450,8 +451,10 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="8250"/>
+            <integer name="height" value="7050"/>
+            <integer name="crop_offset_y" value="{{ .Offset }}"/>
+            <integer name="crop_height" value="705"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -464,11 +467,12 @@ end_header
     </emitter>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, angle})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance,row*705, angle })
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
+	row := flag.Int("row", 0, "Specify row")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
 	maxFrames := flag.Int("maxframes", 720, "Max frames")
@@ -476,5 +480,5 @@ func main() {
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
-	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles)
+	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles, *row)
 }
