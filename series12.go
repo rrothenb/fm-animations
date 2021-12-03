@@ -247,10 +247,10 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
+func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, row int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := circle(t).Scaled(.25).Plus(geom.Vec{0, .025, 0})
-	focusPoint := geom.Vec{0, 0, cos(t)}.Scaled(.006/cameraLoc.Len())
+	cameraLoc := circle(t).Scaled(.25)
+	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len() - .23
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -268,8 +268,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxY := 0.0
 	maxZ := 0.0
 	closestPoint := geom.Vec{0,0,0}
-	for uIndex := 1; uIndex <= 500; uIndex++ {
-		for vIndex := 1; vIndex <= 500; vIndex++ {
+	for uIndex := 0; uIndex <= 500; uIndex++ {
+		for vIndex := 0; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
 			if !c.invisible(vertex) {
 				//fmt.Println(vertex)
@@ -411,45 +411,54 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
+		Offset int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="13500"/>
-            <integer name="height" value="9000"/>
-            <integer name="crop_offset_x" value="0"/>
-            <integer name="crop_offset_y" value="0"/>
-            <integer name="crop_width" value="9000"/>
-            <integer name="crop_height" value="9000"/>            <string name="pixel_format" value="rgb"/>
+            <integer name="width" value="10500"/>
+            <integer name="height" value="7050"/>
+            <integer name="crop_offset_x" value="2250"/>
+            <integer name="crop_offset_y" value="{{ .Offset }}"/>
+            <integer name="crop_width" value="8250"/>
+            <integer name="crop_height" value="705"/>            
             <rfilter type="gaussian"/>
         </film>
     </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance,row*705 })
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
+	row := flag.Int("row", 0, "Specify row")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
-	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles)
+	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles, *row)
 }

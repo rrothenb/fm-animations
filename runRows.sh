@@ -17,5 +17,5 @@ do
   convert mitsuba.texture.rgbe mitsuba.texture.jpg
   #exit
   time mitsuba test.xml
-  convert test.exr -brightness-contrast 10x20 $2.$row.jpg
+  convert test.exr -brightness-contrast 30x30 $2.$row.jpg
 done
