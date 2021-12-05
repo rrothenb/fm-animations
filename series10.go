@@ -212,7 +212,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
+func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, row int) {
 	t := float64(frameNumber) * dt
 	cameraLoc := torusKnot(t, 1, .25, 3, 2, circle).Scaled(.4)
 	focusPoint := geom.Vec{0, 0, 0}
@@ -266,6 +266,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
+	fmt.Println(nU, nV)
+	for nV > 30000 {
+		ratio = ratio*10
+		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
+		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
+	}
 	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
 	vertexIndicies := make([][]int32, nU+1)
 	numVerticies := 0
@@ -373,36 +379,48 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
+		Offset int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".01"/>
+        <float name="aperture_radius" value=".00001"/>
         <float name="fov" value="25"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3750"/>
-            <integer name="height" value="2500"/>
-            <string name="pixel_format" value="rgb"/>
+            <integer name="width" value="12750"/>
+            <integer name="height" value="7050"/>
+            <integer name="crop_offset_y" value="{{ .Offset }}"/>
+            <integer name="crop_height" value="705"/>
+            <integer name="crop_offset_x" value="4500"/>
+            <integer name="crop_width" value="8250"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="10"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, row*705})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
+	row := flag.Int("row", 0, "Specify row")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
 	maxFrames := flag.Int("maxframes", 720, "Max frames")
@@ -410,5 +428,5 @@ func main() {
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
-	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles)
+	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles, *row)
 }
