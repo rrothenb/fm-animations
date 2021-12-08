@@ -7,17 +7,18 @@
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="thindielectric">
-            <string name="int_ior" value="vacuum"/>
-            <string name="ext_ior" value="vacuum"/>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".5"/>
+                <spectrum name="eta" filename="spd/27.spd"/>
+                <spectrum name="k" filename="spd/10.spd"/>
+            </bsdf>
         </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
-                    <texture type="bitmap" name="alpha">
-                        <string name="filename" value="mitsuba.roughness.rgbe"/>
-                    </texture>
+                    <float name="alpha" value=".05"/>
                     <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/12.spd"/>
+                    <spectrum name="k" filename="spd/3.spd"/>
                 </bsdf>
             </bsdf>
         </bsdf>

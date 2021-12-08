@@ -11,8 +11,8 @@ import (
 
 	"github.com/Opioid/rgbe"
 	"github.com/hunterloftis/pbr/pkg/geom"
-	"github.com/hunterloftis/pbr/pkg/surface"
-	"github.com/hunterloftis/pbr/pkg/material"
+	// "github.com/hunterloftis/pbr/pkg/surface"
+	// "github.com/hunterloftis/pbr/pkg/material"
 )
 
 type MeshType struct {
@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.4 + 1.5
+	return sin(x)*.75 + 1.25
 }
 
 func subtexture2(x, y, z, t float64) float64 {
@@ -66,7 +66,17 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func visibility(u, v, t float64) float64 {
-	return 1.0
+	loc := uv2xyz(u, v, t, radius).Scaled(2*pi)
+	return 1-pow(
+		sin(loc.X+strength(t)*sin(loc.X+loc.Y))*
+			sin(loc.Y+strength(t+.1)*sin(loc.Y-loc.Z))*
+			sin(loc.Z+strength(t+.2)*sin(loc.Z))*
+			sin(loc.X+loc.Y+strength(t+.3)*sin(loc.X+loc.Y-loc.Z))*
+			sin(loc.X-loc.Y+strength(t+.4)*sin(loc.X-loc.Y))*
+			sin(loc.X+loc.Z+strength(t+.5)*sin(loc.X+loc.Z-loc.Y))*
+			sin(loc.X-loc.Z+strength(t+.6)*sin(loc.X-loc.Z))*
+			sin(loc.Y+loc.Z+strength(t+.7)*sin(loc.Y+loc.Z-loc.X))*
+			sin(loc.Y-loc.Z+strength(t+.8)*sin(loc.Y-loc.Z-loc.X)),2)
 }
 
 func texture(x, y, z, t float64) float64 {
@@ -161,10 +171,13 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	if s.position.Minus(point).Len() < .01 {
+		return false
+	}
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .55
+	factor := .3
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -220,11 +233,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return torusKnot(t, 1, sin(5*t)*.15+.55, 3, 4, circle)
+	return circle(t).Scaled(1+cos(t)*.05)
 }
 
 func focusPath(t float64) geom.Vec {
-	return circle(4*t).Plus(unitLissajousKnot(t, 3, 4, 5).Scaled(.2 - sin(5*t)*.1))
+	return cameraPath(t+.5+cos(t)*.25)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -249,8 +262,8 @@ func displacement(u, v, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := pathWrapper(u, v, .1, innerKnot)
-	return loc.Plus(displacement(u, v, t))
+	loc := pathWrapper(u, v, .1, circle)
+	return loc.Scaled(radius(loc.X, loc.Y, loc.Z, t))
 }
 
 func index2radians(index float64, n int) float64 {
@@ -268,10 +281,12 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	envSize := 5000
+	visibilityThreshold := .995
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	distance := cameraLoc.Minus(focusPoint).Len() - .23
+	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -291,7 +306,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for vIndex := 1; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
 			visibility := visibility(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t)
-			if !c.invisible(vertex) && visibility > .9 {
+			if !c.invisible(vertex) && visibility > visibilityThreshold {
 				//fmt.Println(vertex)
 				numTriangles++
 				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
@@ -310,8 +325,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		}
 	}
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
-	dir, _ := focusPoint.Minus(cameraLoc).Unit()
-	_, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
+	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
+	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
@@ -331,7 +346,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for vIndex := 0; vIndex <= nV; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
 			visibility := visibility(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)
-			if c.invisible(vertex) || visibility < .9 {
+			if c.invisible(vertex) || visibility < visibilityThreshold {
 				vertexIndicies[uIndex][vIndex] = -1
 				continue
 			}
@@ -357,8 +372,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < nU; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow(1-v/pi, 2)*2)))
-			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
 			// blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
 			blendValue := float32(spow((sin(2*u+1000*v+strength(3*t)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t)*sin(u-1101*v)))/2, .1))/2+.5
@@ -384,6 +397,14 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
 			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 			numFaces++
+		}
+	}
+	for vIndex := 0; vIndex < envSize; vIndex++ {
+		for uIndex := 0; uIndex < envSize; uIndex++ {
+			u := float64(uIndex) / float64(envSize) * 2 * pi
+			v := float64(vIndex) / float64(envSize) * pi
+			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow((1-v/pi)*(1-pow(u/pi-1, 2)), 6)*2)))
+			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
 
@@ -416,7 +437,7 @@ end_header
 	mesh.NumFaces = numFaces
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
-	rgbe.Encode(envmap, nU, nV, envmapArray)
+	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
 	rgbe.Encode(roughness, nU, nV, roughnessArray)
 	blend, _ := os.Create(blendPath)
@@ -434,9 +455,9 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="focus_distance" value=".05"/>
         <float name="aperture_radius" value=".00001"/>
-        <float name="fov" value="75"/>
+        <float name="fov" value="25"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -448,10 +469,16 @@ end_header
         <film type="hdrfilm" id="film">
             <integer name="width" value="3750"/>
             <integer name="height" value="2500"/>
-            <string name="pixel_format" value="rgb"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="10"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 </scene>
 `)
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
