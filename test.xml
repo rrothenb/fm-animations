@@ -1,6 +1,4 @@
 <scene version="2.0.0">
-    <integrator type="path" />
-
     <include filename="sensor.xml"/>
 
     <bsdf type="blendbsdf" id="object_bsdf">

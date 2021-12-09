@@ -281,7 +281,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 5000
+	envSize := 1000
 	visibilityThreshold := .995
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
@@ -450,6 +450,7 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
+		FogRadius float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -469,7 +470,7 @@ end_header
         <film type="hdrfilm" id="film">
             <integer name="width" value="3750"/>
             <integer name="height" value="2500"/>
-            <rfilter type="gaussian"/>
+            <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -479,16 +480,31 @@ end_header
             <rotate value="1, 0, 0" angle="45"/>
         </transform>
     </emitter>
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="16"/>
+        </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="5"/>
+        <rgb name="sigma_t" value="1, 1, 1"/>
+        <rgb name="albedo" value="0.99, 0.7, 0.7"/>
+        <phase type="isotropic" />
+    </medium>
+<shape type="sphere">
+    <point name="center" value="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}"/>
+    <float name="radius" value="{{ .FogRadius }}"/>
+    <bsdf type="null"/>
+        <ref id="medium1" name="interior"/>
+</shape>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len()})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
