@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)/4+.25
+	return sin(x)*.75+1.25
 }
 
 func texture(x, y, z, t float64) float64 {
@@ -55,7 +55,7 @@ func texture(x, y, z, t float64) float64 {
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .1*strength(3*t)*pow(pow(texture(x, y, z, t), 2), sin(7*t)*.99+1)
+	return 1.0 + .1*strength(1*t)*pow(pow(texture(x, y, z, t), 2), sin(1*t)*.5+1)
 }
 
 func blendTexture(x, y, z, t float64) float64 {
@@ -184,9 +184,9 @@ func sphere(u, v, t float64) geom.Vec {
 
 func foldedSphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0) * cos(u) * (1.25 - pow(cos(5*v/2.0), 2)),
-		sin(v/2.0) * sin(u) * (1.25 - pow(cos(5*v/2.0), 2)),
-		cos(5*v/2.0),
+		sin(v/2.0) * cos(u) * (1.25 - pow(cos(7*v/2.0), 2)),
+		sin(v/2.0) * sin(u) * (1.25 - pow(cos(7*v/2.0), 2)),
+		cos(7*v/2.0),
 	}
 }
 
@@ -216,7 +216,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Plus(geom.Vec{0,0,1.25}).Scaled(3.5)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.75+1*sin(2*t)}).Unit()
+	return loc.Scaled(4.5+1.75*spow(sin(3*t), .5))
 }
 
 func focusPath(t float64) geom.Vec {
@@ -343,9 +344,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := 0; vIndex < nV; vIndex++ {
 		for uIndex := 0; uIndex < nU; uIndex++ {
-			u := float64(uIndex) / float64(nU) * 2 * pi
+			// u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
+			envmapValue := float32(pow(cos(v/2),7+3*sin(t))) // float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, foldedSphere))
 			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, foldedSphere))
@@ -417,38 +418,57 @@ end_header
 		LookAt geom.Vec
 		Distance float64
 		Angle float64
+		G float64
+		Scale float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
-        <float name="fov" value="30"/>
+        <float name="aperture_radius" value=".000001"/>
+        <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2880"/>
-            <integer name="height" value="2700"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="2400"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="10"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="16"/>
+        </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="{{ .Scale }}"/>
+        <rgb name="sigma_t" value="1, .7, .4"/>
+        <rgb name="albedo" value="0, 0.3, 0.6"/>
+        <phase type="hg">
+			<float name="g" value="{{ .G }}"/>
+		</phase>
+    </medium>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, 0})
+	sensorTemplate.Execute(sensorFile,sensor{
+		cameraLoc,
+		focusPoint,
+		distance,
+		90,
+		sin(2*t)*.5,
+		sin(3*t)*25+35})
 }
 
 func main() {
