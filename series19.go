@@ -433,7 +433,7 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="4"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
