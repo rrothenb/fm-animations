@@ -226,7 +226,7 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0, 0, sin(3*t)}).Unit()
-	return loc.Scaled(13)
+	return loc.Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -278,7 +278,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 2000
+	envSize := 5000
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := geom.Vec{0,0,0} // focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -463,13 +463,15 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="600"/>
-            <integer name="height" value="500"/>
-            <rfilter type="box"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="2400"/>
+			<integer name="crop_offset_y" value="150"/>
+			<integer name="crop_height" value="2000"/>
+			<rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
