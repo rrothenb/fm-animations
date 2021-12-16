@@ -39,7 +39,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.5 + .5
+	return sin(x) + 1.5
 }
 
 func subtexture2(u, v, t float64) float64 {
@@ -59,7 +59,11 @@ func metalBlend(u, v, t float64) float64 {
 }
 
 func blend(u, v, t float64) float64 {
-	return .5-spow(cos(v/2+.1*strength(2*t)*sin(5*u+.1*strength(7*t)*sin(7*u))), sin(5*t)*.1+.3)/2
+	return spow(texture(u, v, t), sin(3*t)*.4+.5)/2+.5
+}
+
+func radius(u, v, t float64) float64 {
+	return 1.0 - .75*pow(texture(u, v, t)/2+.5, 8+2*sin(2*t))
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -140,7 +144,6 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -214,11 +217,11 @@ func cameraPath(t float64) geom.Vec {
 	// return circle(t).Scaled(6+3*sin(t)).Plus(geom.Vec{2, 2, 12})
 	// return torusKnot(t, 0, 13, 3, 4, circle)
 	loc, _ := circle(t).Plus(geom.Vec{0,0,.75+sin(5*t)}).Unit()
-	return loc.Scaled(10.5+3.5*spow(sin(7*t), .5))
+	return loc.Scaled(3.5+spow(sin(7*t), .25))
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, .5}
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -235,12 +238,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphere(u, v, t).Scaled(3)
-	return loc.Plus(geom.Vec{
-		0,
-		0,
-		.1*loc.Z*(1-blend(u, v, t))*subtexture2(loc.X, loc.Y, t) - .5*loc.Z*blend(u, v, t)*metalBlend(loc.X, loc.Y, t),
-	})
+	return sphere(u, v, t).Scaled(radius(u, v, t))
 }
 
 func index2radians(index float64, n int) float64 {
@@ -258,6 +256,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	envSize := 1500
 	angle := t/pi*45+45
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
@@ -328,6 +327,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
+	for nV > 15000 {
+		ratio = ratio*10
+		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
+		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
+	}
 	startUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(minU))
 	endUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(maxU))
 	startVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(minV))
@@ -394,10 +398,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				numFaces++
 		}
 	}
-	for vIndex := 0; vIndex < 1000; vIndex++ {
-		for uIndex := 0; uIndex < 1000; uIndex++ {
-			u := float64(uIndex) / float64(1000) * 2 * pi
-			v := float64(vIndex) / float64(1000) * pi
+	for vIndex := 0; vIndex < envSize; vIndex++ {
+		for uIndex := 0; uIndex < envSize; uIndex++ {
+			u := float64(uIndex) / float64(envSize) * 2 * pi
+			v := float64(vIndex) / float64(envSize) * pi
 			envmapValue := 0.9*float32(1-pow(sin(v/2),.5))+0.05*float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))+0.05*float32(1-pow(1-pow(texture(2*pi-u, v, t), 2), pow(1-v/pi, 3)*10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -432,7 +436,7 @@ end_header
 	mesh.NumFaces = numFaces
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
-	rgbe.Encode(envmap, 1000, 1000, envmapArray)
+	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
 	rgbe.Encode(roughness, endUIndex-startUIndex, endVIndex-startVIndex, roughnessArray)
 	blend, _ := os.Create(blendPath)
@@ -446,6 +450,7 @@ end_header
 		LookAt geom.Vec
 		Distance float64
 		Angle float64
+		Scale float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -459,12 +464,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="4"/>
+            <integer name="sample_count" value="16"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -475,9 +480,39 @@ end_header
             <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
+    <integrator type="volpathmis">
+        <integer name="max_depth" value="16"/>
+    </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="{{ .Scale }}"/>
+        <rgb name="sigma_t" value="1, .7, .4"/>
+        <rgb name="albedo" value="0, 0.3, 0.6"/>
+        <phase type="isotropic" />
+    </medium>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="dielectric"/>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".01"/>
+                <string name="material" value="Au"/>
+            </bsdf>
+        </bsdf>
+    </bsdf>
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="medium1" name="interior"/>
+        <ref id="object_bsdf"/>
+    </shape>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, angle})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, angle, pow(10, sin(5*t)+2)})
 }
 
 func main() {
