@@ -63,7 +63,7 @@ func blend(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .75*pow(texture(u, v, t)/2+.5, 8+2*sin(2*t))
+	return 1.0 - .01*pow(texture(u, v, t)/2+.5, 10+5*sin(2*t))
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -184,6 +184,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func sphere2(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+.25*sin(2*t)*sin(v+.25*sin(5*t)*sin(v))+.25*sin(11*t)*sin(2*v)) * cos(u),
+		sin(v/2.0+.25*sin(2*t)*sin(v+.25*sin(5*t)*sin(v))+.25*sin(11*t)*sin(2*v)) * sin(u),
+		cos(v/2.0+.25*sin(3*t)*sin(v+.25*sin(7*t)*sin(v))+.25*sin(13*t)*sin(2*v)),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -217,7 +225,7 @@ func cameraPath(t float64) geom.Vec {
 	// return circle(t).Scaled(6+3*sin(t)).Plus(geom.Vec{2, 2, 12})
 	// return torusKnot(t, 0, 13, 3, 4, circle)
 	loc, _ := circle(t).Plus(geom.Vec{0,0,.75+sin(5*t)}).Unit()
-	return loc.Scaled(3.5+spow(sin(7*t), .25))
+	return loc.Scaled(3.75 + 1.5*spow(cos(15*t), .1))
 }
 
 func focusPath(t float64) geom.Vec {
@@ -238,7 +246,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	return sphere(u, v, t).Scaled(radius(u, v, t))
+	return sphere2(u, v, t).Scaled(radius(u, v, t))
 }
 
 func index2radians(index float64, n int) float64 {
@@ -256,7 +264,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 5000
+	envSize := 500
 	angle := t/pi*45+45
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
@@ -319,8 +327,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	_, distance = triangle.Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	//distance = cameraLoc.Minus(closestPoint).Len()
-	distance = cameraLoc.Len()
+	distance = cameraLoc.Minus(closestPoint).Len()
+	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -402,7 +410,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := 0.9*float32(1-pow(sin(v/2),.5))+0.05*float32(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))+0.05*float32(1-pow(1-pow(texture(2*pi-u, v, t), 2), pow(1-v/pi, 3)*10))
+			envmapValue := 0.6*float32(1-pow(sin(v/2),.25))+0.2*float32(1-pow(1-pow(texture(u, v, t), 4), pow(1-v/pi, 5)*20))+0.2*float32(1-pow(1-pow(texture(2*pi-u, v, t), 4), pow(1-v/pi, 5)*20))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -457,19 +465,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".00001"/>
+        <float name="aperture_radius" value=".0001"/>
         <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="16"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2800"/>
-            <integer name="height" value="2800"/>
+            <integer name="width" value="1200"/>
+            <integer name="height" value="1200"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -485,8 +493,8 @@ end_header
     </integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="1, .7, .4"/>
-        <rgb name="albedo" value="0, 0.3, 0.6"/>
+        <rgb name="sigma_t" value=".005, .5, .005"/>
+        <rgb name="albedo" value="0.6, 0, 0.9"/>
         <phase type="isotropic" />
     </medium>
     <bsdf type="blendbsdf" id="object_bsdf">
@@ -497,7 +505,7 @@ end_header
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <float name="alpha" value=".01"/>
-                <string name="material" value="Au"/>
+                <string name="material" value="Ag"/>
             </bsdf>
         </bsdf>
     </bsdf>
