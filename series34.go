@@ -63,7 +63,7 @@ func blend(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .01*pow(texture(u, v, t)/2+.5, 10+5*sin(2*t))
+	return 1.0 // - .01*pow(texture(u, v, t)/2+.5, 10+5*sin(2*t))
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -476,8 +476,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1200"/>
-            <integer name="height" value="1200"/>
+            <integer name="width" value="600"/>
+            <integer name="height" value="600"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
