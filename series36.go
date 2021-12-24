@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + 1.25
+	return pow(2, sin(x)*2)
 }
 
 func subtexture2(x, y, z, t float64) float64 {
@@ -144,10 +144,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	if s.position.Minus(point).Len() < .125 {
-		return false
-	}
-	return true
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -207,11 +204,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,sin(t)}).Unit()
+	return loc.Scaled(3.75)
 }
 
 func focusPath(t float64) geom.Vec {
-	return cameraPath(t+1.35+.75*cos(t))
+	return geom.Vec{0,0,0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -232,8 +230,8 @@ func shape(u, v, t float64) geom.Vec {
 }
 
 func shapeTexture(u, v, t float64) float64 {
-	loc := shape(u, v, t).Scaled(5)
-	loc2 := shape(
+	loc := sphere(u, v, t).Scaled(5)
+	loc2 := sphere(
 		u+strength(2*t)*sin(loc.X+loc.Y),
 		v+strength(3*t)*sin(loc.Z-loc.X+strength(5*t)*sin(loc.Z+loc.Y)),
 		t).Scaled(5)
@@ -242,7 +240,7 @@ func shapeTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := shape(u, v, t)
+	loc := sphere(u, v, t)
 	return loc.Scaled(radius(u, v, t))
 }
 
@@ -261,7 +259,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 1000
+	envSize := 2500
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -378,9 +376,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	}
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
-			//u := float64(uIndex) / float64(envSize) * 2 * pi
-			//v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(1) // float32((1-pow(1-pow(uvTexture(u, v, t, blendTexture, sphere), 2), pow((1-v/pi)*(1-pow(u/pi-1, 2)), 6)*2)))
+			u := float64(uIndex) / float64(envSize) * 2 * pi
+			v := float64(vIndex) / float64(envSize) * pi
+			envmapValue := float32(pow(shapeTexture(u, v, t)/2+.5, .25))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -441,12 +439,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="720"/>
             <rfilter type="box"/>
         </film>
     </sensor>
