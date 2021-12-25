@@ -11,8 +11,8 @@ mv data/$2.rgbe mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
 mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
 convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
-mv data/$2.texture.rgbe mitsuba.texture.rgbe
-convert mitsuba.texture.rgbe mitsuba.texture.jpg
+#mv data/$2.texture.rgbe mitsuba.texture.rgbe
+#convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba test.xml
 convert test.exr -normalize $2.jpg
