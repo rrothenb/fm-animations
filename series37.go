@@ -239,7 +239,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 2500
+	envSize := 5000
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -414,12 +414,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="600"/>
-            <integer name="height" value="600"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="box"/>
         </film>
     </sensor>
