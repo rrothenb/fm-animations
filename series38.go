@@ -40,11 +40,11 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return spow(sin(x), .5)*2
+	return sin(x)*.25
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .05*strength(2*t+.1)*spow(shapeTexture(u, v, t), pow(10, sin(3*t)))
+	return 1.0 - .05*spow(shapeTexture(u, v, t), pow(2, sin(3*t)*2))
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -176,20 +176,20 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, circle)
+	return torusKnot(t, 1, .5, 3, 2, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 2, outerKnot)
+	return torusKnot(t, 1, .4, 2, 3, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,1.5*sin(3*t)}).Unit()
-	return loc.Scaled(2+sin(5*t)*.5)
+	return loc.Scaled(2.5 + sin(3*t))
 }
 
 func focusPath(t float64) geom.Vec {
-	return unitLissajousKnot(t, 2, 3, 5).Scaled((1.5-sin(t))/3)
+	return outerKnot(t)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -206,21 +206,21 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .25, circle)
+	return pathWrapper(u, v, .15, innerKnot)
 }
 
 func shapeTexture(u, v, t float64) float64 {
-	loc := sphere(u, v, t).Scaled(5)
-	loc2 := sphere(
-		u+strength(7*t+.1)*sin(loc.X+loc.Y),
-		v+strength(11*t+.2)*sin(loc.Z-loc.X+strength(13*t+.3)*sin(loc.Z+loc.Y)),
-		t).Scaled(5)
+	loc := shape(u, v, t).Scaled(2*pi)
+	loc2 := shape(
+		u+strength(2*t+.1)*sin(loc.X+loc.Y),
+		v+strength(3*t+.2)*sin(loc.Z-loc.X+strength(5*t+.3)*sin(loc.Z+loc.Y)),
+		t).Scaled(2*pi)
 	return sin(
-		strength(17*t+.4)*sin(loc.X + loc2.Y + strength(19*t+.5)*sin(loc2.Z-loc.Y+strength(23*t+.6)*sin(loc.Z+loc2.X))))
+		strength(2*t+.4)*sin(loc.X + loc2.Y + strength(3*t+.5)*sin(loc2.Z-loc.Y+strength(5*t+.6)*sin(loc.Z+loc2.X))))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
+	loc := shape(u, v, t)
 	return loc.Scaled(radius(u, v, t))
 }
 
@@ -355,7 +355,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), .5)*pow(spow(shapeTexture(u, v, t), .25)/2+.5, .25))
+			envmapValue := float32(pow(sin(v), .5)*pow(spow(shapeTexture(u, v, t), .25)/2+.5, .25))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -407,7 +407,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -418,8 +418,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="5000"/>
-            <integer name="height" value="5000"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -432,24 +432,11 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-        </texture>
-         <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/5.spd"/>
-            </bsdf>
-        </bsdf>
-       <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".5"/>
+       <bsdf type="twosided" id="object_bsdf">
+            <bsdf type="conductor">
                 <string name="material" value="Ag"/>
             </bsdf>
         </bsdf>
-    </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <ref id="object_bsdf"/>
