@@ -15,4 +15,4 @@ convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 #convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba test.xml
-convert test.exr -normalize $2.jpg
+convert test.exr -normalize -brightness-contrast 20x30 $2.jpg
