@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return pow(2.5, sin(x)+1)
+	return pow(2, sin(x)+1)
 }
 
 func strength2(x float64) float64 {
@@ -67,7 +67,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .05*strength2(37*t)*shapeTexture(u, v, t)
+	return 1.0 + .005*strength2(7*t)*shapeTexture(u, v, t)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -148,6 +148,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -174,10 +175,13 @@ func circle(x float64) geom.Vec {
 }
 
 func sphere(u, v, t float64) geom.Vec {
+	thickness := .05
+	r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
+	w := 1-sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
 	return geom.Vec{
-		sin(v/2.0) * cos(u+.1*strength(2*t+.5)*sin(u+.5*strength(5*t+.6)*sin(4*v))),
-		sin(v/2.0) * sin(u+.1*strength(2*t+.7)*sin(u+.5*strength(5*t+.8)*sin(4*v))),
-		cos(v/2.0+.1*strength(3*t+.9)*sin(3*v+.5*strength(7*t+1.0)*sin(5*u))),
+		sin(u+(sin(7*t)*.15+.15)*sin(2*u))*sin(v/2) * w * r,
+		cos(u-(sin(7*t)*.15+.15)*cos(2*u))*sin(v/2) * w * r,
+		-cos(v-(.5+sin(2*t)*.4)*sin(2*v)) * r,
 	}
 }
 
@@ -207,13 +211,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
-	return loc.Scaled(2.25+sin(3*t)*.5)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,1+sin(2*t)}).Unit()
+	return loc.Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
-	loc, _ := circle(5*t).Plus(geom.Vec{0,0,2*sin(7*t)}).Unit()
-	return loc.Scaled(.75)
+	return geom.Vec{0,0,0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -236,11 +239,11 @@ func shape(u, v, t float64) geom.Vec {
 func shapeTexture(u, v, t float64) float64 {
 	loc := sphere(u, v, t).Scaled(5)
 	loc2 := sphere(
-		u+.5*strength(2*t+1.1)*sin(loc.X+loc.Y),
-		v+.5*strength(3*t+1.2)*sin(loc.Z-loc.X+.5*strength(5*t+1.3)*sin(loc.Z+loc.Y)),
+		u+.4*strength(2*t+1.1)*sin(loc.X+loc.Y),
+		v+.4*strength(3*t+1.2)*sin(loc.Z-loc.X+.4*strength(5*t+1.3)*sin(loc.Z+loc.Y)),
 		t).Scaled(5)
 	return sin(
-		.5*strength(7*t+1.4)*sin(loc.X + loc2.Y + .5*strength(11*t+1.5)*sin(loc2.Z-loc.Y+.5*strength(13*t+1.6)*sin(loc.Z+loc2.X))))
+		.4*strength(7*t+1.4)*sin(loc.X + loc2.Y + .4*strength(11*t+1.5)*sin(loc2.Z-loc.Y+.4*strength(13*t+1.6)*sin(loc.Z+loc2.X))))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -263,7 +266,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 10000
+	envSize := 2500
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -403,11 +406,22 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			numFaces++
 		}
 	}
+	maxEnvmapValue := float32(0.0)
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 2)*pow(spow(shapeTexture(u, v, t), .25)/2+.5, .25))
+			envmapValue := float32(pow(sin(u/2)*sin(v), 14)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
+			if envmapValue > maxEnvmapValue {
+				maxEnvmapValue = envmapValue
+			}
+		}
+	}
+	for vIndex := 0; vIndex < envSize; vIndex++ {
+		for uIndex := 0; uIndex < envSize; uIndex++ {
+			u := float64(uIndex) / float64(envSize) * 2 * pi
+			v := float64(vIndex) / float64(envSize) * pi
+			envmapValue := float32(pow(sin(u/2)*sin(v), 14)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -463,18 +477,18 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="35"/>
+        <float name="fov" value="45"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="600"/>
+            <integer name="height" value="600"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -482,8 +496,7 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="-45"/>
-            <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
+            <rotate value="0, 1, 0" angle="90"/>
         </transform>
     </emitter>
     <integrator type="path" />
@@ -493,14 +506,12 @@ end_header
         </texture>
          <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
+                <float name="alpha" value=".05"/>
                 <string name="material" value="CuO"/>
             </bsdf>
         </bsdf>
        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".5"/>
-                <string name="material" value="Ag"/>
+            <bsdf type="plastic">
             </bsdf>
         </bsdf>
     </bsdf>
@@ -512,12 +523,15 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
+	<shape type="rectangle">
+        <transform name="to_world">
+            <scale value=".1"/>
+            <translate x="0" y="0" z="-.075"/>
+        </transform>
+	</shape>
 </scene>
 `)
-	angle := -t/pi*180
-	if angle < -180  {
-		angle = angle + 360
-	}
+	angle := 45-t/pi*180
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle})
 }
 
@@ -525,7 +539,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 500, "Max frames")
+	maxFrames := flag.Int("maxframes", 16, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
