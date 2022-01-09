@@ -411,7 +411,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 14)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
+			envmapValue := float32(pow(sin(u/2)*sin(v), 8)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
 			if envmapValue > maxEnvmapValue {
 				maxEnvmapValue = envmapValue
 			}
@@ -421,7 +421,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 14)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
+			envmapValue := float32(pow(sin(u/2)*sin(v), 8)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -487,8 +487,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="600"/>
-            <integer name="height" value="600"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="720"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -496,7 +496,8 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="0, 1, 0" angle="90"/>
+            <rotate value="1, 0, 0" angle="30"/>
+            <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
     <integrator type="path" />
@@ -531,7 +532,7 @@ end_header
 	</shape>
 </scene>
 `)
-	angle := 45-t/pi*180
+	angle := -t/pi*180
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle})
 }
 
@@ -539,7 +540,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 1440, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
