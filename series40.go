@@ -67,7 +67,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .005*strength2(7*t)*shapeTexture(u, v, t)
+	return 1.0 + .1*strength2(7*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(2*t)))/2+.5, pow(10, sin(3*t)))*sin(v)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -175,13 +175,13 @@ func circle(x float64) geom.Vec {
 }
 
 func sphere(u, v, t float64) geom.Vec {
-	thickness := .05
+	thickness := .1
 	r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
-	w := 1-sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
+	w := .7-sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.6
 	return geom.Vec{
 		sin(u+(sin(7*t)*.15+.15)*sin(2*u))*sin(v/2) * w * r,
 		cos(u-(sin(7*t)*.15+.15)*cos(2*u))*sin(v/2) * w * r,
-		-cos(v-(.5+sin(2*t)*.4)*sin(2*v)) * r,
+		-cos(v-(.3+sin(2*t)*.2)*sin(2*v)) * r,
 	}
 }
 
@@ -266,7 +266,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 2500
+	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -411,7 +411,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 8)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
+			envmapValue := float32(pow(sin(u/2)*sin(v), 10)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
 			if envmapValue > maxEnvmapValue {
 				maxEnvmapValue = envmapValue
 			}
@@ -421,7 +421,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 8)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
+			envmapValue := float32(pow(sin(u/2)*sin(v), 10)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -477,24 +477,24 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="45"/>
+        <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="720"/>
-            <integer name="height" value="720"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="30"/>
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
@@ -512,7 +512,7 @@ end_header
             </bsdf>
         </bsdf>
        <bsdf type="twosided">
-            <bsdf type="plastic">
+            <bsdf type="diffuse">
             </bsdf>
         </bsdf>
     </bsdf>
@@ -526,13 +526,13 @@ end_header
     </shape>
 	<shape type="rectangle">
         <transform name="to_world">
-            <scale value=".1"/>
+            <scale value="10"/>
             <translate x="0" y="0" z="-.075"/>
         </transform>
 	</shape>
 </scene>
 `)
-	angle := -t/pi*180
+	angle := 180-t/pi*180
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle})
 }
 
