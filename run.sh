@@ -16,4 +16,4 @@ convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 #exit
 time  mitsuba test.xml
 cp test.exr $2.exr
-convert test.exr -auto-gamma -normalize -brightness-contrast 30x50 -modulate 100,150,100 $2.jpg
+convert test.exr -auto-gamma -brightness-contrast 10x15 -modulate 100,125,100 $2.jpg

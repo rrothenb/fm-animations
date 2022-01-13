@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75+1.25
+	return sin(x)+1.5
 }
 
 func texture(x, y, z, t float64) float64 {
@@ -55,7 +55,7 @@ func texture(x, y, z, t float64) float64 {
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .1*strength(1*t)*pow(pow(texture(x, y, z, t), 2), sin(1*t)*.5+1)
+	return 1.0 + .25*strength(2*t)*pow(pow(texture(x, y, z, t)/2+.5, pow(2, sin(3*t))), pow(2, sin(5*t)))
 }
 
 func blendTexture(x, y, z, t float64) float64 {
@@ -184,9 +184,9 @@ func sphere(u, v, t float64) geom.Vec {
 
 func foldedSphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0) * cos(u) * (1.25 - pow(cos(7*v/2.0), 2)),
-		sin(v/2.0) * sin(u) * (1.25 - pow(cos(7*v/2.0), 2)),
-		cos(7*v/2.0),
+		sin(v/2.0) * cos(u) * (1.25 - pow(cos(2*v/2.0), 2)),
+		sin(v/2.0) * sin(u) * (1.25 - pow(cos(3*v/2.0), 2)),
+		cos(5*v/2.0),
 	}
 }
 
@@ -216,8 +216,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,.75+1*sin(2*t)}).Unit()
-	return loc.Scaled(4.5+1.75*spow(sin(3*t), .5))
+	loc, _ := circle(t).Plus(geom.Vec{0,0,sin(2*t)}).Unit()
+	return loc.Scaled(3.25)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -433,12 +433,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="4"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="3500"/>
+            <integer name="height" value="3500"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -455,11 +455,23 @@ end_header
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
         <rgb name="sigma_t" value="1, .7, .4"/>
-        <rgb name="albedo" value="0, 0.3, 0.6"/>
+        <rgb name="albedo" value="0.4, 0.5, 0.6"/>
         <phase type="hg">
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
+    <bsdf type="null" id="object_bsdf">
+        </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="medium1" name="interior"/>
+        <ref id="object_bsdf"/>
+    </shape>
 </scene>
 `)
 	sensorTemplate.Execute(sensorFile,sensor{
@@ -467,15 +479,15 @@ end_header
 		focusPoint,
 		distance,
 		90,
-		sin(2*t)*.5,
-		sin(3*t)*25+35})
+		sin(11*t)*.9,
+		sin(13*t)*20+25})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 99, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

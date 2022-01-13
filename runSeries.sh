@@ -1,4 +1,4 @@
-for frame in 421 481 551 601 651 991 1071 1161 1171 1181 1191 1201 1211 1261 1301 1421
+for frame in 4 7 18 23 46 60 62 68 72 99
 do
-  time ./run.sh $1 $frame 50000000
+  time ./run.sh $1 $frame 25000000
 done
