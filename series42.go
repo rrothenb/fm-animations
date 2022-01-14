@@ -67,7 +67,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*strength2(7*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(2*t)))/2+.5, pow(10, sin(3*t)))*sin(v)
+	return 1.0 + .1*strength2(7*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(2*t)))/2+.5, pow(10, sin(3*t)))*sin(v)*(spow(cos(v/2-.7*sin(v)), .1)/2+.5)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -176,11 +176,13 @@ func circle(x float64) geom.Vec {
 
 func sphere(u, v, t float64) geom.Vec {
 	thickness := .1
-	r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
-	w := .7-sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.6
+	// r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
+	r := 1.0 + (spow(cos(v/2-.7*sin(v)), .1)/2+.5)*thickness
+	w := 1.0 - sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
+	w2 := 1 + pow(sin(v), 4)*(sin(7*t)*.75+.75)
 	return geom.Vec{
-		sin(u+(sin(7*t)*.15+.15)*sin(2*u))*sin(v/2) * w * r,
-		cos(u-(sin(7*t)*.15+.15)*cos(2*u))*sin(v/2) * w * r,
+		sin(u)*sin(v/2) * w * w2 * r,
+		cos(u)*sin(v/2) * w * w2 * r,
 		-cos(v-(.3+sin(2*t)*.2)*sin(2*v)) * r,
 	}
 }
@@ -211,12 +213,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,1+sin(2*t)}).Unit()
-	return loc.Scaled(5)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.666}).Unit()
+	return loc.Scaled(6)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,0}
+	return geom.Vec{0,0,.25}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -289,8 +291,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	minV := 500
 	maxU := 0
 	maxV := 0
+	minZ := 1.0
 	closestPoint := geom.Vec{0,0,0}
-	for uIndex := 0; uIndex <= 500; uIndex++ {
+	for uIndex := 100; uIndex <= 500; uIndex++ {
 		for vIndex := 0; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
 			if !c.invisible(vertex) {
@@ -305,6 +308,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				maxX = math.Max(maxX, math.Abs(vertex.X))
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
 				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
+				minZ = math.Min(minZ, vertex.Z)
 				if (minU > uIndex) {
 					minU = uIndex
 				}
@@ -411,7 +415,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 10)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
+			envmapValue := float32(pow(sin(u/2)*sin(v), 12)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
 			if envmapValue > maxEnvmapValue {
 				maxEnvmapValue = envmapValue
 			}
@@ -421,7 +425,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 10)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
+			envmapValue := float32(pow(sin(u/2)*sin(v), 12)*pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))/maxEnvmapValue
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -470,6 +474,7 @@ end_header
 		Distance float64
 		FogRadius float64
 		Angle float64
+		MinZ float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -483,18 +488,18 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="600"/>
+            <integer name="height" value="600"/>
             <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="5"/>
+        <float name="scale" value="3"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="30"/>
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
@@ -505,16 +510,11 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.metal.blend.rgbe"/>
         </texture>
-         <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".05"/>
-                <string name="material" value="CuO"/>
+            <bsdf type="roughplastic">
+                <float name="alpha" value=".5"/>
             </bsdf>
-        </bsdf>
-       <bsdf type="twosided">
             <bsdf type="diffuse">
             </bsdf>
-        </bsdf>
     </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -527,20 +527,20 @@ end_header
 	<shape type="rectangle">
         <transform name="to_world">
             <scale value="10"/>
-            <translate x="0" y="0" z="-.075"/>
+            <translate x="0" y="0" z="{{ .MinZ }}"/>
         </transform>
 	</shape>
 </scene>
 `)
 	angle := 180-t/pi*180
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1440, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
