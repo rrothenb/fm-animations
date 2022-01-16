@@ -11,9 +11,11 @@ mv data/$2.rgbe mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
 mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
 convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
+mv data/$2.clay.1.color.rgbe clay.1.color.rgbe
+convert clay.1.color.rgbe clay.1.color.jpg
 #mv data/$2.texture.rgbe mitsuba.texture.rgbe
 #convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time  mitsuba test.xml
-cp test.exr $2.exr
-convert test.exr -auto-gamma -brightness-contrast 35x50 -modulate 100,150,100 $2.jpg
+#cp test.exr $2.exr
+convert test.exr -auto-gamma -brightness-contrast 15x25 -modulate 100,125,100 $2.jpg
