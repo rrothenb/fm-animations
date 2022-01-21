@@ -75,7 +75,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*strength2(13*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(10, sin(19*t)))*sin(v)*(spow(cos(v/2-.7*sin(v)), .1)*spow(sin(23*t), .1)/2+.5)
+	return 1.0 + .1*pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(10, sin(19*t)))*(spow(cos(v/2-.7*sin(v)), .1)*spow(sin(23*t), .1)/2+.5)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -108,7 +108,7 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.054,
+		Width:    0.036,
 		Height:   0.036,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
@@ -156,11 +156,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .35
+	factor := .5
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -226,12 +225,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,.666}).Unit()
-	return loc.Scaled(6)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,1}).Unit()
+	return loc.Scaled(2.25+sin(3*t)*.75)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,.25}
+	return unitLissajousKnot(t, 2,3,5).Scaled(.3-sin(3*t)*.3)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -269,7 +268,7 @@ func shapeTexture2(u, v, t float64) float64 {
 }
 
 func shapeTexture(u, v, t float64) float64 {
-	a := spow(sin(11*t), .5)/2+.5
+	a := spow(sin(11*t), .25)/2+.5
 	return a*shapeTexture1(u, v, t)+(1-a)*shapeTexture2(u, v, t)
 }
 
@@ -364,7 +363,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	for nV > 15000 {
+	for nV > 20000 && nV > nU {
 		ratio = ratio*10
 		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
@@ -502,9 +501,9 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="40"/>
+        <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -532,9 +531,7 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.metal.blend.rgbe"/>
         </texture>
-         <bsdf type="twosided">
-            <bsdf type="diffuse">
-            </bsdf>
+         <bsdf type="dielectric">
 		 </bsdf>
          <bsdf type="twosided">
             <bsdf type="diffuse">
@@ -568,7 +565,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1440, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
