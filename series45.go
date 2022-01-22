@@ -67,7 +67,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .05*strength2(37*t)*shapeTexture(u, v, t)
+	return 1.0 + .5*spow(shapeTexture(u, v, t), pow(2, sin(3*t)))
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -175,9 +175,9 @@ func circle(x float64) geom.Vec {
 
 func sphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0) * cos(u+.1*strength(2*t+.5)*sin(u+.5*strength(5*t+.6)*sin(4*v))),
-		sin(v/2.0) * sin(u+.1*strength(2*t+.7)*sin(u+.5*strength(5*t+.8)*sin(4*v))),
-		cos(v/2.0+.1*strength(3*t+.9)*sin(3*v+.5*strength(7*t+1.0)*sin(5*u))),
+		sin(v/2.0) * cos(u+0*strength(2*t+.5)*sin(u+.5*strength(5*t+.6)*sin(4*v))),
+		sin(v/2.0) * sin(u+0*strength(2*t+.7)*sin(u+.5*strength(5*t+.8)*sin(4*v))),
+		cos(v/2.0+0*strength(3*t+.9)*sin(3*v+.5*strength(7*t+1.0)*sin(5*u))),
 	}
 }
 
@@ -208,12 +208,11 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
-	return loc.Scaled(2.25+sin(3*t)*.5)
+	return loc.Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
-	loc, _ := circle(5*t).Plus(geom.Vec{0,0,2*sin(7*t)}).Unit()
-	return loc.Scaled(.75)
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -234,13 +233,7 @@ func shape(u, v, t float64) geom.Vec {
 }
 
 func shapeTexture(u, v, t float64) float64 {
-	loc := sphere(u, v, t).Scaled(5)
-	loc2 := sphere(
-		u+.5*strength(2*t+1.1)*sin(loc.X+loc.Y),
-		v+.5*strength(3*t+1.2)*sin(loc.Z-loc.X+.5*strength(5*t+1.3)*sin(loc.Z+loc.Y)),
-		t).Scaled(5)
-	return sin(
-		.5*strength(7*t+1.4)*sin(loc.X + loc2.Y + .5*strength(11*t+1.5)*sin(loc2.Z-loc.Y+.5*strength(13*t+1.6)*sin(loc.Z+loc2.X))))
+	return sin(2*u+(sin(2*t)+1)*sin(4*u))*sin(2*v+(sin(2*t)+1)*sin(4*v))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -263,7 +256,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	envSize := 10000
+	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -473,8 +466,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="3800"/>
+            <integer name="height" value="3800"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -491,16 +484,12 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.metal.blend.rgbe"/>
         </texture>
-         <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
-                <string name="material" value="CuO"/>
-            </bsdf>
+         <bsdf type="dielectric">
         </bsdf>
        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".5"/>
-                <string name="material" value="Ag"/>
+            <bsdf type="conductor">
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
             </bsdf>
         </bsdf>
     </bsdf>
@@ -525,7 +514,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 500, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
