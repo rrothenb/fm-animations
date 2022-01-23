@@ -206,7 +206,7 @@ func innerKnot(t float64) geom.Vec {
 	}
 
 func cameraPath(t float64) geom.Vec {
-	return lissajousKnot(t, 3, 5, 2)
+	return lissajousKnot(t, 5, 2, 3)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -249,8 +249,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	angle := cos(t)*80+90
-	cameraLoc := cameraPath(t).Scaled(2).Plus(geom.Vec{0,0,2.5})
-	focusPoint := focusPath(t).Scaled(2).Plus(geom.Vec{0,0,-.5})
+	cameraLoc := cameraPath(t).Scaled(1.5).Plus(geom.Vec{0,0,2.5})
+	focusPoint := focusPath(t).Scaled(1.5).Plus(geom.Vec{0,0,-.75})
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()*cameraLoc.Z/(-focusPoint.Z)
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -365,9 +365,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			metalBlendValue := float32(pow(pow(texture(2*u, 3*v, t), 2), .1))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
-			textureValueR := float32(texture(3*u, 4*v, t)*.1+128.0/255.0)
-			textureValueG := float32(texture(3*u, 4*v, t)*.1+70.0/255.0)
-			textureValueB := float32(texture(3*u, 4*v, t)*.1+27.0/255.0)
+			textureValueR := float32(texture(3*u, 4*v, t)*.1+227.0/255.0)
+			textureValueG := float32(texture(3*u, 4*v, t)*.1+212.0/255.0)
+			textureValueB := float32(texture(3*u, 4*v, t)*.1+173.0/255.0)
 			textureArray = append(textureArray, textureValueR, textureValueG, textureValueB)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -451,6 +451,7 @@ end_header
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
+    <integrator type="path" />
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
@@ -461,12 +462,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="540"/>
+            <integer name="height" value="540"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -477,6 +478,35 @@ end_header
             <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
+            <bsdf type="roughplastic">
+                <float name="alpha" value=".2"/>
+                <texture type="bitmap" name="diffuse_reflectance">
+                    <string name="filename" value="mitsuba.texture.rgbe"/>
+                </texture>
+            </bsdf>
+        </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".05"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/3.spd"/>
+            </bsdf>
+        </bsdf>
+    </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="object_bsdf"/>
+    </shape>
 </scene>
 `)
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, angle})

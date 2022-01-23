@@ -217,11 +217,11 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,sin(2*t)}).Unit()
-	return loc.Scaled(3.25)
+	return loc.Scaled(2.5)
 }
 
 func focusPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+2, 3, 4, 5).Scaled(.4 - sin(5*t)*.2)
+	return geom.Vec{0,0,0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -346,7 +346,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < nU; uIndex++ {
 			// u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * pi
-			envmapValue := float32(pow(cos(v/2),7+3*sin(t))) // float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
+			envmapValue := float32(pow(cos(v/2),3)) // float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, foldedSphere))
 			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, foldedSphere))
@@ -433,18 +433,18 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3500"/>
-            <integer name="height" value="3500"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="10"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
         </transform>
@@ -460,7 +460,7 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
-    <bsdf type="null" id="object_bsdf">
+    <bsdf type="dielectric" id="object_bsdf">
         </bsdf>
 
     <shape type="ply">
@@ -480,14 +480,14 @@ end_header
 		distance,
 		90,
 		sin(11*t)*.9,
-		sin(13*t)*20+25})
+		sin(13*t)*49+50})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 99, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
