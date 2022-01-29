@@ -44,7 +44,7 @@ func strength(x float64) float64 {
 }
 
 func strength2(x float64) float64 {
-	return cos(x)/2+.5
+	return sin(x)/2+.5
 }
 
 func subtexture2(x, y, z, t float64) float64 {
@@ -67,7 +67,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .5*spow(shapeTexture(u, v, t), pow(2, sin(3*t)))
+	return 1.0 - .75*(.1+strength2(2*t)*.9)*pow(spow(shapeTexture(u, v, t), pow(2, sin(3*t)))/2+.5, pow(2, sin(5*t)))
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -208,7 +208,7 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
-	return loc.Scaled(5)
+	return loc.Scaled(2.25)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -233,7 +233,14 @@ func shape(u, v, t float64) geom.Vec {
 }
 
 func shapeTexture(u, v, t float64) float64 {
-	return sin(2*u+(sin(2*t)+1)*sin(4*u))*sin(2*v+(sin(2*t)+1)*sin(4*v))
+	loc := sphere(u, v, t).Scaled(2*pi)
+	return sin(
+			loc.X+
+			loc.Y+
+			loc.Z+
+			strength2(7*t)*3*sin(strength2(23*t)*loc.X)+
+			strength2(11*t)*4*sin(strength2(19*t)*loc.Y)+
+			strength2(13*t)*5*sin(strength2(17*t)*loc.Z))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -462,12 +469,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3800"/>
-            <integer name="height" value="3800"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="512"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -488,8 +495,8 @@ end_header
         </bsdf>
        <bsdf type="twosided">
             <bsdf type="conductor">
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/12.spd"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
     </bsdf>
@@ -514,7 +521,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 240, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
