@@ -11,5 +11,5 @@ convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
-time  mitsuba test.xml
+time mitsuba test.xml
 convert test.exr -auto-gamma -brightness-contrast 15x35 -modulate 100,110,100 $2.jpg

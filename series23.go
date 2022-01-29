@@ -39,19 +39,20 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.25 + .35
+	return sin(x)*.175 + .275
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(sin(7*u+v+u*2*strength(4*t)*subtexture3(u, v, t))+sin(u-5*v+u*2*strength(3*t)*subtexture3(u, v, t)))
+	return sin(sin(7*u+v+pow(u, .5)*2*strength(4*t)*subtexture3(u, v, t))+sin(u-5*v+u*2*strength(3*t+1)*subtexture3(u, v, t)))
 }
 
 func subtexture3(u, v, t float64) float64 {
 	return sin(2*u+3*v+3*strength(7*t)*sin(5*u-7*v))
 }
 
+// 689 - 4.329
 func texture(u, v, t float64) float64 {
-	return sin(5*u-7*v+u*2*strength(5*t)*subtexture2(u, v, t))*sin(2*u+5*v+u*2*strength(7*t)*subtexture2(v, u, t))
+	return sin(5*u-7*v+pow(u, .5)*2*strength(5*t+5)*subtexture2(u, v, t))*sin(2*u+5*v+u*2*strength(7*t)*subtexture2(v, u, t))
 }
 
 func blend(u, v, t float64) float64 {
@@ -139,7 +140,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .4
+	factor := .35
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -206,7 +207,7 @@ func innerKnot(t float64) geom.Vec {
 	}
 
 func cameraPath(t float64) geom.Vec {
-	return lissajousKnot(t, 5, 2, 3)
+	return lissajousKnot(t, 3, 5, 2)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -226,6 +227,7 @@ func knot(t float64) geom.Vec {
 	return unitLissajousKnot(t, 19, 20, 21)
 }
 
+// 689 - 4.329
 func uv2xyz(u, v, t float64) geom.Vec {
 	return geom.Vec{
 		u-pi+.075*pow(2, sin(2*t))*pow(spow(texture(u+.01, v+.01, t), pow(4, sin(2*t)-1))/2+.5, pow(4, sin(3*t))),
@@ -249,11 +251,15 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	angle := cos(t)*80+90
-	cameraLoc := cameraPath(t).Scaled(1.5).Plus(geom.Vec{0,0,2.5})
-	focusPoint := focusPath(t).Scaled(1.5).Plus(geom.Vec{0,0,-.75})
+	envSize := int(pow(float64(desiredTriangles), .5))
+	// 689 - 4.329
+	// probably print this out so I can get the height adjustment right for a narrower scale
+	cameraLoc := cameraPath(t).By(geom.Vec{2, 2, 1.5}).Plus(geom.Vec{0,0,2.1})
+	focusPoint := focusPath(t).Scaled(2).Plus(geom.Vec{0,0,-.5})
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()*cameraLoc.Z/(-focusPoint.Z)
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
+	fmt.Printf("\nsin3: %v\nsin4: %v\nsin5: %v\nsin7: %v\ns3: %v\ns4: %v\ns5: %v\ns7: %v\n", sin(3*t+1), sin(4*t), sin(5*t+5), sin(7*t), strength(3*t+1), strength(4*t), strength(5*t+5), strength(7*t))
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -315,7 +321,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
-		fmt.Println(numTriangles)
+	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
 	startUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(minU))
@@ -377,14 +383,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			if vIndex != 0 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
 				numFaces++
-			}
-			if vIndex != nV-1 {
 				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
 				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
@@ -392,11 +395,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				numFaces++
 			}
 		}
-	}
-	for vIndex := 0; vIndex < 1000; vIndex++ {
-		for uIndex := 0; uIndex < 1000; uIndex++ {
-			u := float64(uIndex) / float64(1000) * 2 * pi
-			v := float64(vIndex) / float64(1000) * pi
+	for vIndex := 0; vIndex < envSize; vIndex++ {
+		for uIndex := 0; uIndex < envSize; uIndex++ {
+			u := float64(uIndex) / float64(envSize) * 2 * pi
+			v := float64(vIndex) / float64(envSize) * pi
 			envmapValue := float32(pow(0.9*(1-pow(sin(v/2),.5))+0.05*(1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10))+0.05*(1-pow(1-pow(texture(2*pi-u, v, t), 2), pow(1-v/pi, 3)*10)), .5))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -432,7 +434,7 @@ end_header
 	mesh.NumFaces = numFaces
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
-	rgbe.Encode(envmap, 1000, 1000, envmapArray)
+	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
 	rgbe.Encode(roughness, endUIndex-startUIndex, endVIndex-startVIndex, roughnessArray)
 	blend, _ := os.Create(blendPath)
@@ -456,18 +458,18 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".001"/>
-        <float name="fov" value="30"/>
+        <float name="fov" value="33"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="540"/>
-            <integer name="height" value="540"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="3000"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
