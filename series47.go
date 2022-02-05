@@ -64,7 +64,7 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.054,
+		Width:    0.048,
 		Height:   0.036,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
@@ -115,7 +115,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .35
+	factor := .4
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -171,12 +171,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
-	return loc.Scaled(3.5)
+	return torusKnot(t/10, 0, sin(t)/2+1.6, 3, 19, circle)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return cameraPath(t+.1).Scaled(.72-sin(t)*.25)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -408,19 +407,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000001"/>
+        <float name="aperture_radius" value=".00001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="2250"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -468,7 +467,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 750, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
