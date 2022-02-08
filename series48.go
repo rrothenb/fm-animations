@@ -119,7 +119,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .4
+	factor := .75
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -179,7 +179,7 @@ func cameraPath(t float64) geom.Vec {
 		sin(t),
 		cos(t)*cos(sin(t/19)*.75),
 		sin(sin(t/19)*.75)*cos(t),
-	}.Scaled(2.5+cos(t)*1.4)
+	}.Scaled(2.4+cos(t)*1.1)
 }
 
 func focusPath(t float64) geom.Vec {
