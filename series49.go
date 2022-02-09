@@ -48,7 +48,7 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .75*pow(spow(shapeTexture(u, v, t), strength(3, t))/2+.5, strength(5, t))
+	return 1.0 + .1*(spow(shapeTexture(u, v, t), .5)/2+.5)*(shapeTexture(u, v, t)/2+.5)
 }
 
 type SLR2 struct {
@@ -116,6 +116,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -208,7 +209,8 @@ func shapeTexture(u, v, t float64) float64 {
 	return sin(
 			strength(7, t)*sin(strength(23, t)*loc.X)+
 			strength(11, t)*sin(strength(19, t)*loc.Y+strength(29, t)*sin(strength(31, t)*loc.Y))+
-			strength(13, t)*sin(strength(17, t)*loc.Z)+strength(37, t)*sin(strength(41, t)*loc.X-strength(43, t)*loc.Y))
+			strength(13, t)*sin(strength(17, t)*loc.Z)+strength(37, t)*sin(strength(41, t)*loc.X-strength(43, t)*loc.Y)+
+			.1*strength(47, t)*sin(loc.X*loc.Y+.1*strength(53, t)*sin(loc.X*loc.Z+.1*strength(59, t)*sin(loc.Z*loc.Y))))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -484,7 +486,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
