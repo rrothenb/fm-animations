@@ -116,11 +116,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .75
+	factor := .5
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -426,19 +425,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".00001"/>
+        <float name="aperture_radius" value=".0000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="3000"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -467,7 +466,7 @@ end_header
 			</texture>
 		   <bsdf type="twosided">
 				<bsdf type="roughconductor">
-					<float name="alpha" value=".5"/>
+					<float name="alpha" value=".3"/>
 					<string name="material" value="Cu"/>
 				</bsdf>
 			</bsdf>
