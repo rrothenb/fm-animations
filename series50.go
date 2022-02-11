@@ -40,7 +40,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return pow(2, sin(x)+1)
+	return pow(2.5, sin(x)+1)
 }
 
 func strength2(x float64) float64 {
@@ -75,7 +75,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*strength2(13*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(10, sin(19*t)))*sin(v)*(spow(cos(v/2-.7*sin(v)), .1)*spow(sin(23*t), .1)/2+.5)
+	return 1.0 + .5*pow(spow(shapeTexture(u, v, t), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t)))*pow(.5-cos(v/2-.7*sin(v))/2, 1)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -187,16 +187,16 @@ func lipTexture(u, t float64) float64 {
 }
 
 func sphere(u, v, t float64) geom.Vec {
-	thickness := .1
+	thickness := .25
 	// r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
-	r := 1.0 + (spow(cos(v/2-.7*sin(v)), pow(10, sin(11*t)))/2+.5)*thickness
-	r = r + .1*strength(13*t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(2, sin(17*t)))/2+.5, pow(2, sin(19*t)))
-	w := 1.0 - sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
-	w2 := 1.0 + pow(sin(v), 4)*(sin(7*t)*.75+.75)
+	r := 1.0 + (cos(v/2-.7*sin(v))/2+.5)*thickness
+	r = r + .1*strength(5*t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(3, sin(2*t)))/2+.5, pow(3, sin(3*t)))
+	//w := 1.0 - sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
+	//w2 := 1.0 + pow(sin(v), 4)*(sin(7*t)*.75+.75)
 	return geom.Vec{
-		sin(u)*sin(v/2) * w * w2 * r,
-		cos(u)*sin(v/2) * w * w2 * r,
-		-cos(v) * r,
+		sin(u)*sin(v/2) * r,
+		cos(u)*sin(v/2) * r,
+		-cos(v) * r * (sin(t)*.15+.35),
 	}
 }
 
@@ -226,7 +226,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,.666}).Unit()
+	loc, _ := circle(0).Plus(geom.Vec{0,0,.666}).Unit()
 	return loc.Scaled(6)
 }
 
@@ -254,18 +254,18 @@ func shape(u, v, t float64) geom.Vec {
 func shapeTexture1(u, v, t float64) float64 {
 	loc := sphere(u, v, t).Scaled(5)
 	loc2 := sphere(
-		u+.4*strength(2*t+1.1)*sin(loc.X+loc.Y),
-		v+.4*strength(3*t+1.2)*sin(loc.Z-loc.X+.4*strength(5*t+1.3)*sin(loc.Z+loc.Y)),
+		u+.4*strength2(2*t+1.1)*sin(loc.X+loc.Y),
+		v+.4*strength2(3*t+1.2)*sin(loc.Z-loc.X+.4*strength2(5*t+1.3)*sin(loc.Z+loc.Y)),
 		t).Scaled(5)
 	return sin(
-		.4*strength(7*t+1.4)*sin(loc.X + loc2.Y + .4*strength(11*t+1.5)*sin(loc2.Z-loc.Y+.4*strength(13*t+1.6)*sin(loc.Z+loc2.X))))
+		.4*strength2(7*t+1.4)*sin(loc.X + loc2.Y + .4*strength2(11*t+1.5)*sin(loc2.Z-loc.Y+.4*strength2(13*t+1.6)*sin(loc.Z+loc2.X))))
 }
 
 func shapeTexture2(u, v, t float64) float64 {
 	loc := sphere(u, v, t).Scaled(5)
 	return sin(
-		strength(2*t)*5*sin(loc.X)*sin(loc.Y)*sin(loc.Z)+
-			(1-strength(2*t))*4*sin(loc.X-loc.Y+.4*strength(3*t)*sin(loc.Z-loc.X+.4*strength(5*t)*sin(loc.Z-loc.Z))))
+		strength2(2*t)*5*sin(loc.X)*sin(loc.Y)*sin(loc.Z)+
+			(1-strength2(2*t))*4*sin(loc.X-loc.Y+.4*strength2(3*t)*sin(loc.Z-loc.X+.4*strength2(5*t)*sin(loc.Z-loc.Z))))
 }
 
 func shapeTexture(u, v, t float64) float64 {
@@ -379,6 +379,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	plyDataPath := fmt.Sprintf("data/%v.data.ply", frameNumber)
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
+	startUIndex = startUIndex + 50
 	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
 		for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
@@ -510,12 +511,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="16"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="500"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -528,22 +529,10 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-        </texture>
-         <bsdf type="twosided">
+         <bsdf type="twosided" id="object_bsdf">
             <bsdf type="diffuse">
             </bsdf>
 		 </bsdf>
-         <bsdf type="twosided">
-            <bsdf type="diffuse">
-				<texture type="bitmap" name="reflectance">
-					<string name="filename" value="clay.1.color.rgbe"/>
-				</texture>
-            </bsdf>
-		 </bsdf>
-    </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -560,7 +549,7 @@ end_header
 	</shape>
 </scene>
 `)
-	angle := 180-t/pi*180
+	angle := 180.0
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ})
 }
 
@@ -568,7 +557,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1440, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
