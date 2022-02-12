@@ -414,12 +414,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="16"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2250"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="540"/>
             <rfilter type="box"/>
         </film>
     </sensor>

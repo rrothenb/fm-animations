@@ -75,7 +75,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .5*pow(spow(shapeTexture(u, v, t), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t)))*pow(.5-cos(v/2-.7*sin(v))/2, 1)
+	return 1.0 // + .5*pow(spow(shapeTexture(u, v, t), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t)))*pow(.5-cos(v/2-.7*sin(v))/2, 1)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -183,20 +183,28 @@ func circle(x float64) geom.Vec {
 }
 
 func lipTexture(u, t float64) float64 {
-	return sin(u + strength(2*t)*sin(u+strength(3*t)*sin(u)) + strength(5*t)*sin(2*u) + strength(7*t)*sin(3*u))
+	return sin(u + 2*strength(t)*sin(u+strength(t)*sin(u)) + 2*strength(t)*sin(2*u) + 2*strength(t)*sin(3*u))
+}
+
+func squareWave(x float64) float64 {
+	return cos(x-.7*sin(x*2))/2+.5
+}
+
+func shape(x, t, a, an, b, bn float64) float64 {
+	return pow(spow(x, pow(a, sin(an*t)))/2+.5, pow(b, sin(bn*t)))
 }
 
 func sphere(u, v, t float64) geom.Vec {
 	thickness := .25
 	// r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
-	r := 1.0 + (cos(v/2-.7*sin(v))/2+.5)*thickness
-	r = r + .1*strength(5*t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(3, sin(2*t)))/2+.5, pow(3, sin(3*t)))
+	r := 1.0 + squareWave(v/2)*thickness
+	r = r + .5*strength(t)*pow(sin(v/2), 10)*shape(lipTexture(u, t), t, 10, 1, 10, 1)
 	//w := 1.0 - sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
 	//w2 := 1.0 + pow(sin(v), 4)*(sin(7*t)*.75+.75)
 	return geom.Vec{
 		sin(u)*sin(v/2) * r,
 		cos(u)*sin(v/2) * r,
-		-cos(v) * r * (sin(t)*.15+.35),
+		-cos(v) * (sin(t)*.75+.75 + squareWave(v/2)*thickness),
 	}
 }
 
@@ -245,10 +253,6 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 
 func knot(t float64) geom.Vec {
 	return unitLissajousKnot(t, 19, 20, 21)
-}
-
-func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .25, circle)
 }
 
 func shapeTexture1(u, v, t float64) float64 {
@@ -379,7 +383,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	plyDataPath := fmt.Sprintf("data/%v.data.ply", frameNumber)
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
-	startUIndex = startUIndex + 50
+	startUIndex = startUIndex + 250
 	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
 		for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
@@ -511,12 +515,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="4"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="500"/>
+            <integer name="width" value="1600"/>
+            <integer name="height" value="1000"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -530,7 +534,7 @@ end_header
     </emitter>
     <integrator type="path" />
          <bsdf type="twosided" id="object_bsdf">
-            <bsdf type="diffuse">
+            <bsdf type="plastic">
             </bsdf>
 		 </bsdf>
    <shape type="ply">
@@ -557,7 +561,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
