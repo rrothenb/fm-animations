@@ -155,7 +155,7 @@ func bowl(thickness, insideTexture, outsideTexture, u, v, t float64) geom.Vec {
 
 func shape(u, v, t float64) geom.Vec {
 	loc := bowl(.1, 0, 0, u, v, t)
-	return bowl(.1, .05*pow(spow(shapeTexture(4, 4, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4)), .05*pow(spow(shapeTexture(1, 1, t, loc), strength(2, t))/2+.5, strength(3, t)), u, v, t)
+	return bowl(.1, .025*pow(spow(shapeTexture(2, 1.5, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4)), .05*pow(spow(shapeTexture(1, 1, t, loc), strength(2, t))/2+.5, strength(3, t)), u, v, t)
 
 }
 
@@ -186,7 +186,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(0).Plus(geom.Vec{0,0,.5}).Unit()
+	loc, _ := circle(0).Plus(geom.Vec{0,0,.75}).Unit()
 	return loc.Scaled(7)
 }
 
@@ -343,9 +343,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		}
 	}
 	envmapArray := []float32{}
+	blendArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
+			u := float64(uIndex) / float64(nU) * 2 * pi
+			v := float64(vIndex) / float64(nV) * 2 * pi
+			loc := bowl(.1, 0, 0, u, v, t)
+			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
+			blendValue := float32(pow(spow(shapeTexture(2, 1.5, t, loc), pow(strength(5, t), 10))/2+.5, 4)*(.5-cos(v/2-.7*sin(v))/2))
+			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -394,6 +401,7 @@ end_header
 `)
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
+	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -401,6 +409,8 @@ end_header
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
+	blend, _ := os.Create(blendPath)
+	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -423,12 +433,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1200"/>
-            <integer name="height" value="750"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="2000"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -441,8 +451,20 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-         <bsdf type="twosided" id="object_bsdf">
-            <bsdf type="plastic">
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+         <bsdf type="twosided">
+            <bsdf type="roughplastic">
+				<float name="alpha" value=".1"/>
+            </bsdf>
+		 </bsdf>
+         <bsdf type="twosided">
+            <bsdf type="roughconductor">
+				<float name="alpha" value=".01"/>
+					<string name="material" value="Au"/>
+            </bsdf>
             </bsdf>
 		 </bsdf>
    <shape type="ply">
