@@ -55,7 +55,6 @@ func subtexture3(x, y, z, t float64) float64 {
 	return sin(17*x+23*y+19*z)
 }
 
-
 func roughnessTexture(x, y, z, t float64) float64 {
 	return spow(sin(5*x + 7*y - 3*z + 4*strength(2+5*t+.2)*subtexture1(x, y, z, t)), .1)*.4 + .41
 }
@@ -67,7 +66,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .5*spow(shapeTexture(u, v, t), pow(2, sin(3*t)))
+	return 1.0 + 1.25*(spow(shapeTexture(10*u, 10*v, t), pow(10, sin(7*t)))/2+.5)*pow(cos(16*t)/2+.5, 50)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -169,7 +168,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	return false
 }
 
-func circle(x float64) geom.Vec {
+func circle(t, x float64) geom.Vec {
 	return geom.Vec{sin(x), cos(x), 0}
 }
 
@@ -182,54 +181,55 @@ func sphere(u, v, t float64) geom.Vec {
 }
 
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
-func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
+func torusKnot(t, x, R, r float64, pInt, qInt int, path func(t, x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
 	q := float64(qInt)
-	pathPoint := path(q*t)
-	return geom.Vec{(R+r*cos(p*t))*pathPoint.X, (R+r*cos(p*t))*pathPoint.Y, r*sin(p*t)+pathPoint.Z}
+	pathPoint := path(t, q*x)
+	return geom.Vec{(R+r*cos(p*x))*pathPoint.X, (R+r*cos(p*x))*pathPoint.Y, r*sin(p*x)+pathPoint.Z}
 }
 
-func lissajousKnot(t float64, xN, yN, zN int) geom.Vec {
-	return geom.Vec{sin(float64(xN)*t), sin(float64(yN)*t), cos(float64(zN)*t)}
+func lissajousKnot(t, x float64, xN, yN, zN int) geom.Vec {
+	return geom.Vec{sin(float64(xN)*x), sin(float64(yN)*x), cos(float64(zN)*x)}
 }
 
-func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
-	point, _ := lissajousKnot(t, xN, yN, zN).Unit()
+func unitLissajousKnot(t, x float64, xN, yN, zN int) geom.Vec {
+	point, _ := lissajousKnot(t, x, xN, yN, zN).Unit()
 	return geom.Vec(point)
 }
 
-func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, circle)
+func outerKnot(t, x float64) geom.Vec {
+	return torusKnot(t, x, .666666, .3333333, 3, 2, circle)
 }
 
-func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 2, outerKnot)
+func innerKnot(t, x float64) geom.Vec {
+	return torusKnot(t, x, 1, .15, 3, 2, outerKnot)
 }
 
-func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
-	return loc.Scaled(5)
+func cameraPath(t, x float64) geom.Vec {
+	loc, _ := circle(t, x).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
+	return geom.Vec{loc.X, loc.Z, loc.Y}.Scaled(4)
 }
 
-func focusPath(t float64) geom.Vec {
+func focusPath(t, x float64) geom.Vec {
 	return geom.Vec{0, 0, 0}
 }
 
-func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
+func pathWrapper(t, u, v, r float64, path func(t, x float64) geom.Vec) geom.Vec {
 	delta := .01
-	center := path(v)
-	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
+	center := path(t, v)
+	normal, _ := path(t, v+delta).Minus(path(t, v-delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
 	return cosVec.Scaled(r*cos(u)).Plus(sinVec.Scaled(r*sin(u))).Plus(center)
 }
 
-func knot(t float64) geom.Vec {
-	return unitLissajousKnot(t, 19, 20, 21)
+func knot(t, x float64) geom.Vec {
+	return unitLissajousKnot(t, x, 19, 20, 21)
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .25, circle)
+	loc := pathWrapper(t, u, v, .3*radius(u, v, t), outerKnot)
+	return geom.Vec{loc.X, loc.Z, loc.Y}
 }
 
 func shapeTexture(u, v, t float64) float64 {
@@ -237,8 +237,7 @@ func shapeTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
-	return loc.Scaled(radius(u, v, t))
+	return shape(u, v, t)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -257,8 +256,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
-	cameraLoc := cameraPath(t).Scaled(.075)
-	focusPoint := focusPath(t).Scaled(.075)
+	cameraLoc := cameraPath(t, t).Scaled(.075)
+	focusPoint := focusPath(t, t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -458,41 +457,26 @@ end_header
         <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3800"/>
-            <integer name="height" value="3800"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="720"/>
             <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
+        <string name="filename" value="IMG_0355 Panorama.jpg"/>
         <float name="scale" value="1"/>
-        <transform name="to_world">
-            <rotate value="1, 0, 0" angle="-45"/>
-            <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
-        </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-        </texture>
-         <bsdf type="dielectric">
-        </bsdf>
-       <bsdf type="twosided">
-            <bsdf type="conductor">
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/12.spd"/>
+            <bsdf type="dielectric" id="object_bsdf">
             </bsdf>
-        </bsdf>
-    </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -514,7 +498,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
