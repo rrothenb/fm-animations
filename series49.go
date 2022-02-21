@@ -48,7 +48,7 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*(spow(shapeTexture(1, 1, u, v, t), .25)/2+.5)*(shapeTexture(1, 1, u, v, t)/2+.5+.0025*shapeTexture(10, 2, u, v, t))
+	return 1.0 + .1*(spow(shapeTexture(1, 1, u, v, t), .1)/2+.5)*(shapeTexture(1, 1, u, v, t)/2+.5+.0025*shapeTexture(50, 2.5, u, v, t))
 }
 
 type SLR2 struct {
@@ -346,7 +346,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			blendValue := float32(spow(shapeTexture(1, 1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), .1)/2+.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(shapeTexture(10, 2, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
+			landBlendValue := float32(shapeTexture(50, 2.5, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]

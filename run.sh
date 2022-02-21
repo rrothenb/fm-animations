@@ -11,8 +11,10 @@ mv data/$2.rgbe mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
 mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
 convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
+mv data/$2.land.blend.rgbe mitsuba.land.blend.rgbe
+convert mitsuba.land.blend.rgbe mitsuba.land.blend.jpg
 #mv data/$2.texture.rgbe mitsuba.texture.rgbe
 #convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba test.xml
-convert test.exr -auto-gamma -brightness-contrast 10x35 -modulate 100,150,100 $2.jpg
+convert test.exr -auto-gamma -normalize $2.jpg
