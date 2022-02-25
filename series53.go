@@ -48,7 +48,7 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .0001*shapeTexture(50, 2, u, v, t)
+	return 1.0 + .01*shapeTexture(.5, 4, u, v, t)
 }
 
 type SLR2 struct {
@@ -150,6 +150,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func cube(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+.7*sin(v)) * cos(u-.7*sin(2*u)),
+		sin(v/2.0+.7*sin(v)) * sin(u+.7*sin(2*u)),
+		cos(v/2.0-.7*sin(v)),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -176,11 +184,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{
-		0,
-		cos(t)*1.5+2,
-		0,
-	}
+	loc, _ := circle(t).Plus(geom.Vec{0,0,sin(2*t)}).Unit()
+	return loc.Scaled(3)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -201,11 +206,11 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .25, circle)
+	return cube(u, v, t)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
-	loc := sphere(u, v, t).Scaled(f*2*pi)
+	loc := shape(u, v, t).Scaled(f*2*pi)
 	return sin(
 			a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
 			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
@@ -214,7 +219,7 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
+	loc := shape(u, v, t)
 	return loc.Scaled(radius(u, v, t))
 }
 
@@ -237,7 +242,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	distance := cameraLoc.Minus(focusPoint).Len()-.4
+	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -295,7 +300,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	// distance = cameraLoc.Minus(closestPoint).Len()
+	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -347,7 +352,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			blendValue := float32(spow(shapeTexture(1, 1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), .1)/2+.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(shapeTexture(50, 2, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
+			landBlendValue := float32(shapeTexture(.5, 4, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -426,7 +431,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -455,14 +460,15 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-				<bsdf type="null">
-				</bsdf>
 		   <bsdf type="twosided">
-				<bsdf type="conductor">
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+				<bsdf type="roughconductor">
+				<float name="alpha" value=".1"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
 				</bsdf>
 			</bsdf>
+				<bsdf type="null">
+				</bsdf>
     </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -480,49 +486,71 @@ end_header
     <ref id="my_shape_group"/>
 </shape>
 
-<!-- Create instance of the shape group, but rotated and scaled -->
+<!-- Create instance of the shape group, but scaled -->
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="45"/>
+        <scale value=".9"/>
+    </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+    <transform name="to_world">
         <scale value=".8"/>
     </transform>
 </shape>
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="90"/>
+        <scale value=".7"/>
+    </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+    <transform name="to_world">
         <scale value=".6"/>
     </transform>
 </shape>
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="135"/>
+        <scale value=".5"/>
+    </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+    <transform name="to_world">
         <scale value=".4"/>
     </transform>
 </shape>
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="180"/>
+        <scale value=".3"/>
+    </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+    <transform name="to_world">
         <scale value=".2"/>
+    </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+    <transform name="to_world">
+        <scale value=".1"/>
     </transform>
 </shape>
 </scene>
 `)
-	angle := -t/pi*180
-	if angle < -180  {
-		angle = angle + 360
-	}
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), 0, minZ})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 720, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
