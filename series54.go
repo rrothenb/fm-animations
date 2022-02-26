@@ -154,9 +154,11 @@ func bowl(thickness, insideTexture, outsideTexture, u, v, t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := bowl(.1, 0, 0, u, v, t)
-	return bowl(.1, .025*pow(spow(shapeTexture(2, 1.5, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4)), .05*pow(spow(shapeTexture(1, 1, t, loc), strength(2, t))/2+.5, strength(3, t)), u, v, t)
-
+	return geom.Vec{
+		sin(u)*sin(v/2),
+		cos(u)*sin(v/2),
+		pow(v/pi/2, 10)-cos(v/2),
+	}
 }
 
 
@@ -186,12 +188,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(0).Plus(geom.Vec{0,0,.75}).Unit()
-	return loc.Scaled(7)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.75}).Unit()
+	return loc.Scaled(4)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,.25}
+	return geom.Vec{0,0,.666}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -217,7 +219,9 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	return shape(u, v, t)
+	loc := shape(u, v, t)
+	r := 1-.01*pow(spow(shapeTexture(6, 1.5, t, loc), .75)/2+.5, 10)
+	return loc.Scaled(r)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -349,9 +353,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * 2 * pi
-			loc := bowl(.1, 0, 0, u, v, t)
+			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(pow(spow(shapeTexture(2, 1.5, t, loc), pow(strength(5, t), 10))/2+.5, 4)*(.5-cos(v/2-.7*sin(v))/2))
+			blendValue := float32(pow(spow(shapeTexture(4, .25, t, loc), strength(41, t))/2+.5, strength(43, t)))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -376,7 +380,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 12))
+			envmapValue := float32(pow(sin(u/2)*sin(v), 4))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -426,47 +430,33 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000001"/>
+        <float name="aperture_radius" value=".001"/>
         <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="16"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3200"/>
-            <integer name="height" value="2000"/>
+            <integer name="width" value="500"/>
+            <integer name="height" value="750"/>
             <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="3"/>
+        <string name="filename" value="HDR_041_Path.hdr"/>
+        <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="30"/>
-            <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
+            <rotate value="1, 0, 0" angle="0"/>
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.blend.rgbe"/>
-        </texture>
-         <bsdf type="twosided">
-            <bsdf type="roughplastic">
-				<float name="alpha" value=".1"/>
-            </bsdf>
+         <bsdf type="dielectric" id="object_bsdf">
 		 </bsdf>
-         <bsdf type="twosided">
-            <bsdf type="roughconductor">
-				<float name="alpha" value=".01"/>
-					<string name="material" value="Au"/>
-            </bsdf>
-            </bsdf>
-		 </bsdf>
+<shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -475,15 +465,143 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
-	<shape type="rectangle">
+</shape>
+
+<!-- Instantiate the shape group without any kind of transformation -->
+<shape type="instance">
+    <ref id="my_shape_group"/>
+</shape>
+
+<!-- Create instance of the shape group, but scaled -->
+<shape type="instance">
+    <ref id="my_shape_group"/>
         <transform name="to_world">
-            <scale value="10"/>
-            <translate x="0" y="0" z="{{ .MinZ }}"/>
+            <rotate value="0, 0, 1" angle="30"/>
+            <translate x="-.3" y=".2" z="-.1"/>
         </transform>
-	</shape>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="45"/>
+            <translate x="-.2" y=".3" z="-.1"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="60"/>
+            <translate x="-.3" y=".1" z="-.2"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="75"/>
+            <translate x="-.2" y=".1" z="-.3"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="90"/>
+            <translate x="-.1" y=".2" z="-.3"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="105"/>
+            <translate x="-.1" y=".3" z="-.2"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="120"/>
+            <translate x="-.3" y="-.2" z=".1"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="135"/>
+            <translate x="-.2" y="-.3" z=".1"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="150"/>
+            <translate x="-.3" y="-.1" z=".2"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="165"/>
+            <translate x="-.2" y="-.1" z=".3"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="180"/>
+            <translate x="-.1" y="-.2" z=".3"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="195"/>
+            <translate x="-.1" y="-.3" z=".2"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="210"/>
+            <translate x="-.3" y=".2" z="-.1"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="225"/>
+            <translate x="-.2" y=".3" z="-.1"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="240"/>
+            <translate x="-.3" y=".1" z="-.2"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="255"/>
+            <translate x="-.2" y=".1" z="-.3"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="270"/>
+            <translate x="-.1" y=".2" z="-.3"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="285"/>
+            <translate x="-.1" y=".3" z="-.2"/>
+        </transform>
+</shape>
 </scene>
 `)
-	angle := 180.0
+	angle := 90.0
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ})
 }
 
@@ -491,7 +609,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
