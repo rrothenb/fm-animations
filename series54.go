@@ -417,6 +417,10 @@ end_header
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
+	type instance struct {
+		Angle float64
+		Loc geom.Vec
+	}
 	type sensor struct {
 		Camera geom.Vec
 		LookAt geom.Vec
@@ -424,6 +428,7 @@ end_header
 		FogRadius float64
 		Angle float64
 		MinZ float64
+		Instances []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -437,12 +442,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="16"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="500"/>
-            <integer name="height" value="750"/>
+            <integer name="width" value="2000"/>
+            <integer name="height" value="3000"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -455,6 +460,8 @@ end_header
     </emitter>
     <integrator type="path" />
          <bsdf type="dielectric" id="object_bsdf">
+			<string name="int_ior" value="water"/>
+			<string name="ext_ior" value="air"/>
 		 </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -467,149 +474,32 @@ end_header
     </shape>
 </shape>
 
-<!-- Instantiate the shape group without any kind of transformation -->
-<shape type="instance">
-    <ref id="my_shape_group"/>
-</shape>
-
-<!-- Create instance of the shape group, but scaled -->
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="30"/>
-            <translate x="-.3" y=".2" z="-.1"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="45"/>
-            <translate x="-.2" y=".3" z="-.1"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="60"/>
-            <translate x="-.3" y=".1" z="-.2"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="75"/>
-            <translate x="-.2" y=".1" z="-.3"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="90"/>
-            <translate x="-.1" y=".2" z="-.3"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="105"/>
-            <translate x="-.1" y=".3" z="-.2"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="120"/>
-            <translate x="-.3" y="-.2" z=".1"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="135"/>
-            <translate x="-.2" y="-.3" z=".1"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="150"/>
-            <translate x="-.3" y="-.1" z=".2"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="165"/>
-            <translate x="-.2" y="-.1" z=".3"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="180"/>
-            <translate x="-.1" y="-.2" z=".3"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="195"/>
-            <translate x="-.1" y="-.3" z=".2"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="210"/>
-            <translate x="-.3" y=".2" z="-.1"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="225"/>
-            <translate x="-.2" y=".3" z="-.1"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="240"/>
-            <translate x="-.3" y=".1" z="-.2"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="255"/>
-            <translate x="-.2" y=".1" z="-.3"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="270"/>
-            <translate x="-.1" y=".2" z="-.3"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="285"/>
-            <translate x="-.1" y=".3" z="-.2"/>
-        </transform>
-</shape>
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ})
+	instances := []instance{}
+	for x := -6.0; x <= 6.0; x++ {
+		for y := -6.0; y <= 6.0; y++ {
+			for z := -6.0; z <= 6.0; z++ {
+				if abs(x) == abs(y) || abs(y) == abs(z) || abs(x) == abs(z)  || max(x, max(y, z)) - min(x, min(y, z)) == 2.0 {
+					continue
+				}
+				instances = append(instances, instance{0, geom.Vec{spow(x, 1.5)*.2, spow(y, 1.5)*.2, spow(z, 1.5)*.2}})
+			}
+		}
+	}
+	instances = append(instances, instance{0, geom.Vec{0, 0, 0}})
+	fmt.Println(len(instances))
+
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ, instances})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
