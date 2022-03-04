@@ -192,7 +192,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(5.25)
+	return circle(t).Scaled(3.5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -446,13 +446,11 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="4096"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
             <integer name="width" value="2700"/>
-            <integer name="crop_width" value="2000"/>
-            <integer name="crop_offset_x" value="700"/>
             <integer name="height" value="2700"/>
             <rfilter type="box"/>
         </film>
@@ -465,19 +463,10 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.blend.rgbe"/>
-        </texture>
-         <bsdf type="dielectric">
-			<string name="int_ior" value="water"/>
+          <bsdf type="dielectric" id="object_bsdf">
+			<string name="int_ior" value="bk7"/>
 			<string name="ext_ior" value="air"/>
 		 </bsdf>
-         <bsdf type="dielectric">
-			<string name="int_ior" value="diamond"/>
-			<string name="ext_ior" value="air"/>
-		 </bsdf>
-    </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
