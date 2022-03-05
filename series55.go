@@ -192,7 +192,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(3.5)
+	return circle(t).Scaled(10)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -223,7 +223,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	displacement := shapeTexture(1, 1, t, loc)*(1-loc.X*loc.X)*(1-loc.Y*loc.Y)*2
+	displacement := (shapeTexture(.5, .5, t, loc)/2+.5)*(1-loc.X*loc.X)*(1-loc.Y*loc.Y)*3
 	return loc.Plus(geom.Vec{0, 0, displacement})
 }
 
@@ -301,11 +301,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			}
 		}
 	}
-	cameraLoc = cameraLoc.Scaled(math.Max(maxX, math.Max(maxY, maxZ))*8)
+	//cameraLoc = cameraLoc.Scaled(math.Max(maxX, math.Max(maxY, maxZ))*8)
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -439,14 +439,14 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".00001"/>
-        <float name="fov" value="40"/>
+        <float name="aperture_radius" value=".0001"/>
+        <float name="fov" value="30"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="4096"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -463,7 +463,8 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-          <bsdf type="dielectric" id="object_bsdf">
+          <bsdf type="roughdielectric" id="object_bsdf">
+        	<float name="alpha" value=".01"/>
 			<string name="int_ior" value="bk7"/>
 			<string name="ext_ior" value="air"/>
 		 </bsdf>
@@ -485,7 +486,7 @@ end_header
 	instances := []instance{}
 	for x := -1.0; x <= 1.0; x++ {
 		for z := -1.0; z <= 1.0; z++ {
-			instances = append(instances, instance{0, geom.Vec{x*.185, 0, z*.185}})
+			instances = append(instances, instance{0, geom.Vec{x*.2, 0, z*.2}})
 		}
 	}
 	fmt.Println(len(instances))
