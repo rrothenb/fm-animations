@@ -192,7 +192,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(10)
+	return circle(t).Scaled(14)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -223,7 +223,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	displacement := (shapeTexture(.5, .5, t, loc)/2+.5)*(1-loc.X*loc.X)*(1-loc.Y*loc.Y)*3
+	displacement := (shapeTexture(.5, .5, t, loc)/2+.5)*(1-loc.X*loc.X)*(1-loc.Y*loc.Y)*2.5
 	return loc.Plus(geom.Vec{0, 0, displacement})
 }
 
@@ -439,8 +439,8 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0001"/>
-        <float name="fov" value="30"/>
+        <float name="aperture_radius" value=".00001"/>
+        <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -463,8 +463,7 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-          <bsdf type="roughdielectric" id="object_bsdf">
-        	<float name="alpha" value=".01"/>
+          <bsdf type="dielectric" id="object_bsdf">
 			<string name="int_ior" value="bk7"/>
 			<string name="ext_ior" value="air"/>
 		 </bsdf>
@@ -484,8 +483,8 @@ end_header
 `)
 	angle := 90.0
 	instances := []instance{}
-	for x := -1.0; x <= 1.0; x++ {
-		for z := -1.0; z <= 1.0; z++ {
+	for x := -2.0; x <= 2.0; x++ {
+		for z := -2.0; z <= 2.0; z++ {
 			instances = append(instances, instance{0, geom.Vec{x*.2, 0, z*.2}})
 		}
 	}
