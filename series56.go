@@ -157,7 +157,7 @@ func shape(u, v, t float64) geom.Vec {
 	return geom.Vec{
 		sin(u)*sin(v/2),
 		cos(u)*sin(v/2),
-		pow(v/pi/2, 10)-cos(v/2),
+		cos(v/2)-pow(v/pi/2, 10),
 	}
 }
 
@@ -188,8 +188,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,.75}).Unit()
-	return loc.Scaled(4)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,1.25+sin(t)*.75}).Unit()
+	return loc.Scaled(10)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -220,7 +220,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	r := 1-.01*pow(spow(shapeTexture(6, 1.5, t, loc), .75)/2+.5, 10)
+	r := 1-.5*pow(spow(shapeTexture(1, .5, t, loc), .25)/2+.5, 4)
 	return loc.Scaled(r)
 }
 
@@ -298,11 +298,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			}
 		}
 	}
-	cameraLoc = cameraLoc.Scaled(math.Max(maxX, math.Max(maxY, maxZ))*8)
+	//cameraLoc = cameraLoc.Scaled(math.Max(maxX, math.Max(maxY, maxZ))*8)
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -380,8 +380,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 4))
-			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
+			loc := shape(u, v, t)
+			envmapValue := float32(pow(spow(shapeTexture(.1, 2, t, loc), strength(2, t))/2+.5, strength(3, t)))
+			envmapArray = append(envmapArray, float32(pow(float64(envmapValue), 4)), envmapValue*.75+.25*float32(sin(v)), float32(pow(float64(envmapValue), .25)))
 		}
 	}
 
@@ -435,24 +436,24 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".0001"/>
         <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2000"/>
-            <integer name="height" value="3000"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="512"/>
             <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="HDR_041_Path.hdr"/>
+        <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="0"/>
@@ -460,8 +461,6 @@ end_header
     </emitter>
     <integrator type="path" />
          <bsdf type="dielectric" id="object_bsdf">
-			<string name="int_ior" value="water"/>
-			<string name="ext_ior" value="air"/>
 		 </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -473,23 +472,23 @@ end_header
         <ref id="object_bsdf"/>
     </shape>
 </shape>
+	<shape type="rectangle">
+        <transform name="to_world">
+            <scale value="10"/>
+            <translate x="0" y="0" z="{{ .MinZ }}"/>
+        </transform>
+	</shape>
 
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
 	instances := []instance{}
-	for x := -6.0; x <= 6.0; x++ {
-		for y := -6.0; y <= 6.0; y++ {
-			for z := -6.0; z <= 6.0; z++ {
-				if abs(x) == abs(y) || abs(y) == abs(z) || abs(x) == abs(z)  || max(x, max(y, z)) - min(x, min(y, z)) == 2.0 {
-					continue
-				}
-				instances = append(instances, instance{0, geom.Vec{spow(x, 1.5)*.2, spow(y, 1.5)*.2, spow(z, 1.5)*.2}})
-			}
+	for x := -29.0; x <= 29.0; x++ {
+		for y := -29.0; y <= 29.0; y++ {
+				instances = append(instances, instance{shapeTexture(.5, .5, t, geom.Vec{x/9, y/9, 0})*180, geom.Vec{x*.15, y*.15, 0}})
 		}
 	}
-	instances = append(instances, instance{0, geom.Vec{0, 0, 0}})
 	fmt.Println(len(instances))
 
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ, instances})
@@ -499,7 +498,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
