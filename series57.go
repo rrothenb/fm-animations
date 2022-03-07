@@ -188,12 +188,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,1.25+sin(t)*.75}).Unit()
-	return loc.Scaled(10)
+	return circle(t).Scaled(5+4*sin(t)).Plus(geom.Vec{0,0,-1.75})
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,.666}
+	return geom.Vec{0,0,-1}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -304,7 +303,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
-	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
+	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth/totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
 	fmt.Println(numTriangles)
@@ -443,12 +442,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="512"/>
-            <integer name="height" value="512"/>
+            <integer name="width" value="2700"/>
+            <integer name="height" value="2700"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -473,6 +472,9 @@ end_header
     </shape>
 </shape>
 	<shape type="rectangle">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.9, 0.9, 0.9"/>
+		</bsdf>
         <transform name="to_world">
             <scale value="10"/>
             <translate x="0" y="0" z="{{ .MinZ }}"/>
@@ -498,7 +500,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
