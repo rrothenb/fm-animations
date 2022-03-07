@@ -420,6 +420,7 @@ end_header
 	type instance struct {
 		Angle float64
 		Loc geom.Vec
+		Scale float64
 	}
 	type sensor struct {
 		Camera geom.Vec
@@ -442,12 +443,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2700"/>
-            <integer name="height" value="2700"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -481,16 +482,21 @@ end_header
         </transform>
 	</shape>
 
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
 	instances := []instance{}
-	for x := -29.0; x <= 29.0; x++ {
-		for y := -29.0; y <= 29.0; y++ {
-				instances = append(instances, instance{shapeTexture(.5, .5, t, geom.Vec{x/9, y/9, 0})*180, geom.Vec{x*.15, y*.15, 0}})
+	num := 9.0
+	for x := -num; x <= num; x++ {
+		for y := -num; y <= num; y++ {
+			if x == 0 && y == 0 {
+				continue
+			}
+			instances = append(instances, instance{shapeTexture(.5, .5, t, geom.Vec{x/9, y/9, 0})*180, geom.Vec{x*.15, y*.15, 0}, 1})
 		}
 	}
+	instances = append(instances, instance{0, geom.Vec{0, 0, .29}, 3})
 	fmt.Println(len(instances))
 
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ, instances})
