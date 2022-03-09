@@ -188,11 +188,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(5+4*sin(t)).Plus(geom.Vec{0,0,-1.75})
+	return circle(t).Scaled(7+2*sin(t)).Plus(geom.Vec{0,0,-1})
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,-1}
+	return geom.Vec{0,0,-2}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -220,7 +220,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
 	r := 1-.5*pow(spow(shapeTexture(1, .5, t, loc), .25)/2+.5, 4)
-	return loc.Scaled(r)
+	return loc.By(geom.Vec{r, r, 1})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -442,14 +442,14 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+        <sampler type="stratified">
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
-            <rfilter type="box"/>
+            <integer name="width" value="2700"/>
+            <integer name="height" value="2700"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -490,13 +490,13 @@ end_header
 	num := 9.0
 	for x := -num; x <= num; x++ {
 		for y := -num; y <= num; y++ {
-			if x == 0 && y == 0 {
+			loc := geom.Vec{x*.2, y*.2, 0}
+			if loc.Minus(cameraLoc).Len() < .1 {
 				continue
 			}
-			instances = append(instances, instance{shapeTexture(.5, .5, t, geom.Vec{x/9, y/9, 0})*180, geom.Vec{x*.15, y*.15, 0}, 1})
+			instances = append(instances, instance{shapeTexture(.5, .5, t, geom.Vec{x/9, y/9, 0})*180, loc, 1})
 		}
 	}
-	instances = append(instances, instance{0, geom.Vec{0, 0, .29}, 3})
 	fmt.Println(len(instances))
 
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ, instances})
@@ -506,7 +506,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
