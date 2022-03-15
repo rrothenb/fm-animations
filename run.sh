@@ -17,4 +17,4 @@ convert mitsuba.land.blend.rgbe mitsuba.land.blend.jpg
 #convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba -m packet_spectral test.xml
-convert test.exr -auto-gamma -sigmoidal-contrast 10x35% $2.jpg
+convert test.exr -sigmoidal-contrast 5x75% $2.jpg
