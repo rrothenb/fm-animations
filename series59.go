@@ -64,7 +64,7 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.054,
+		Width:    0.0864,
 		Height:   0.036,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
@@ -154,10 +154,13 @@ func bowl(thickness, insideTexture, outsideTexture, u, v, t float64) geom.Vec {
 }
 
 func cube(u, v, t float64) geom.Vec {
+	a := sin(2*t)*.5+.5
+	b := sin(3*t)*.5+.5
+	//c := sin(5*t)*.5+.5
 	return geom.Vec{
-		sin(v/2.0+.7*sin(v)) * cos(u-.7*sin(2*u)),
-		sin(v/2.0+.7*sin(v)) * sin(u+.7*sin(2*u)),
-		cos(v/2.0-.7*sin(v)),
+		sin(v/2.0+a*sin(v)) * cos(u-b*sin(2*u)),
+		sin(v/2.0+a*sin(v)) * sin(u+b*sin(2*u)),
+		cos(v/2.0-.5*sin(v)),
 	}
 }
 
@@ -184,19 +187,20 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, circle)
+	return torusKnot(t, 1, .3, 2, 7, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 2, outerKnot)
+	return torusKnot(t, 1, .2, 2, 7, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(14)
+	loc := circle(t).Plus(geom.Vec{0, 0, .5*sin(2*t)})
+	return loc.Scaled(7+5*cos(t))
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,0}
+	return circle(t)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -223,8 +227,8 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	displacement := (shapeTexture(.5, .5, t, loc)/2+.5)*(1-loc.X*loc.X)*(1-loc.Y*loc.Y)*2.5
-	return loc.Plus(geom.Vec{0, 0, displacement})
+	r := 1-.025*pow(shapeTexture(1, 1.5, t, loc)/2+.5, 2)
+	return loc.Scaled(r)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -232,10 +236,10 @@ func index2radians(index float64, n int) float64 {
 }
 
 func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
-	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t).Scaled(.075)
-	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t).Scaled(.075)
-	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t).Scaled(.075)
-	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t).Scaled(.075)
+	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t)
+	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t)
+	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t)
+	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t)
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
@@ -243,8 +247,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
-	cameraLoc := cameraPath(t).Scaled(.075)
-	focusPoint := focusPath(t).Scaled(.075)
+	cameraLoc := cameraPath(t)
+	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -269,12 +273,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	closestPoint := geom.Vec{0,0,0}
 	for uIndex := 0; uIndex <= 500; uIndex++ {
 		for vIndex := 0; vIndex <= 500; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t).Scaled(.075)
+			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t)
 			if !c.invisible(vertex) {
 				//fmt.Println(vertex)
 				numTriangles++
-				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t).Scaled(.075)
-				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t).Scaled(.075)
+				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t)
+				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t)
 				totalWidth += vertex.Minus(vertexLeft).Len()
 				totalHeight += vertex.Minus(vertexBelow).Len()
 				minDistance = math.Min(minDistance, vertex.Len())
@@ -331,7 +335,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
 		for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t).Scaled(.075)
+			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)
 			if c.invisible(vertex) {
 				vertexIndicies[uIndex][vIndex] = -1
 				continue
@@ -422,8 +426,11 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
-		Angle float64
+		AngleX float64
+		AngleY float64
+		AngleZ float64
 		Loc geom.Vec
+		Scale float64
 	}
 	type sensor struct {
 		Camera geom.Vec
@@ -445,14 +452,14 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="1024"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2700"/>
-            <integer name="height" value="2700"/>
-            <rfilter type="box"/>
+            <integer name="width" value="3072"/>
+            <integer name="height" value="1728"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -463,9 +470,9 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-          <bsdf type="dielectric" id="object_bsdf">
-			<string name="int_ior" value="bk7"/>
-			<string name="ext_ior" value="air"/>
+          <bsdf type="roughconductor" id="object_bsdf">
+                <float name="alpha" value=".1"/>
+                <string name="material" value="Ag"/>
 		 </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -478,17 +485,20 @@ end_header
     </shape>
 </shape>
 
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="1, 0, 0" angle="{{ .AngleX }}"/><rotate value="0, 1, 0" angle="{{ .AngleY }}"/><rotate value="0, 0, 1" angle="{{ .AngleZ }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
 	instances := []instance{}
-	for x := -2.0; x <= 2.0; x++ {
-		for z := -2.0; z <= 2.0; z++ {
-			instances = append(instances, instance{0, geom.Vec{x*.2, 0, z*.2}})
-		}
+	for n:= 0; n < 3000; n++ {
+		x := float64(n)*2*pi/3000
+		loc := innerKnot(x).Scaled(3)
+		angleX := shapeTexture(1, .5, t, loc)*90
+		angleY := shapeTexture(.5, .25, t, loc)*90
+		angleZ := shapeTexture(.333, .15, t, loc)*90
+		scale := shapeTexture(2, .5, t, loc)*.025+.05
+		instances = append(instances, instance{angleX, angleY, angleZ, loc, scale})
 	}
-	fmt.Println(len(instances))
 
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ, instances})
 }
@@ -497,7 +507,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
