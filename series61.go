@@ -43,12 +43,12 @@ func pushout(x, duty, degree float64) float64 {
 	return spow(pow(x, duty)*2-1, degree)/2+.5
 }
 
-func strength(n int, x float64) float64 {
-	return sin(float64(n)*x)/2+.5
+func strength(n float64, x float64) float64 {
+	return sin(n*x+.25*sin(2*n*x)+n/3)/2+.5
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*pow(spow(shapeTexture(2, 2, u, v, t), pow(4, strength(2, t)*2-1))/2+.5, pow(4, strength(3, t)*2-1))
+	return 1.0 + .025*(strength(19, t)*2-1)*pow(spow(shapeTexture(1, 3, u, v, t), pow(4, strength(2, t)*2-1))/2+.5, pow(4, strength(3, t)*2-1))
 }
 
 type SLR2 struct {
@@ -119,7 +119,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .75
+	factor := .25
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -175,11 +175,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(1.2)
+	return circle(t).Plus(geom.Vec{0, 0, 1.05})
 }
 
 func focusPath(t float64) geom.Vec {
-	return cameraPath(t+pi*.45)
+	return geom.Vec{0, 0, .85}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -196,21 +196,20 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .25, circle)
+	return geom.Vec{u/pi-1, v/pi-1, 0}
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
-	loc := sphere(u, v, t).Scaled(f*2*pi)
+	loc := shape(u, v, t).Scaled(f*2*pi)
 	return sin(
 			a*strength(2, t)*sin(a*strength(19, t)*loc.X)+
-			a*strength(3, t)*sin(a*strength(17, t)*loc.Y+a*strength(23, t)*sin(a*strength(31, t)*loc.Y))+
-			a*strength(5, t)*sin(a*strength(13, t)*loc.Z)+a*strength(29, t)*sin(a*strength(37, t)*loc.X-a*strength(43, t)*loc.Y)+
-			.1*a*strength(7, t)*sin(loc.X*loc.Y+.1*a*strength(11, t)*sin(loc.X*loc.Z+.1*a*strength(41, t)*sin(loc.Z*loc.Y))))
+			a*strength(3, t)*sin(a*strength(17, t)*loc.Y+a*strength(17, t)*sin(a*strength(11, t)*loc.Y))+
+			a*strength(5, t)*sin(a*strength(13, t)*loc.Z)+a*strength(13, t)*sin(a*strength(7, t)*loc.X-a*strength(3, t)*loc.Y)+
+			.1*a*strength(7, t)*sin(loc.X*loc.Y+.1*a*strength(11, t)*sin(loc.X*loc.Z+.1*a*strength(5, t)*sin(loc.Z*loc.Y))))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
-	return loc.Scaled(radius(u, v, t))
+	return shape(u, v, t).Plus(geom.Vec{0, 0, radius(u, v, t)})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -291,6 +290,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	distance = cameraLoc.Minus(closestPoint).Len()
+	distance = .34
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -342,9 +342,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			u := index2radians(float64(uIndex), nU)
 			v := index2radians(float64(vIndex), nV)
-			blendValue := float32(pow(spow(shapeTexture(4, 1, u, v, t), pow(4, strength(5, t)*2-1))/2+.5, pow(4, strength(7, t)*2-1)))
+			blendValue := float32(pow(spow(shapeTexture(1, 3+2*cos(17*t), u, v, t), pow(4, strength(5, t)*2-1))/2+.5, pow(4, strength(7, t)*2-1)))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(pow(spow(shapeTexture(1, 4, u, v, t), pow(4, strength(11, t)*2-1))/2+.5, pow(4, strength(13, t)*2-1)))
+			landBlendValue := float32(pow(spow(shapeTexture(1, 3-2*cos(19*t), u, v, t), pow(4, strength(11, t)*2-1))/2+.5, pow(4, strength(13, t)*2-1)))
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -423,19 +423,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0000001"/>
-        <float name="fov" value="50"/>
+        <float name="aperture_radius" value=".0001"/>
+        <float name="fov" value="25"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="400"/>
+            <integer name="sample_count" value="49"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3200"/>
-            <integer name="height" value="2000"/>
+            <integer name="width" value="1165"/>
+            <integer name="height" value="720"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -452,9 +452,6 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-		<bsdf type="roughdielectric">
-			<float name="alpha" value=".01"/>
-		</bsdf>
 		<bsdf type="blendbsdf">
 			<texture type="bitmap" name="weight">
 				<string name="filename" value="mitsuba.land.blend.rgbe"/>
@@ -462,19 +459,22 @@ end_header
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
+                <float name="alpha" value=".05"/>
+                <spectrum name="eta" filename="spd/15i.spd"/>
+                <spectrum name="k" filename="spd/11i.spd"/>
             </bsdf>
         </bsdf>
         <bsdf type="twosided">
             <bsdf type="roughconductor">
                 <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/15i.spd"/>
-                <spectrum name="k" filename="spd/11i.spd"/>
+                <float name="alpha" value=".05"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
             </bsdf>
         </bsdf>
+		</bsdf>
+		<bsdf type="roughdielectric">
+			<float name="alpha" value=".5"/>
 		</bsdf>
     </bsdf>
    <shape type="ply">
