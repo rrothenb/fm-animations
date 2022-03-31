@@ -430,12 +430,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="49"/>
+            <integer name="sample_count" value="400"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1165"/>
-            <integer name="height" value="720"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="2000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
