@@ -51,11 +51,11 @@ func texture(x, y, z, t float64) float64 {
 			strength(.5+5*t)*sin(3*z+strength(.6+7*t)*sin(5*z)) +
 			strength(.7+11*t)*sin(11*x+7*y) +
 			strength(.8+13*t)*sin(11*y-5*z) +
-			strength(.9+17*t)*sin(3*z-11*x))
+			strength(.9+7*t)*sin(3*z-11*x))
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .25*strength(2*t)*pow(pow(texture(x, y, z, t)/2+.5, pow(2, sin(3*t))), pow(2, sin(5*t)))
+	return 1.0 + .666*strength(2*t)*pow(pow(texture(x, y, z, t)/2+.5, pow(2, sin(3*t))), pow(2, sin(5*t)))
 }
 
 func blendTexture(x, y, z, t float64) float64 {
@@ -64,7 +64,7 @@ func blendTexture(x, y, z, t float64) float64 {
 
 func metalBlendTexture(x, y, z, t float64) float64 {
 	// metalBlendValue := float32(pushout(pow(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5, .5), .1))
-	return 1-pushout(pow(texture(x+.05, y+.05, z+.05, t)/2+.5, 100), .1)
+	return 1-pushout(pow(.5-texture(x, y, z, t)/2, pow(10, cos(2*t))), pow(10, -cos(3*t)))
 }
 
 func roughnessTexture(x, y, z, t float64) float64 {
@@ -216,8 +216,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,sin(2*t)}).Unit()
-	return loc.Scaled(2.5)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.5*sin(2*t)}).Unit()
+	return loc.Scaled(5+cos(t))
 }
 
 func focusPath(t float64) geom.Vec {
@@ -238,7 +238,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := foldedSphere(u, v, t)
+	loc := sphere(u, v, t)
 	//a := radius(loc.X, loc.Y, loc.Z, t)
 	//fmt.Printf("loc: %v, a: %v\n", loc, a)
 	return loc.Scaled(radius(loc.X, loc.Y, loc.Z, t))
@@ -349,9 +349,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			envmapValue := float32(pow(cos(v/2),3)) // float32((1-pow(1-pow(uvTexture(u, v, t, texture, sphere), 2), pow(1-v/pi, 2)*2)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, foldedSphere))
-			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, foldedSphere))
+			blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, metalBlendTexture, foldedSphere))
+			metalBlendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, metalBlendTexture, sphere))
+			metalBlendValue = 1-(1-metalBlendValue)*blendValue
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			roughnessArray = append(roughnessArray, roughnessValue, roughnessValue, roughnessValue)
 
@@ -427,24 +428,24 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="35"/>
+        <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="420"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
             <integer name="width" value="2500"/>
             <integer name="height" value="2500"/>
-            <rfilter type="gaussian"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="5"/>
+        <float name="scale" value="1"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
         </transform>
@@ -454,15 +455,24 @@ end_header
         </integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="1, .7, .4"/>
-        <rgb name="albedo" value="0.4, 0.5, 0.6"/>
+        <rgb name="sigma_t" value="1, .6, .2"/>
+        <rgb name="albedo" value="0.4, 0.6, 0.8"/>
         <phase type="hg">
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
-    <bsdf type="dielectric" id="object_bsdf">
-        </bsdf>
-
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.metal.blend.rgbe"/>
+        </texture>
+		   <bsdf type="twosided">
+				<bsdf type="conductor">
+                <string name="material" value="Cu"/>
+				</bsdf>
+			</bsdf>
+				<bsdf type="null">
+				</bsdf>
+    </bsdf>
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -480,14 +490,14 @@ end_header
 		distance,
 		90,
 		sin(11*t)*.9,
-		sin(13*t)*49+50})
+		sin(7*t)*10+50})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 3072, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
