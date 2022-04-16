@@ -217,10 +217,12 @@ func index2radians(index float64, n int) float64 {
 }
 
 func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
-	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius)
-	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius)
-	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius)
-	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius)
+	uDelta := 2*pi/float64(nU)/10
+	vDelta := 2*pi/float64(nV)/10
+	left := uv2xyz(index2radians(float64(uIndex)-uDelta, nU), index2radians(float64(vIndex), nV), t, radius)
+	right := uv2xyz(index2radians(float64(uIndex)+uDelta, nU), index2radians(float64(vIndex), nV), t, radius)
+	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+vDelta, nV), t, radius)
+	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-vDelta, nV), t, radius)
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
@@ -429,12 +431,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="42"/>
+            <integer name="sample_count" value="420"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1600"/>
-            <integer name="height" value="1000"/>
+            <integer name="width" value="2900"/>
+            <integer name="height" value="1800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
