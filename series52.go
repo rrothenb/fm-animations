@@ -432,13 +432,13 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -460,7 +460,7 @@ end_header
 		   <bsdf type="twosided">
 				<bsdf type="conductor">
                 <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
 				</bsdf>
 			</bsdf>
     </bsdf>
