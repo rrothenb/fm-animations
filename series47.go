@@ -39,8 +39,14 @@ func spow(x, y float64) float64 {
 	return sign(x)*pow(abs(x), y)
 }
 
+var strengths = make(map[int]float64)
+
 func strength(n int, x float64) float64 {
-	return pow(5, sin(pow(float64(n), .25)*(x+float64(n)/10)))
+	_, present := strengths[n]
+	if !present {
+		strengths[n] = pow(5, sin(pow(float64(n), .25)*(x+float64(n)/10)))
+	}
+	return strengths[n]
 }
 
 func radius(u, v, t float64) float64 {
@@ -221,7 +227,7 @@ func normal(u, v, t float64, shape func(u, v, t float64) geom.Vec) geom.Dir {
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	loc := shape(u, v, t)
 	normal := normal(u, v, t, shape)
-	surfaceTexture := .00025*shapeTexture(10, 4.5, u, v, t)
+	surfaceTexture := .00001*shapeTexture(25, 5, u, v, t)
 	return loc.Plus(normal.Scaled(surfaceTexture))
 }
 
@@ -381,7 +387,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 2)*pow(spow(shapeTexture(1, 1, u, v, t), .25)/2+.5, .25))
+			envmapValue := float32(pow(sin(u/2), 20)*pow(sin(v), 10)*pow(spow(shapeTexture(1, 1, u, v, t), .25)/2+.5, .25))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -436,7 +442,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="420"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -489,7 +495,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
