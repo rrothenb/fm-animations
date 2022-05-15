@@ -39,8 +39,8 @@ func spow(x, y float64) float64 {
 	return sign(x)*pow(abs(x), y)
 }
 
-func pushout(x, duty, degree float64) float64 {
-	return spow(pow(x, duty)*2-1, degree)/2+.5
+func pushout(x, n float64) float64 {
+	return spow(x*2-1, n)/2+.5
 }
 
 func strength(n int, x float64) float64 {
@@ -48,7 +48,7 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .01*shapeTexture(10, 1, u, v, t)*blendTexture(u, v, t)
+	return 1.0 - .025*(1-blendTexture(u, v, t))
 }
 
 type SLR2 struct {
@@ -149,6 +149,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func cube(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+.5*sin(v)) * cos(u-.5*sin(2*u)),
+		sin(v/2.0+.5*sin(v)) * sin(u+.5*sin(2*u)),
+		cos(v/2.0-.5*sin(v)),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -167,7 +175,7 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .35, 5, 3, circle)
+	return torusKnot(t, .75, .25, 5, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
@@ -176,7 +184,7 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(2*t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
-	return loc.Scaled(3)
+	return loc.Scaled(4.5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -197,8 +205,7 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := innerKnot(t)
-	return pathWrapper(u, v, .1*loc.Len(), innerKnot)
+	return pathWrapper(u, v, .2, outerKnot)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
@@ -210,8 +217,21 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 			.1*a*strength(47, t)*sin(loc.X*loc.Y+.1*a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
 }
 
+func textureV(u, v, t float64) float64 {
+	loc := shape(u, v, t).Scaled(pi)
+	x := loc.X
+	y := loc.Y
+	z := loc.Z
+	return sin(x-z+sin(2*y+3*z+5*sin(6*z-2*y+8*sin(11*x+7*y+5*z))))/2+.5
+}
+
+func metalBlendTexture(u, v, t float64) float64 {
+	// metalBlendValue := float32(pushout(pow(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5, .5), .1))
+	return pow(pushout(textureV(u, v, t), .25), .25)
+}
+
 func blendTexture(u, v, t float64) float64 {
-	return pow(shapeTexture(1, .5, u, v, t)/2+.5, pow(10, sin(7*t)))
+	return metalBlendTexture(u, v, t)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -238,7 +258,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := focusPath(t).Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	distance := cameraLoc.Minus(focusPoint).Len()-.4
+	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -296,7 +316,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	// distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
@@ -418,7 +438,6 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
-		FogRadius float64
 		Angle float64
 		MinZ float64
 		Scale float64
@@ -429,7 +448,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".0000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -441,7 +460,7 @@ end_header
 
         <film type="hdrfilm" id="film">
             <integer name="width" value="3000"/>
-            <integer name="height" value="2400"/>
+            <integer name="height" value="2250"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -463,6 +482,7 @@ end_header
             <transform name="to_world">
                 <scale x="2" y="2" z="2"/>
                 <translate x="-1" y="-1" z="-1"/>
+            	<rotate value="1, 0, 0" angle="{{ .Angle }}"/>
             </transform>
             <boolean name="use_grid_bbox" value="false"/>
             <string name="filename" value="textures/sigmat.vol"/>
@@ -472,6 +492,7 @@ end_header
             <transform name="to_world">
                 <scale x="2" y="2" z="2"/>
                 <translate x="-1" y="-1" z="-1"/>
+            	<rotate value="0, 1, 0" angle="-{{ .Angle }}"/>
             </transform>
             <boolean name="use_grid_bbox" value="false"/>
             <string name="filename" value="textures/albedo.vol"/>
@@ -485,14 +506,14 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-				<bsdf type="dielectric">
-				</bsdf>
 		   <bsdf type="twosided">
 				<bsdf type="conductor">
-                <spectrum name="eta" filename="spd/34.spd"/>
-                <spectrum name="k" filename="spd/12.spd"/>
+                <spectrum name="eta" filename="spd/27.spd"/>
+                <spectrum name="k" filename="spd/95.spd"/>
 				</bsdf>
 			</bsdf>
+				<bsdf type="dielectric">
+				</bsdf>
     </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -516,18 +537,17 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
-		sin(t)*180-180,
+		(sin(t)/2+.5)*360,
 		minZ,
-		pow(10, cos(3*t)+1),
-		sin(5*t) * .9})
+		1000,
+		sin(2*t) * .9})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 192, "Max frames")
+	maxFrames := flag.Int("maxframes", 12, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
