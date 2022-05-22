@@ -44,11 +44,11 @@ func pushout(x, n float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(2.25, sin(pow(float64(n), .25)*(x+float64(n)/10)))
+	return 2+sin(float64(n)*x)
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .025*(1-blendTexture(u, v, t))
+	return 1.0 + .1*texture(u, v, t)
 }
 
 type SLR2 struct {
@@ -183,12 +183,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(2*t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
-	return loc.Scaled(4.5)
+	return circle(t).Scaled(2.3)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,0}
+	return geom.Vec{0,0,.5}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -205,29 +204,20 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .2, outerKnot)
+	return sphere(u, v, t)
 }
 
-func shapeTexture(f, a, u, v, t float64) float64 {
-	loc := shape(u, v, t).Scaled(f*2*pi)
-	return sin(
-			a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
-			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
-			a*strength(13, t)*sin(a*strength(17, t)*loc.Z)+a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y)+
-			.1*a*strength(47, t)*sin(loc.X*loc.Y+.1*a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
-}
-
-func textureV(u, v, t float64) float64 {
-	loc := shape(u, v, t).Scaled(pi)
+func texture(u, v, t float64) float64 {
+	loc := shape(u, v, t).Scaled(2*pi)
 	x := loc.X
 	y := loc.Y
 	z := loc.Z
-	return sin(x-z+sin(2*y+3*z+5*sin(6*z-2*y+8*sin(11*x+7*y+5*z))))/2+.5
+	return sin(x-z+sin(y+z+strength(7, t)*sin(z-y+strength(17, t)*sin(x+y+z)))+sin(x-y+strength(11, t)*sin(y+z+strength(13, t)*sin(x-y-z))))*.5+.5
 }
 
 func metalBlendTexture(u, v, t float64) float64 {
 	// metalBlendValue := float32(pushout(pow(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, texture, sphere)/2+.5, .5), .1))
-	return pow(pushout(textureV(u, v, t), .25), .25)
+	return pow(texture(u, v, t), .1)
 }
 
 func blendTexture(u, v, t float64) float64 {
@@ -362,14 +352,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	}
 	envmapArray := []float32{}
 	blendArray := []float32{}
-	landBlendArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			blendValue := float32(blendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(shapeTexture(50, 2, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
-			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -394,7 +381,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 20)*pow(sin(v), 10)*(shapeTexture(1, 1, u, v, t)/2+.5))
+			envmapValue := float32(pow(sin(u/2), 20)*pow(sin(v), 10)*texture(u, v, t))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -420,7 +407,6 @@ end_header
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
 	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
-	landBlendPath := fmt.Sprintf("data/%v.land.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -430,15 +416,15 @@ end_header
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	blend, _ := os.Create(blendPath)
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
-	landBlend, _ := os.Create(landBlendPath)
-	rgbe.Encode(landBlend, endUIndex-startUIndex, endVIndex-startVIndex, landBlendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
-		Angle float64
+		AngleX float64
+		AngleY float64
+		AngleZ float64
 		MinZ float64
 		Scale float64
 		G float64
@@ -459,8 +445,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2250"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -469,7 +455,7 @@ end_header
         <float name="scale" value="1"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="0"/>
-            <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
+            <rotate value="0, 0, 1" angle="0"/>
         </transform>
     </emitter>
         <integrator type="volpathmis">
@@ -482,20 +468,21 @@ end_header
             <transform name="to_world">
                 <scale x="2" y="2" z="2"/>
                 <translate x="-1" y="-1" z="-1"/>
-            	<rotate value="1, 0, 0" angle="{{ .Angle }}"/>
             </transform>
             <boolean name="use_grid_bbox" value="false"/>
-            <string name="filename" value="textures/sigmat.vol"/>
+            <string name="filename" value="textures/volume.vol"/>
         </volume>
 
         <volume name="albedo" type="gridvolume">
             <transform name="to_world">
                 <scale x="2" y="2" z="2"/>
                 <translate x="-1" y="-1" z="-1"/>
-            	<rotate value="0, 1, 0" angle="-{{ .Angle }}"/>
+            	<rotate value="1, 0, 0" angle="{{ .AngleX }}"/>
+            	<rotate value="0, 1, 0" angle="{{ .AngleY }}"/>
+            	<rotate value="0, 0, 1" angle="{{ .AngleZ }}"/>
             </transform>
             <boolean name="use_grid_bbox" value="false"/>
-            <string name="filename" value="textures/albedo.vol"/>
+            <string name="filename" value="textures/volume.vol"/>
         </volume>
 
         <phase type="hg">
@@ -506,13 +493,9 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-		   <bsdf type="twosided">
-				<bsdf type="conductor">
-                <spectrum name="eta" filename="spd/27.spd"/>
-                <spectrum name="k" filename="spd/95.spd"/>
+				<bsdf type="plastic">
 				</bsdf>
-			</bsdf>
-				<bsdf type="dielectric">
+				<bsdf type="null">
 				</bsdf>
     </bsdf>
 <shape type="shapegroup" id="my_shape_group">
@@ -537,17 +520,19 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		(sin(t)/2+.5)*360,
+		sin(2*t)*30,
+		sin(3*t)*30,
+		sin(5*t)*30,
 		minZ,
-		1000,
-		sin(2*t) * .9})
+		pow(10, cos(11*t)/2+2.5),
+		sin(7*t) * .9})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 12, "Max frames")
+	maxFrames := flag.Int("maxframes", 384, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

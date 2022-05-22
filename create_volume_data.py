@@ -25,39 +25,24 @@ def write_binary_grid3d(filename, values):
         f.write(values.ravel().astype(float32).tobytes())
 
 
-def textureS(xIndex, yIndex, zIndex, res):
+def texture(xIndex, yIndex, zIndex, res):
     x = xIndex/res*2*pi
     y = yIndex/res*2*pi
     z = zIndex/res*2*pi
-    return sin(3*y-2*z+5*sin(2*y+5*z+7*sin(4*x+3*z+2*sin(x+y+z))))/2+.5
+    return sin(x-z+sin(y+z+2*sin(z-y+2*sin(x+y+z)))+sin(x-y+2*sin(y+z+2*sin(x-y-z))))*.5+.5
 
 
-def textureV(xIndex, yIndex, zIndex, res):
-    x = xIndex/res*2*pi
-    y = yIndex/res*2*pi
-    z = zIndex/res*2*pi
-    return sin(2*x-5*z+6*sin(2*y+3*z+8*sin(6*z-2*y+5*sin(2*x+3*y+4*z))))/2+.5
+res = 512
 
-res = 256
-
-sigmat = zeros((res, res, res, 3))
+volume = zeros((res, res, res, 3))
 
 for z in range(res):
+    if z%8 == 0:
+        print(f"{100*z/res}% done")
     for y in range(res):
         for x in range(res):
-            s = textureS(x, y, z, res)
-            v = textureV(x, y, z, res)
-            sigmat[z, y, x] = colorsys.hsv_to_rgb(0, s, power(v, 2))
+            t = texture(x, y, z, res)
+            volume[x, y, z] = colorsys.hsv_to_rgb(.5, 1-t, t)
 
-write_binary_grid3d('textures/sigmat.vol', sigmat)
+write_binary_grid3d('textures/volume.vol', volume)
 
-albedo = zeros((res, res, res, 3))
-
-for z in range(res):
-    for y in range(res):
-        for x in range(res):
-            s = textureS(y, z, x, res)
-            v = textureV(z, x, y, res)
-            albedo[x, y, z] = colorsys.hsv_to_rgb(0, power(s, .5), 1-v)
-
-write_binary_grid3d('textures/albedo.vol', albedo)
