@@ -17,4 +17,4 @@ convert mitsuba.land.blend.rgbe mitsuba.land.blend.jpg
 #convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba -m scalar_rgb test.xml
-convert test.exr -auto-gamma -normalize -modulate 100,150,100 -brightness-contrast 65x75 $2.jpg
+convert test.exr -auto-gamma -brightness-contrast 10x25 $2.jpg
