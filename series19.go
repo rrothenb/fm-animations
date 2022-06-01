@@ -102,7 +102,7 @@ var zAxis = geom.Dir{0, 0, 1}
 func NewSLR2() *SLR2 {
 	s := &SLR2{
 		Width:    0.036,
-		Height:   0.036,
+		Height:   0.072,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -149,11 +149,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .3
+	factor := .35
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -217,7 +216,7 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,.75+1*sin(2*t)}).Unit()
-	return loc.Scaled(4.5+1.75*spow(sin(3*t), .5))
+	return loc.Scaled(3)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -433,12 +432,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="420"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="750"/>
+            <integer name="height" value="1500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -464,24 +463,13 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-        <bsdf type="blendbsdf">
-            <texture type="bitmap" name="weight">
-                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
-            </texture>
-            <bsdf type="twosided">
-                <bsdf type="conductor">
-                    <spectrum name="eta" filename="spd/2.spd"/>
-                    <spectrum name="k" filename="spd/12.spd"/>
-                </bsdf>
-            </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughconductor">
                     <float name="alpha" value="0.05"/>
-                    <spectrum name="eta" filename="spd/15i.spd"/>
-                    <spectrum name="k" filename="spd/11i.spd"/>
+                    <spectrum name="eta" filename="spd/1.spd"/>
+                    <spectrum name="k" filename="spd/2.spd"/>
                 </bsdf>
             </bsdf>
-        </bsdf>
         <bsdf type="thindielectric">
         </bsdf>
     </bsdf>
@@ -509,7 +497,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 384, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

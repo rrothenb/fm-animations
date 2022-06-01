@@ -1,0 +1,65 @@
+
+<scene version="2.0.0">
+    <sensor type="thinlens" id="Camera-camera">
+        <string name="fov_axis" value="larger"/>
+        <float name="focus_distance" value="0.13861549622767433"/>
+        <float name="aperture_radius" value=".000001"/>
+        <float name="fov" value="35"/>
+        <transform name="to_world">
+            <lookat origin="0.048721993540571384, 0.11762529759150174, 0.18551403373314693" target="0, 0, 0" up="0, 0, 1"/>
+        </transform>
+
+        <sampler type="multijitter">
+            <integer name="sample_count" value="256"/>
+        </sampler>
+
+        <film type="hdrfilm" id="film">
+            <integer name="width" value="10800"/>
+            <integer name="height" value="21600"/>
+            <integer name="crop_offset_y" value="OFFSET"/>
+            <integer name="crop_height" value="2160"/>
+            <rfilter type="lanczos"/>
+        </film>
+    </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="127.27922061357854"/>
+        </transform>
+    </emitter>
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="16"/>
+        </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="202.38795325112866"/>
+        <rgb name="sigma_t" value="1, .7, .4"/>
+        <rgb name="albedo" value="0, 0.3, 0.6"/>
+        <phase type="hg">
+			<float name="g" value="0.831491579260158"/>
+		</phase>
+    </medium>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+            <bsdf type="twosided">
+                <bsdf type="roughconductor">
+                    <float name="alpha" value="0.05"/>
+                    <spectrum name="eta" filename="spd/1.spd"/>
+                    <spectrum name="k" filename="spd/2.spd"/>
+                </bsdf>
+            </bsdf>
+        <bsdf type="thindielectric">
+        </bsdf>
+    </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="object_bsdf"/>
+    </shape>
+</scene>
