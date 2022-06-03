@@ -1,0 +1,46 @@
+<scene version="2.0.0">
+    <sensor type="thinlens" id="Camera-camera">
+        <string name="fov_axis" value="larger"/>
+        <float name="focus_distance" value="1.6783099681557259"/>
+        <float name="aperture_radius" value=".00001"/>
+        <float name="fov" value="25"/>
+        <transform name="to_world">
+            <lookat origin="-1.0508301854667774, -2.0389298214101244, 1.002878006753791" target="2.3770150763538385, -0.4849496635301136, -1.8019201676886567" up="0, 0, 1"/>
+        </transform>
+
+        <sampler type="multijitter">
+            <integer name="sample_count" value="25"/>
+        </sampler>
+
+        <film type="hdrfilm" id="film">
+            <integer name="width" value="512"/>
+            <integer name="height" value="512"/>
+            <rfilter type="lanczos"/>
+        </film>
+    </sensor>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="spds.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
+    <integrator type="path" />
+    <bsdf type="twosided" id="object_bsdf">
+        <bsdf type="roughconductor">
+            <float name="alpha" value=".01"/>
+            <spectrum name="eta" filename="test.eta.spd"/>
+            <spectrum name="k" filename="test.k.spd"/>
+        </bsdf>
+    </bsdf>
+
+        <shape type="ply">
+            <string name="filename" value="waves.ply"/>
+            <transform name="to_world">
+                <scale value="1"/>
+                <translate x="0" y="0" z="0"/>
+            </transform>
+            <ref id="object_bsdf"/>
+        </shape>
+
+</scene>
