@@ -92,7 +92,7 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.064,
+		Width:    0.036,
 		Height:   0.036,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
@@ -143,7 +143,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .3
+	factor := .25
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -243,7 +243,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, row int) {
+func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t).By(geom.Vec{2.5, 2.5, 1.25}).Plus(geom.Vec{0,0,1.5})
@@ -424,26 +424,25 @@ end_header
 		Camera geom.Vec
 		LookAt geom.Vec
 		Distance float64
-		Offset int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
-        <float name="fov" value="30"/>
+        <float name="aperture_radius" value=".00001"/>
+        <float name="fov" value="25"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="42"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="512"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -455,24 +454,13 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.blend.rgbe"/>
-        </texture>
-        <bsdf type="twosided">
+        <bsdf type="twosided" id="object_bsdf">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".1"/>
-                <string name="material" value="CuO"/>
+                <float name="alpha" value=".01"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/10.spd"/>
             </bsdf>
         </bsdf>
-        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <float name="alpha" value=".1"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
-            </bsdf>
-        </bsdf>
-    </bsdf>
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -485,18 +473,17 @@ end_header
 
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, row*705})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
-	row := flag.Int("row", 0, "Specify row")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 3072, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
-	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles, *row)
+	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles)
 }

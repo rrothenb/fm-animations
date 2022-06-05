@@ -9,12 +9,12 @@
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="25"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="512"/>
-            <integer name="height" value="512"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="720"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -28,7 +28,7 @@
     <integrator type="path" />
     <bsdf type="twosided" id="object_bsdf">
         <bsdf type="roughconductor">
-            <float name="alpha" value=".01"/>
+            <float name="alpha" value=".025"/>
             <spectrum name="eta" filename="test.eta.spd"/>
             <spectrum name="k" filename="test.k.spd"/>
         </bsdf>
