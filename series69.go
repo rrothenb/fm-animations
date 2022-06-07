@@ -48,7 +48,7 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .0001*shapeTexture(50, 2, u, v, t)
+	return 1.0 + .05*shapeTexture(3, 1.25, u, v, t)*(spow(shapeTexture(1, 1, u, v, t), .01)/2+.5)
 }
 
 type SLR2 struct {
@@ -150,6 +150,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func spherePart(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/8.0) * cos(u),
+		sin(v/8.0) * sin(u),
+		1,
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -176,12 +184,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(2*t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
-	return loc.Scaled(3.5)
+	return geom.Vec{0, 0, -.6}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return geom.Vec{0, 0, 1}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -198,11 +205,11 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .25, circle)
+	return spherePart(u, v, t)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
-	loc := sphere(u, v, t).Scaled(f*2*pi)
+	loc := shape(u, v, t).Scaled(f*2*pi)
 	return sin(
 			a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
 			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
@@ -211,7 +218,7 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphere(u, v, t)
+	loc := shape(u, v, t)
 	return loc.Scaled(radius(u, v, t))
 }
 
@@ -220,10 +227,10 @@ func index2radians(index float64, n int) float64 {
 }
 
 func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
-	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
-	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
-	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius).Scaled(.075)
-	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius).Scaled(.075)
+	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius)
+	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius)
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
@@ -231,8 +238,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
-	cameraLoc := cameraPath(t).Scaled(.075)
-	focusPoint := focusPath(t).Scaled(.075)
+	cameraLoc := cameraPath(t)
+	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()-.4
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -257,12 +264,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	closestPoint := geom.Vec{0,0,0}
 	for uIndex := 0; uIndex <= 500; uIndex++ {
 		for vIndex := 0; vIndex <= 500; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
+			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius)
 			if !c.invisible(vertex) {
 				//fmt.Println(vertex)
 				numTriangles++
-				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
-				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius).Scaled(.075)
+				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius)
+				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius)
 				totalWidth += vertex.Minus(vertexLeft).Len()
 				totalHeight += vertex.Minus(vertexBelow).Len()
 				minDistance = math.Min(minDistance, vertex.Len())
@@ -318,7 +325,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
 		for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
+			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius)
 			if c.invisible(vertex) {
 				vertexIndicies[uIndex][vIndex] = -1
 				continue
@@ -342,7 +349,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			blendValue := float32(spow(shapeTexture(1, 1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), .1)/2+.5)
+			blendValue := float32(spow(shapeTexture(1, 1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), .01)/2+.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			landBlendValue := float32(shapeTexture(50, 2, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
@@ -422,28 +429,28 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0001"/>
-        <float name="fov" value="35"/>
+        <float name="focus_distance" value="1"/>
+        <float name="aperture_radius" value=".005"/>
+        <float name="fov" value="30"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="1, 0, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="420"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="3000"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="10"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="-45"/>
+            <rotate value="1, 0, 0" angle="110"/>
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
@@ -454,12 +461,13 @@ end_header
         </texture>
 				<bsdf type="null">
 				</bsdf>
-		   <bsdf type="twosided">
-				<bsdf type="conductor">
-                <spectrum name="eta" filename="spd/3.spd"/>
-                <spectrum name="k" filename="spd/95.spd"/>
+		   		<bsdf type="twosided">
+					<bsdf type="roughconductor">
+						<float name="alpha" value=".05"/>
+						<spectrum name="eta" filename="spd/15.spd"/>
+						<spectrum name="k" filename="spd/11.spd"/>
+					</bsdf>
 				</bsdf>
-			</bsdf>
     </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -475,35 +483,32 @@ end_header
 <!-- Instantiate the shape group without any kind of transformation -->
 <shape type="instance">
     <ref id="my_shape_group"/>
+    <transform name="to_world">
+        <rotate z="1" angle="45"/>
+        <scale value="1"/>
+    </transform>
 </shape>
 
 <!-- Create instance of the shape group, but rotated and scaled -->
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="45"/>
+        <rotate z="1" angle="135"/>
         <scale value=".8"/>
     </transform>
 </shape>
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="90"/>
+        <rotate z="1" angle="0"/>
         <scale value=".6"/>
     </transform>
 </shape>
 <shape type="instance">
     <ref id="my_shape_group"/>
     <transform name="to_world">
-        <rotate x="1" angle="135"/>
+        <rotate z="1" angle="90"/>
         <scale value=".4"/>
-    </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-    <transform name="to_world">
-        <rotate x="1" angle="180"/>
-        <scale value=".2"/>
     </transform>
 </shape>
 </scene>
