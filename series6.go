@@ -154,6 +154,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := geom.Vec{math.Sin(t)*.707, math.Sin(t)*.707, math.Cos(t)}.Scaled(.14)
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
@@ -211,10 +212,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := 0; vIndex < n; vIndex++ {
 		for uIndex := 0; uIndex < n; uIndex++ {
-			//u := float64(uIndex) / float64(n) * 2 * pi
-			v := float64(vIndex) / float64(n) * pi
-			envmapValue := float32(pow(sin(v/2),10)) // float32((1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10)))
-			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 			roughnessValue := float32(0.0) // float32(pow(spow(subtexture1(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .5)*.5+.5, 2))*.5+.1
 			blendValue := float32(pow(spow(texture(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t), .1*strength(3*t))*.5+.5, 10*strength(2*t)))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
@@ -237,6 +234,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
 				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
 				numFaces++
+		}
+	}
+	for vIndex := 0; vIndex < envSize; vIndex++ {
+		for uIndex := 0; uIndex < envSize; uIndex++ {
+			v := float64(vIndex) / float64(envSize) * pi
+			envmapValue := float32(pow(sin(v/2),10)) // float32((1-pow(1-pow(texture(u, v, t), 2), pow(1-v/pi, 3)*10)))
+			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
 
@@ -268,7 +272,7 @@ end_header
 	mesh.NumFaces = numFaces
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
-	rgbe.Encode(envmap, n, n, envmapArray)
+	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	roughness, _ := os.Create(roughnessPath)
 	rgbe.Encode(roughness, n, n, roughnessArray)
 	blend, _ := os.Create(blendPath)
@@ -282,7 +286,7 @@ end_header
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
-        <string name="fov_axis" value="smaller"/>
+        <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="75"/>
@@ -290,17 +294,53 @@ end_header
             <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="1, 0, 0"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
-            <string name="pixel_format" value="rgb"/>
-            <rfilter type="gaussian"/>
+            <integer name="width" value="16000"/>
+            <integer name="height" value="16000"/>
+            <integer name="crop_offset_y" value="0"/>
+            <integer name="crop_height" value="14400"/>
+            <integer name="crop_offset_x" value="1600"/>
+            <integer name="crop_width" value="14400"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
+    <integrator type="path" />
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
+            <bsdf type="conductor">
+                <spectrum name="eta" filename="spd/5.spd"/>
+                <spectrum name="k" filename="spd/30.spd"/>
+            </bsdf>
+        </bsdf>
+        <bsdf type="dielectric">
+            <float name="int_ior" value="1.5"/>
+            <float name="ext_ior" value="1.0"/>
+        </bsdf>
+    </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="object_bsdf"/>
+    </shape>
+
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 </scene>
 `)
 	fmt.Println(cameraLoc)
