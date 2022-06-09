@@ -195,7 +195,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc := circle(t).Plus(geom.Vec{0, 0, .5*sin(2*t)})
+	loc := circle(0).Plus(geom.Vec{0, 0, .5*sin(2*t)})
 	return loc.Scaled(7+5*cos(t))
 }
 
@@ -457,22 +457,20 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3072"/>
-            <integer name="height" value="1728"/>
+            <integer name="width" value="1500"/>
+            <integer name="height" value="1500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
+        <string name="filename" value="HDR_041_Path.hdr"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="0"/>
+            <rotate value="0, 1, 0" angle="45"/>
         </transform>
     </emitter>
     <integrator type="path" />
-          <bsdf type="roughconductor" id="object_bsdf">
-                <float name="alpha" value=".1"/>
-                <string name="material" value="Ag"/>
+          <bsdf type="diffuse" id="object_bsdf">
 		 </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -483,6 +481,31 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
+</shape>
+
+<shape type="rectangle">
+    <bsdf type="twosided">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.9, 0.9, 0.9"/>
+		</bsdf>
+	</bsdf>
+	<transform name="to_world">
+		<scale value="10"/>
+		<rotate value="1, 0, 0" angle="90"/>
+        <translate x="0" y="2.2" z="0"/>
+	</transform>
+</shape>
+<shape type="rectangle">
+    <bsdf type="twosided">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.9, 0.9, 0.9"/>
+		</bsdf>
+	</bsdf>
+	<transform name="to_world">
+		<scale value=".1"/>
+		<rotate value="1, 0, 0" angle="90"/>
+        <translate x="-.1" y="2.3" z="1.25"/>
+	</transform>
 </shape>
 
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="1, 0, 0" angle="{{ .AngleX }}"/><rotate value="0, 1, 0" angle="{{ .AngleY }}"/><rotate value="0, 0, 1" angle="{{ .AngleZ }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
