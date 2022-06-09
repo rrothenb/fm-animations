@@ -44,7 +44,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(2.25, sin(pow(float64(n), .25)*(x+float64(n)/10)))
+	return pow(2.25, sin(float64(n)*(x+float64(n)/10)))
 }
 
 func radius(u, v, t float64) float64 {
@@ -211,10 +211,10 @@ func shape(u, v, t float64) geom.Vec {
 func shapeTexture(f, a, u, v, t float64) float64 {
 	loc := shape(u, v, t).Scaled(f*2*pi)
 	return sin(
-			a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
-			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
-			a*strength(13, t)*sin(a*strength(17, t)*loc.Z)+a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y)+
-			.1*a*strength(47, t)*sin(loc.X*loc.Y+.1*a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
+			a*strength(2, t)*sin(a*strength(11, t)*loc.X)+
+			a*strength(3, t)*sin(a*strength(5, t)*loc.Y+a*strength(2, t)*sin(a*strength(11, t)*loc.Y))+
+			a*strength(5, t)*sin(a*strength(3, t)*loc.Z)+a*strength(3, t)*sin(a*strength(7, t)*loc.X-a*strength(7, t)*loc.Y)+
+			.1*a*strength(7, t)*sin(loc.X*loc.Y+.1*a*strength(5, t)*sin(loc.X*loc.Z+.1*a*strength(11, t)*sin(loc.Z*loc.Y))))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -377,7 +377,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 20)*pow(sin(v), 10)*(shapeTexture(1, 1, u, v, t)/2+.5))
+			envmapValue := float32(pow(sin(u/2), 50)*pow(sin(v), 50)*(shapeTexture(3, 2, u, v, t)/2+.5))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -422,7 +422,6 @@ end_header
 		LookAt geom.Vec
 		Distance float64
 		FogRadius float64
-		Angle float64
 		MinZ float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
@@ -430,19 +429,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="1"/>
-        <float name="aperture_radius" value=".005"/>
-        <float name="fov" value="30"/>
+        <float name="aperture_radius" value=".0000001"/>
+        <float name="fov" value="35"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="1, 0, 0"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="720"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -450,8 +449,7 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="10"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="110"/>
-            <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
+            <rotate value="0, 1, 0" angle="135"/>
         </transform>
     </emitter>
     <integrator type="path" />
@@ -463,7 +461,7 @@ end_header
 				</bsdf>
 		   		<bsdf type="twosided">
 					<bsdf type="roughconductor">
-						<float name="alpha" value=".05"/>
+						<float name="alpha" value=".01"/>
 						<spectrum name="eta" filename="spd/15.spd"/>
 						<spectrum name="k" filename="spd/11.spd"/>
 					</bsdf>
@@ -485,46 +483,31 @@ end_header
     <ref id="my_shape_group"/>
     <transform name="to_world">
         <rotate z="1" angle="45"/>
-        <scale value="1"/>
     </transform>
+</shape>
+<shape type="rectangle">
+	<bsdf type="twosided">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.8, 0.8, 0.8"/>
+		</bsdf>
+	</bsdf>
+	<transform name="to_world">
+		<scale value="1"/>
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="0" y="0" z="1.1"/>
+	</transform>
 </shape>
 
-<!-- Create instance of the shape group, but rotated and scaled -->
-<shape type="instance">
-    <ref id="my_shape_group"/>
-    <transform name="to_world">
-        <rotate z="1" angle="135"/>
-        <scale value=".8"/>
-    </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-    <transform name="to_world">
-        <rotate z="1" angle="0"/>
-        <scale value=".6"/>
-    </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-    <transform name="to_world">
-        <rotate z="1" angle="90"/>
-        <scale value=".4"/>
-    </transform>
-</shape>
 </scene>
 `)
-	angle := -t/pi*180
-	if angle < -180  {
-		angle = angle + 360
-	}
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ})
+	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), minZ})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

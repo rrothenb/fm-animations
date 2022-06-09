@@ -17,4 +17,4 @@ mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba -m scalar_rgb test.xml
-convert test.exr -normalize $2.jpg
+convert test.exr -auto-gamma -modulate 100,125,100 -brightness-contrast 20x25 $2.jpg
