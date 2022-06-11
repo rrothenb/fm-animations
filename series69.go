@@ -48,7 +48,9 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .05*shapeTexture(3, 1.25, u, v, t)*(spow(shapeTexture(1, 1, u, v, t), .01)/2+.5)
+	a := 1 - landBlendTexture(u, v, t)
+	texture := a*.05*shapeTexture(3, 1.25, u, v, t)+(1-a)*.1*pow(shapeTexture2(3, 1.25, u, v, t)/2+.5,4)
+	return 1.0 - texture*(spow(shapeTexture(1, 1, u, v, t), .01)/2+.5)
 }
 
 type SLR2 struct {
@@ -211,10 +213,24 @@ func shape(u, v, t float64) geom.Vec {
 func shapeTexture(f, a, u, v, t float64) float64 {
 	loc := shape(u, v, t).Scaled(f*2*pi)
 	return sin(
-			a*strength(2, t)*sin(a*strength(11, t)*loc.X)+
+		a*strength(2, t)*sin(a*strength(11, t)*loc.X)+
 			a*strength(3, t)*sin(a*strength(5, t)*loc.Y+a*strength(2, t)*sin(a*strength(11, t)*loc.Y))+
 			a*strength(5, t)*sin(a*strength(3, t)*loc.Z)+a*strength(3, t)*sin(a*strength(7, t)*loc.X-a*strength(7, t)*loc.Y)+
 			.1*a*strength(7, t)*sin(loc.X*loc.Y+.1*a*strength(5, t)*sin(loc.X*loc.Z+.1*a*strength(11, t)*sin(loc.Z*loc.Y))))
+}
+
+func shapeTexture2(f, a, u, v, t float64) float64 {
+	loc := shape(u, v, t).Scaled(f*2*pi)
+	return sin(loc.Y+loc.X+
+		0.333*strength(2, t)*sin(.333*strength(3, t)*loc.X+.333*strength(2, t)*sin(.333*strength(7, t)*loc.Y))+
+		0.333*strength(3, t)*sin(.333*strength(5, t)*loc.Y+.333*strength(3, t)*sin(.333*strength(5, t)*loc.X))+
+		0.333*strength(5, t)*sin(.333*strength(7, t)*loc.X-.333*strength(5, t)*loc.Y+.333*strength(3, t)*sin(.333*strength(2, t)*loc.X)+.333*strength(3, t)*sin(.333*strength(5, t)*loc.Y)))
+}
+
+func landBlendTexture(u, v, t float64) float64 {
+	baseTexture := shapeTexture(1.1, 1.1, u, v, t)
+	texture := pow(baseTexture/2+.5, pow(20, spow(sin(16*t), .1)))*2-1
+	return spow(texture, pow(10, sin(5*t)-1))/2+.5
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -351,7 +367,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			blendValue := float32(spow(shapeTexture(1, 1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), .01)/2+.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(shapeTexture(50, 2, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
+			landBlendValue := float32(landBlendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -377,7 +393,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 50)*pow(sin(v), 50)*(shapeTexture(3, 2, u, v, t)/2+.5))
+			envmapValue := float32(pow(sin(u/2), 60)*pow(sin(v), 60)*(shapeTexture(3, 2, u, v, t)/2+.5))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -436,12 +452,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="720"/>
-            <integer name="height" value="720"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -457,46 +473,60 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-				<bsdf type="null">
-				</bsdf>
-		   		<bsdf type="twosided">
-					<bsdf type="roughconductor">
-						<float name="alpha" value=".01"/>
-						<spectrum name="eta" filename="spd/15.spd"/>
-						<spectrum name="k" filename="spd/11.spd"/>
-					</bsdf>
-				</bsdf>
+        <bsdf type="null">
+        </bsdf>
+        <bsdf type="blendbsdf">
+            <texture type="bitmap" name="weight">
+                <string name="filename" value="mitsuba.land.blend.rgbe"/>
+            </texture>
+            <bsdf type="twosided">
+                <bsdf type="roughconductor">
+                    <float name="alpha" value=".01"/>
+                    <spectrum name="eta" filename="spd/15.spd"/>
+                    <spectrum name="k" filename="spd/11.spd"/>
+                </bsdf>
+            </bsdf>
+            <bsdf type="twosided">
+                <bsdf type="roughplastic">
+                    <float name="alpha" value=".05"/>
+                    <float name="int_ior" value="1.52"/>
+                    <rgb name="diffuse_reflectance" value="0.5, 0.0, 0.0"/>
+					<boolean name="nonlinear" value="true"/>
+                	<string name="distribution" value="ggx"/>
+                </bsdf>
+            </bsdf>
+        </bsdf>
     </bsdf>
-<shape type="shapegroup" id="my_shape_group">
-   <shape type="ply">
-        <string name="filename" value="mitsuba.ply"/>
+    <shape type="shapegroup" id="my_shape_group">
+        <shape type="ply">
+            <string name="filename" value="mitsuba.ply"/>
+            <transform name="to_world">
+                <scale value="1"/>
+                <translate x="0" y="0" z="0"/>
+            </transform>
+            <ref id="object_bsdf"/>
+        </shape>
+    </shape>
+
+    <!-- Instantiate the shape group without any kind of transformation -->
+    <shape type="instance">
+        <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate z="1" angle="45"/>
+        </transform>
+    </shape>
+    <shape type="rectangle">
+        <bsdf type="twosided">
+            <bsdf type="diffuse">
+                <rgb name="reflectance" value="0.8, 0.8, 0.8"/>
+            </bsdf>
+        </bsdf>
         <transform name="to_world">
             <scale value="1"/>
-            <translate x="0" y="0" z="0"/>
+            <rotate value="0, 1, 0" angle="0"/>
+            <translate x="0" y="0" z="1.15"/>
         </transform>
-        <ref id="object_bsdf"/>
     </shape>
-</shape>
-
-<!-- Instantiate the shape group without any kind of transformation -->
-<shape type="instance">
-    <ref id="my_shape_group"/>
-    <transform name="to_world">
-        <rotate z="1" angle="45"/>
-    </transform>
-</shape>
-<shape type="rectangle">
-	<bsdf type="twosided">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.8, 0.8, 0.8"/>
-		</bsdf>
-	</bsdf>
-	<transform name="to_world">
-		<scale value="1"/>
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="0" y="0" z="1.1"/>
-	</transform>
-</shape>
 
 </scene>
 `)
