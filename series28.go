@@ -454,14 +454,14 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
-            <rfilter type="gaussian"/>
+            <integer name="width" value="4000"/>
+            <integer name="height" value="4000"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -471,6 +471,42 @@ end_header
             <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
+    <integrator type="path" />
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="dielectric">
+            <string name="int_ior" value="bk7"/>
+            <string name="ext_ior" value="air"/>
+        </bsdf>
+        <bsdf type="blendbsdf">
+            <texture type="bitmap" name="weight">
+                <string name="filename" value="mitsuba.metal.blend.rgbe"/>
+            </texture>
+            <bsdf type="twosided">
+                <bsdf type="conductor">
+                    <string name="material" value="Au"/>
+                </bsdf>
+            </bsdf>
+            <bsdf type="twosided">
+                <bsdf type="roughconductor">
+                    <float name="alpha" value=".1"/>
+                    <spectrum name="eta" filename="spd/2.spd"/>
+                    <spectrum name="k" filename="spd/12.spd"/>
+                </bsdf>
+            </bsdf>
+        </bsdf>
+    </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="object_bsdf"/>
+    </shape>
 </scene>
 `)
 	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, angle})
