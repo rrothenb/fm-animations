@@ -48,7 +48,7 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .01*shapeTexture(10, 1, u, v, t)*blendTexture(u, v, t)
+	return 1.0 + .1*shapeTexture(3, 2, u, v, t)*blendTexture(u, v, t)
 }
 
 type SLR2 struct {
@@ -167,11 +167,11 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .35, 5, 3, circle)
+	return torusKnot(t, 1, .49, 11, 13, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 3, 5, outerKnot)
+	return torusKnot(t, 1, .4, 13, 11, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
@@ -198,7 +198,7 @@ func knot(t float64) geom.Vec {
 
 func shape(u, v, t float64) geom.Vec {
 	loc := innerKnot(t)
-	return pathWrapper(u, v, .1*loc.Len(), innerKnot)
+	return pathWrapper(u, v, .01*loc.Len(), innerKnot)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
@@ -215,8 +215,8 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := shape(u, v, t)
-	return loc.Scaled(radius(u, v, t))
+	loc := innerKnot(t)
+	return pathWrapper(u, v, .01*loc.Len(), innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -304,8 +304,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	for nV > 20000 && nV > nU {
-		ratio = ratio*10
+	for nV > 30000 && nV > nU {
+		ratio = ratio*2
 		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
 	}
@@ -429,19 +429,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".0001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="4000"/>
+            <integer name="height" value="4000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
