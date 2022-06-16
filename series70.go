@@ -149,6 +149,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func boysSurface(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		(cos(u)*cos(2*v) + sqrt(2)*sin(u)*cos(v)) * cos(u) / (sqrt(2) - sin(2*u)*sin(3*v)),
+		(cos(u)*sin(2*v) - sqrt(2)*sin(u)*sin(v)) * cos(u) / (sqrt(2) - sin(2*u)*sin(3*v)),
+		sqrt(2) * pow(cos(u), 2) / (sqrt(2) - sin(2*u)*sin(2*v)),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -176,7 +184,7 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(2*t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
-	return loc.Scaled(3)
+	return loc.Scaled(3.5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -197,8 +205,7 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := innerKnot(t)
-	return pathWrapper(u, v, .01*loc.Len(), innerKnot)
+	return boysSurface(u, v, t)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
@@ -527,7 +534,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 192, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

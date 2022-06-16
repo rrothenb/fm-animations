@@ -149,6 +149,39 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func boysSurface(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		(cos(u)*cos(2*v) + sqrt(2)*sin(u)*cos(v)) * cos(u) / (sqrt(2) - sin(2*u)*sin(3*v)),
+		(cos(u)*sin(2*v) - sqrt(2)*sin(u)*sin(v)) * cos(u) / (sqrt(2) - sin(2*u)*sin(3*v)),
+		sqrt(2) * pow(cos(u), 2) / (sqrt(2) - sin(2*u)*sin(2*v)),
+	}
+}
+
+func sinG(x, a, b float64) float64 {
+	offset := pow(pow(2, a), sin(x))
+	return sin(x+offset+b*sin(2*(x+offset)))
+}
+
+func cosG(x, a, b float64) float64 {
+	offset := pow(pow(2, a), sin(x))
+	return cos(x+offset-b*sin(2*(x+offset)))
+}
+
+func generalizedSphere(u,v,t float64) geom.Vec {
+	v = v/2
+	a := sin(3*t)*2
+	b := sin(5*t)*2
+	c := sin(7*t)*2
+	d := sin(11*t)*2
+	e := sin(13*t)*2
+	f := sin(17*t)*2
+	return geom.Vec{
+		sinG(v, a, b) * cosG(u, c, d),
+		sinG(v, a, b) * sinG(u, c, d),
+		cosG(v, e, f),
+	}
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -175,8 +208,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(2*t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
-	return loc.Scaled(3)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
+	return loc.Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -197,14 +230,13 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := innerKnot(t)
-	return pathWrapper(u, v, .01*loc.Len(), innerKnot)
+	return generalizedSphere(u, v, t)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
 	loc := shape(u, v, t).Scaled(f*2*pi)
 	return sin(
-			a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
+		a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
 			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
 			a*strength(13, t)*sin(a*strength(17, t)*loc.Z)+a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y)+
 			.1*a*strength(47, t)*sin(loc.X*loc.Y+.1*a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
@@ -215,8 +247,7 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := innerKnot(t)
-	return pathWrapper(u, v, .01*loc.Len(), innerKnot)
+	return shape(u, v, t)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -374,7 +405,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 20)*pow(sin(v), 10)*(shapeTexture(1, 1, u, v, t)/2+.5))
+			envmapValue := float32(pow(sin(u/2), 5)*pow(sin(v), 5))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -436,12 +467,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="15"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="4000"/>
-            <integer name="height" value="4000"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -453,42 +484,22 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
-        <integrator type="volpathmis">
-            <integer name="max_depth" value="16"/>
+        <integrator type="path">
         </integrator>
-    <medium id="medium1" type="heterogeneous">
-        <float name="scale" value="{{ .Scale }}"/>
-
-        <volume name="sigma_t" type="gridvolume">
-            <transform name="to_world">
-                <scale x="2" y="2" z="2"/>
-                <translate x="-1" y="-1" z="-1"/>
-            </transform>
-            <boolean name="use_grid_bbox" value="false"/>
-            <string name="filename" value="textures/sigmat.vol"/>
-        </volume>
-
-        <volume name="albedo" type="gridvolume">
-            <transform name="to_world">
-                <scale x="2" y="2" z="2"/>
-                <translate x="-1" y="-1" z="-1"/>
-            </transform>
-            <boolean name="use_grid_bbox" value="false"/>
-            <string name="filename" value="textures/albedo.vol"/>
-        </volume>
-
-        <phase type="hg">
-			<float name="g" value="{{ .G }}"/>
-		</phase>
-    </medium>
     <bsdf type="blendbsdf" id="object_bsdf">
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-				<bsdf type="dielectric">
-				</bsdf>
 		   <bsdf type="twosided">
-				<bsdf type="conductor">
+				<bsdf type="roughconductor">
+				<float name="alpha" value=".1"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
+				</bsdf>
+			</bsdf>
+		   <bsdf type="twosided">
+				<bsdf type="roughconductor">
+				<float name="alpha" value=".1"/>
                 <spectrum name="eta" filename="spd/34.spd"/>
                 <spectrum name="k" filename="spd/12.spd"/>
 				</bsdf>
@@ -501,7 +512,6 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <ref id="medium1" name="interior"/>
         <ref id="object_bsdf"/>
     </shape>
 </shape>
@@ -517,7 +527,7 @@ end_header
 		focusPoint,
 		distance,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
-		sin(t)*180-180,
+		t/2/pi*180,
 		minZ,
 		pow(10, cos(3*t)+1),
 		sin(5*t) * .9})
@@ -527,7 +537,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 192, "Max frames")
+	maxFrames := flag.Int("maxframes", 12, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
