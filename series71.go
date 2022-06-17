@@ -208,8 +208,8 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,.5*sin(3*t)}).Unit()
-	return loc.Scaled(5)
+	loc, _ := circle(t).Plus(geom.Vec{0,0,.5}).Unit()
+	return loc.Scaled(5.5)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -244,6 +244,10 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 
 func blendTexture(u, v, t float64) float64 {
 	return pow(shapeTexture(1, .5, u, v, t)/2+.5, pow(10, sin(7*t)))
+}
+
+func envTexture(u, v, t float64) float64 {
+	return pow(shapeTexture(2, 1, u, v, t)/2+.5, .5)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -405,7 +409,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 5)*pow(sin(v), 5))
+			envmapValue := float32(pow(sin(u/2), 5)*pow(sin(v), 15)*envTexture(u, v, t))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -467,7 +471,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="15"/>
+            <integer name="sample_count" value="144"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -480,7 +484,7 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="0"/>
+            <rotate value="0, 1, 0" angle="-90"/>
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
@@ -520,6 +524,15 @@ end_header
 <shape type="instance">
     <ref id="my_shape_group"/>
 </shape>
+	<shape type="rectangle">
+        <transform name="to_world">
+            <scale value=".32"/>
+            <translate x="0" y="0" z="{{ .MinZ }}"/>
+        </transform>
+				<bsdf type="roughplastic">
+				<float name="alpha" value=".01"/>
+				</bsdf>
+	</shape>
 </scene>
 `)
 	sensorTemplate.Execute(sensorFile, sensor{
@@ -527,7 +540,7 @@ end_header
 		focusPoint,
 		distance,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
-		t/2/pi*180,
+		180+65-t/2/pi*360,
 		minZ,
 		pow(10, cos(3*t)+1),
 		sin(5*t) * .9})
@@ -537,7 +550,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 12, "Max frames")
+	maxFrames := flag.Int("maxframes", 3072, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
