@@ -28,6 +28,7 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+var atan2 = math.Atan2
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -44,7 +45,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(2.25, sin(pow(float64(n), .25)*(x+float64(n)/10)))
+	return pow(2.25, sin(float64(n)*(x+float64(n)/10)))
 }
 
 func radius(u, v, t float64) float64 {
@@ -158,23 +159,23 @@ func boysSurface(u, v, t float64) geom.Vec {
 }
 
 func sinG(x, a, b float64) float64 {
-	offset := pow(pow(2, a), sin(x))
-	return sin(x+offset+b*sin(2*(x+offset)))
+	offset := pow(pow(10, -a), sin(x))-pow(.1, sin(x))
+	return sin(x+offset+1.5*b*sin(2*(x+offset)))
 }
 
 func cosG(x, a, b float64) float64 {
-	offset := pow(pow(2, a), sin(x))
-	return cos(x+offset-b*sin(2*(x+offset)))
+	offset := pow(pow(10, -a), sin(x))-pow(.1, sin(x))
+	return cos(x+offset-1.5*b*sin(2*(x+offset)))
 }
 
 func generalizedSphere(u,v,t float64) geom.Vec {
 	v = v/2
-	a := sin(3*t)*2
-	b := sin(5*t)*2
-	c := sin(7*t)*2
-	d := sin(11*t)*2
-	e := sin(13*t)*2
-	f := sin(17*t)*2
+	a := cos(3*t)
+	b := sin(5*t)
+	c := cos(7*t)
+	d := sin(11*t)
+	e := cos(13*t)
+	f := sin(17*t)
 	return geom.Vec{
 		sinG(v, a, b) * cosG(u, c, d),
 		sinG(v, a, b) * sinG(u, c, d),
@@ -235,15 +236,11 @@ func shape(u, v, t float64) geom.Vec {
 
 func shapeTexture(f, a, u, v, t float64) float64 {
 	loc := shape(u, v, t).Scaled(f*2*pi)
-	return sin(
-		a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
-			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
-			a*strength(13, t)*sin(a*strength(17, t)*loc.Z)+a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y)+
-			.1*a*strength(47, t)*sin(loc.X*loc.Y+.1*a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
+	return sin(loc.X+loc.Y+loc.Z+a*(strength(2, t)*sin(loc.X)+strength(3, t)*sin(loc.Y)+strength(5, t)*sin(loc.Z)))
 }
 
 func blendTexture(u, v, t float64) float64 {
-	return pow(shapeTexture(1, .5, u, v, t)/2+.5, pow(10, sin(7*t)))
+	return spow(pow(shapeTexture(2+sin(5*t), 1.5+sin(3*t), u, v, t)/2+.5, pow(4, sin(7*t)))*2-1, .1)/2+.5
 }
 
 func envTexture(u, v, t float64) float64 {
@@ -471,12 +468,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="144"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="1000"/>
+            <integer name="height" value="1000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -494,18 +491,13 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-		   <bsdf type="twosided">
-				<bsdf type="roughconductor">
-				<float name="alpha" value=".1"/>
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/12.spd"/>
-				</bsdf>
+		   <bsdf type="dielectric">
 			</bsdf>
 		   <bsdf type="twosided">
 				<bsdf type="roughconductor">
 				<float name="alpha" value=".1"/>
-                <spectrum name="eta" filename="spd/34.spd"/>
-                <spectrum name="k" filename="spd/12.spd"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
 				</bsdf>
 			</bsdf>
     </bsdf>
@@ -550,7 +542,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 3072, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
