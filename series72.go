@@ -207,7 +207,7 @@ func innerKnot(t, x float64) geom.Vec {
 
 func cameraPath(t, x float64) geom.Vec {
 	loc, _ := circle(t, x).Plus(geom.Vec{0,0,2*sin(2*t)}).Unit()
-	return geom.Vec{loc.X, loc.Z, loc.Y}.Scaled(4)
+	return geom.Vec{loc.X, loc.Z, loc.Y}.Scaled(6)
 }
 
 func focusPath(t, x float64) geom.Vec {
@@ -237,7 +237,7 @@ func shapeTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return shape(u, v, t)
+	return shape(u, v, t).By(geom.Vec{1,1.5,1})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -399,7 +399,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2)*sin(v), 2)*pow(spow(shapeTexture(u, v, t), .25)/2+.5, .25))
+			blendValue := spow((sin(2*u+1000*v+strength(3*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t+1.8)*sin(u-1101*v)))/2, .1)/2+.5
+			envmapValue := float32(pow(sin(u/2)*sin(v), 2)*blendValue)
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -460,23 +461,35 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="720"/>
-            <integer name="height" value="720"/>
-            <rfilter type="box"/>
+            <integer name="width" value="1000"/>
+            <integer name="height" value="1000"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="IMG_0355 Panorama.jpg"/>
+        <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
     </emitter>
-    <integrator type="path" />
-            <bsdf type="dielectric" id="object_bsdf">
-            </bsdf>
+        <integrator type="path">
+        </integrator>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+		   <bsdf type="twosided">
+				<bsdf type="conductor">
+                <spectrum name="eta" filename="spd/27.spd"/>
+                <spectrum name="k" filename="spd/95.spd"/>
+				</bsdf>
+			</bsdf>
+				<bsdf type="dielectric">
+				</bsdf>
+    </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
