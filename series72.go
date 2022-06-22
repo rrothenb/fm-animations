@@ -367,10 +367,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
-			v := float64(vIndex) / float64(nV) * pi
+			v := float64(vIndex) / float64(nV) * 2 * pi
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
 			// blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
-			blendValue := float32(spow((sin(2*u+1000*v+strength(3*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t+1.8)*sin(u-1101*v)))/2, .1))/2+.5
+			//blendValue := float32(spow((sin(2*u+1000*v+strength(3*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t+1.8)*sin(u-1101*v)))/2, .1))/2+.5
+			blendValue := float32(spow(shapeTexture(10*u, 10*v, t), pow(10, sin(7*t)))/2+.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			metalBlendValue := float32(pow(spow(shapeTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2)))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
@@ -399,8 +400,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			blendValue := spow((sin(2*u+1000*v+strength(3*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t+1.8)*sin(u-1101*v)))/2, .1)/2+.5
-			envmapValue := float32(pow(sin(u/2)*sin(v), 2)*blendValue)
+			blendValue := spow((sin(2*u+1000*v+strength(3*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t+1.8)*sin(u-1101*v)))/2, .5)/2+.5
+			envmapValue := float32(pow(sin(u/2)*sin(v), 2)*blendValue*pow(v/pi, 2))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -462,12 +463,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="420"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1000"/>
-            <integer name="height" value="1000"/>
+            <integer name="width" value="4000"/>
+            <integer name="height" value="4000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -481,14 +482,19 @@ end_header
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-		   <bsdf type="twosided">
-				<bsdf type="conductor">
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".01"/>
+                <string name="material" value="Ag"/>
+            </bsdf>
+        </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".01"/>
                 <spectrum name="eta" filename="spd/27.spd"/>
                 <spectrum name="k" filename="spd/95.spd"/>
-				</bsdf>
-			</bsdf>
-				<bsdf type="dielectric">
-				</bsdf>
+            </bsdf>
+        </bsdf>
     </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
