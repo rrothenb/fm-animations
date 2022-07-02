@@ -183,6 +183,22 @@ func generalizedSphere(u,v,t float64) geom.Vec {
 	}
 }
 
+func printGeneralizedSphereEquation(frame int, t float64) {
+	a := cos(3*t)
+	b := sin(5*t)
+	c := cos(7*t)
+	d := sin(11*t)
+	e := cos(13*t)
+	f := sin(17*t)
+	fmt.Printf("\n--- Equations for %v ---\n", frame)
+	fmt.Printf("vOffset = pow(%v, sin(v))-pow(.1, sin(v))\n", pow(10, -a))
+	fmt.Printf("uOffset = pow(%v, sin(u))-pow(.1, sin(u))\n", pow(10, -c))
+	fmt.Printf("zOffset = pow(%v, sin(v))-pow(.1, sin(v))\n", pow(10, -e))
+	fmt.Printf("x = sin(v+vOffset+%v*sin(2*(v+vOffset)))*cos(u+uOffset-%v*sin(2*(u+uOffset)))\n", 1.5*b, 1.5*d)
+	fmt.Printf("y = sin(v+vOffset+%v*sin(2*(v+vOffset)))*sin(u+uOffset+%v*sin(2*(u+uOffset)))\n", 1.5*b, 1.5*d)
+	fmt.Printf("z = cos(v+zOffset-%v*sin(2*(v+zOffset)))\n", 1.5*f)
+}
+
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -272,6 +288,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()-.4
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
+	printGeneralizedSphereEquation(frameNumber, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -468,12 +485,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1000"/>
-            <integer name="height" value="1000"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
