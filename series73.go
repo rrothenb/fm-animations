@@ -48,9 +48,12 @@ func strength(n int, x float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	a := 1 - landBlendTexture(u, v, t)
-	texture := a*.05*shapeTexture(3, 1.25, u, v, t)+(1-a)*.1*pow(shapeTexture2(3, 1.25, u, v, t)/2+.5,4)
-	return 1.0 - texture*(spow(shapeTexture(1, 1, u, v, t), .01)/2+.5)
+	texture := .01*pow(shapeTexture2(10, 1.25, u, v, t)/2+.5,4)
+	return 1.0 - texture*(spow(shapeTexture(1.25, 1.1, u, v, t), .01)/2+.5)
+}
+
+func push(x, f float64) float64 {
+	return pow(x/2+.5, f)*2-1
 }
 
 type SLR2 struct {
@@ -186,11 +189,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, -.6}
+	return circle(t+pi).Scaled(.2).Plus(geom.Vec{0, 0, -.6})
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 1}
+	return circle(t+pi).Scaled(.2).Plus(geom.Vec{0, 0, 1})
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -220,7 +223,8 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 }
 
 func shapeTexture2(f, a, u, v, t float64) float64 {
-	loc := shape(u, v, t).Scaled(f*2*pi)
+	loc := shape(u, v, t)
+	loc = loc.Scaled((f+loc.X*10)*2*pi)
 	return sin(loc.Y+loc.X+
 		0.333*strength(2, t)*sin(.333*strength(3, t)*loc.X+.333*strength(2, t)*sin(.333*strength(7, t)*loc.Y))+
 		0.333*strength(3, t)*sin(.333*strength(5, t)*loc.Y+.333*strength(3, t)*sin(.333*strength(5, t)*loc.X))+
@@ -228,9 +232,11 @@ func shapeTexture2(f, a, u, v, t float64) float64 {
 }
 
 func landBlendTexture(u, v, t float64) float64 {
-	baseTexture := shapeTexture(1.1, 1.1, u, v, t)
-	texture := pow(baseTexture/2+.5, pow(20, spow(sin(16*t), .1)))*2-1
-	return spow(texture, pow(10, sin(5*t)-1))/2+.5
+	return pow(spow(shapeTexture2(10, 1.25, u, v, t), .1)/2+.5,2)
+}
+
+func paperTexture(u, v, t float64) float64 {
+	return shapeTexture(.1, 50, u, v, t)/15+.9
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
@@ -362,13 +368,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	envmapArray := []float32{}
 	blendArray := []float32{}
 	landBlendArray := []float32{}
+	textureArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			blendValue := float32(spow(shapeTexture(1, 1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), .01)/2+.5)
+			blendValue := float32(spow(push(shapeTexture(1.25, 1.1, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), 2), .01)/2+.5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			landBlendValue := float32(landBlendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
+			textureValue := float32(paperTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
+			textureArray = append(textureArray, textureValue, textureValue, textureValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -420,6 +429,7 @@ end_header
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
 	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
 	landBlendPath := fmt.Sprintf("data/%v.land.blend.rgbe", frameNumber)
+	texturePath := fmt.Sprintf("data/%v.texture.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -431,6 +441,8 @@ end_header
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	landBlend, _ := os.Create(landBlendPath)
 	rgbe.Encode(landBlend, endUIndex-startUIndex, endVIndex-startVIndex, landBlendArray)
+	texture, _ := os.Create(texturePath)
+	rgbe.Encode(texture, endUIndex-startUIndex, endVIndex-startVIndex, textureArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -439,14 +451,16 @@ end_header
 		Distance float64
 		FogRadius float64
 		MinZ float64
+		Angle1 float64
+		Angle2 float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value="1"/>
+        <float name="focus_distance" value=".4"/>
         <float name="aperture_radius" value=".0000001"/>
-        <float name="fov" value="35"/>
+        <float name="fov" value="20"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
@@ -456,8 +470,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="4000"/>
-            <integer name="height" value="4000"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -480,17 +494,17 @@ end_header
                 <string name="filename" value="mitsuba.land.blend.rgbe"/>
             </texture>
             <bsdf type="twosided">
-                <bsdf type="roughconductor">
-                    <float name="alpha" value=".01"/>
-                    <spectrum name="eta" filename="spd/15.spd"/>
-                    <spectrum name="k" filename="spd/11.spd"/>
+                <bsdf type="diffuse">
+					<texture type="bitmap" name="reflectance">
+						<string name="filename" value="mitsuba.texture.rgbe"/>
+					</texture>
                 </bsdf>
-            </bsdf>
+                </bsdf>
             <bsdf type="twosided">
                 <bsdf type="roughplastic">
-                    <float name="alpha" value=".05"/>
+                    <float name="alpha" value=".2"/>
                     <float name="int_ior" value="1.52"/>
-                    <rgb name="diffuse_reflectance" value="0.5, 0.0, 0.0"/>
+                    <rgb name="diffuse_reflectance" value="0.4, 0.4, 0.8"/>
 					<boolean name="nonlinear" value="true"/>
                 	<string name="distribution" value="ggx"/>
                 </bsdf>
@@ -512,32 +526,52 @@ end_header
     <shape type="instance">
         <ref id="my_shape_group"/>
         <transform name="to_world">
-            <rotate z="1" angle="45"/>
+        </transform>
+    </shape>
+    <shape type="instance">
+        <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <scale value=".9"/>
+            <rotate z="1" angle="{{ .Angle1 }}"/>
+            <translate x="0" y="0" z="-.1"/>
+        </transform>
+    </shape>
+    <shape type="instance">
+        <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <scale value=".8"/>
+            <rotate z="1" angle="{{ .Angle2 }}"/>
+            <translate x="0" y="0" z="-.2"/>
         </transform>
     </shape>
     <shape type="rectangle">
-        <bsdf type="twosided">
             <bsdf type="diffuse">
                 <rgb name="reflectance" value="0.8, 0.8, 0.8"/>
             </bsdf>
-        </bsdf>
         <transform name="to_world">
             <scale value="1"/>
-            <rotate value="0, 1, 0" angle="0"/>
+            <rotate value="0, 1, 0" angle="180"/>
             <translate x="0" y="0" z="1.15"/>
         </transform>
     </shape>
 
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile,sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), minZ})
+	sensorTemplate.Execute(sensorFile,sensor{
+		cameraLoc,
+		focusPoint,
+		distance,
+		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
+		minZ,
+		sin(3*t)*180,
+		sin(2*t)*180})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
