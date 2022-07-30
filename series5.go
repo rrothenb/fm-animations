@@ -58,7 +58,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .01*strength(t)*pow(texture(u, v, t), 2)
+	return 1.0 + 10*pow(texture(u, v, t), 2)
 }
 
 func pushdown(x, n float64) float64 {
@@ -153,7 +153,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
-	cameraLoc := geom.Vec{math.Sin(t)*.707, math.Sin(t)*.707, math.Cos(t)}.Scaled(.14)
+	cameraLoc := geom.Vec{0, sin(pi), cos(pi)}.Scaled(.14)
 	unitCameraLoc, _ := cameraLoc.Unit()
 	focusPoint := unitCameraLoc.Scaled(.075)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -287,23 +287,55 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="55"/>
+        <float name="aperture_radius" value=".00000001"/>
+        <float name="fov" value="85"/>
         <transform name="to_world">
             <lookat target="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" origin="0, 0, .035" up="1, 0, 0"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2750"/>
-            <integer name="height" value="2750"/>
-            <string name="pixel_format" value="rgb"/>
-            <rfilter type="gaussian"/>
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
+    <integrator type="path" />
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
+            <bsdf type="conductor">
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
+            </bsdf>
+        </bsdf>
+        <bsdf type="thindielectric">
+            <float name="int_ior" value="1.5"/>
+            <float name="ext_ior" value="1.0"/>
+        </bsdf>
+    </bsdf>
+
+    <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+        <ref id="object_bsdf"/>
+    </shape>
+
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="3"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 </scene>
 `)
 	fmt.Println(cameraLoc)
@@ -314,7 +346,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1000, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

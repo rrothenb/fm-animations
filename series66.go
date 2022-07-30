@@ -68,8 +68,8 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.036,
-		Height:   0.036,
+		Width:    0.048,
+		Height:   0.027,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -429,7 +429,7 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".0001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -440,8 +440,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>

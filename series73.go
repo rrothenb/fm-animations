@@ -47,9 +47,18 @@ func strength(n int, x float64) float64 {
 	return pow(2.25, sin(float64(n)*(x+float64(n)/10)))
 }
 
+func landBlendTexture(u, v, t float64) float64 {
+	return pow(spow(shapeTexture2(10, 1.25, u, v, t), .1)/2+.5,2)
+}
+
+func paperTexture(u, v, t float64) float64 {
+	return shapeTexture(.1, 50, u, v, t)/2+.5
+}
+
 func radius(u, v, t float64) float64 {
 	texture := .01*pow(shapeTexture2(10, 1.25, u, v, t)/2+.5,4)
-	return 1.0 - texture*(spow(shapeTexture(1.25, 1.1, u, v, t), .01)/2+.5)
+	blend := spow(push(shapeTexture(1.25, 1.1, u, v, t), 4), .5)/2+.5
+	return 1.0 - texture*blend+paperTexture(u, v, t)*(1-blend)*.0001
 }
 
 func push(x, f float64) float64 {
@@ -231,14 +240,6 @@ func shapeTexture2(f, a, u, v, t float64) float64 {
 		0.333*strength(5, t)*sin(.333*strength(7, t)*loc.X-.333*strength(5, t)*loc.Y+.333*strength(3, t)*sin(.333*strength(2, t)*loc.X)+.333*strength(3, t)*sin(.333*strength(5, t)*loc.Y)))
 }
 
-func landBlendTexture(u, v, t float64) float64 {
-	return pow(spow(shapeTexture2(10, 1.25, u, v, t), .1)/2+.5,2)
-}
-
-func paperTexture(u, v, t float64) float64 {
-	return shapeTexture(.1, 50, u, v, t)/15+.9
-}
-
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	loc := shape(u, v, t)
 	return loc.Scaled(radius(u, v, t))
@@ -402,7 +403,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 60)*pow(sin(v), 60)*(shapeTexture(3, 2, u, v, t)/2+.5))
+			envmapValue := float32(pow(sin(u/2), 100)*pow(sin(v), 100)*(shapeTexture(3, 2, u, v, t)/2+.5))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -470,8 +471,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="5000"/>
-            <integer name="height" value="5000"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -494,10 +495,8 @@ end_header
                 <string name="filename" value="mitsuba.land.blend.rgbe"/>
             </texture>
             <bsdf type="twosided">
-                <bsdf type="diffuse">
-					<texture type="bitmap" name="reflectance">
-						<string name="filename" value="mitsuba.texture.rgbe"/>
-					</texture>
+            <bsdf type="diffuse">
+                <rgb name="reflectance" value="1, 1, 1"/>
                 </bsdf>
                 </bsdf>
             <bsdf type="twosided">

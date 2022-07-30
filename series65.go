@@ -44,7 +44,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(10, sin(pow(float64(n), .5)*(x+float64(n)/3)))
+	return .5*pow(10, sin(pow(float64(n), .5)*(x+float64(n)/3)))
 }
 
 type SLR2 struct {
@@ -192,7 +192,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0,0,.5*sin(2*t)}).Unit()
+	loc := circle(t)
 	return loc.Scaled(3.5+.5*cos(t))
 }
 
@@ -227,7 +227,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	r := .9 + .1*shapeTexture(1.5, 1, t, loc)
+	r := .9 + .1*shapeTexture(3, 0, t, loc)
 	return loc.Scaled(r)
 }
 
@@ -441,18 +441,18 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="40"/>
+        <float name="fov" value="37"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="500"/>
-            <integer name="height" value="500"/>
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -482,8 +482,7 @@ end_header
 				</bsdf>
 		   <bsdf type="twosided">
 				<bsdf type="conductor">
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+                <string name="material" value="Cu"/>
 				</bsdf>
 			</bsdf>
     </bsdf>

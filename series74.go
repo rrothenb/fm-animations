@@ -159,44 +159,26 @@ func boysSurface(u, v, t float64) geom.Vec {
 }
 
 func sinG(x, a, b float64) float64 {
-	offset := pow(pow(10, -a), sin(x))-pow(.1, sin(x))
-	return sin(x+offset+1.5*b*sin(2*(x+offset)))
+	return sin(x+a*sin(2*x)+b/2*sin(4*x))
 }
 
 func cosG(x, a, b float64) float64 {
-	offset := pow(pow(10, -a), sin(x))-pow(.1, sin(x))
-	return cos(x+offset-1.5*b*sin(2*(x+offset)))
+	return cos(x-a*sin(2*x)+b/2*sin(4*x))
 }
 
 func generalizedSphere(u,v,t float64) geom.Vec {
 	v = v/2
-	a := cos(3*t)
-	b := sin(5*t)
-	c := cos(7*t)
-	d := sin(11*t)
-	e := cos(13*t)
-	f := sin(17*t)
+	a := .4-.4*cos(6*t)
+	b := .4-.4*cos(3*t)
+	c := .4-.4*cos(4*t)
+	d := .4-.4*cos(5*t)
+	e := .4-.4*cos(2*t)
+	f := .4-.4*cos(7*t)
 	return geom.Vec{
 		sinG(v, a, b) * cosG(u, c, d),
 		sinG(v, a, b) * sinG(u, c, d),
 		cosG(v, e, f),
 	}
-}
-
-func printGeneralizedSphereEquation(frame int, t float64) {
-	a := cos(3*t)
-	b := sin(5*t)
-	c := cos(7*t)
-	d := sin(11*t)
-	e := cos(13*t)
-	f := sin(17*t)
-	fmt.Printf("\n--- Equations for %v ---\n", frame)
-	fmt.Printf("vOffset = pow(%v, sin(v))-pow(.1, sin(v))\n", pow(10, -a))
-	fmt.Printf("uOffset = pow(%v, sin(u))-pow(.1, sin(u))\n", pow(10, -c))
-	fmt.Printf("zOffset = pow(%v, sin(v))-pow(.1, sin(v))\n", pow(10, -e))
-	fmt.Printf("x = sin(v+vOffset+%v*sin(2*(v+vOffset)))*cos(u+uOffset-%v*sin(2*(u+uOffset)))\n", 1.5*b, 1.5*d)
-	fmt.Printf("y = sin(v+vOffset+%v*sin(2*(v+vOffset)))*sin(u+uOffset+%v*sin(2*(u+uOffset)))\n", 1.5*b, 1.5*d)
-	fmt.Printf("z = cos(v+zOffset-%v*sin(2*(v+zOffset)))\n", 1.5*f)
 }
 
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
@@ -256,7 +238,7 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 }
 
 func blendTexture(u, v, t float64) float64 {
-	return spow(pow(shapeTexture(2+sin(5*t), 1.5+sin(3*t), u, v, t)/2+.5, pow(4, sin(7*t)))*2-1, .1)/2+.5
+	return .5-spow(pow(shapeTexture(.5+.25*sin(5*t), 1+.5*sin(3*t), u, v, t)/2+.5, pow(2, sin(7*t))), .5)/2
 }
 
 func envTexture(u, v, t float64) float64 {
@@ -288,7 +270,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()-.4
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
-	printGeneralizedSphereEquation(frameNumber, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -485,12 +466,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="720"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -513,8 +494,8 @@ end_header
 		   <bsdf type="twosided">
 				<bsdf type="roughconductor">
 				<float name="alpha" value=".1"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
 				</bsdf>
 			</bsdf>
     </bsdf>
@@ -559,7 +540,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

@@ -457,18 +457,18 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="35"/>
+        <float name="fov" value="20"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="720"/>
-            <integer name="height" value="720"/>
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>

@@ -101,8 +101,8 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.036,
-		Height:   0.072,
+		Width:    0.048,
+		Height:   0.027,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -436,8 +436,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="750"/>
-            <integer name="height" value="1500"/>
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>

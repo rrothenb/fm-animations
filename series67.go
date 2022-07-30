@@ -68,8 +68,8 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.036,
-		Height:   0.036,
+		Width:    0.048,
+		Height:   0.027,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -119,7 +119,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .5
+	factor := .1
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -449,7 +449,7 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".0000001"/>
-        <float name="fov" value="35"/>
+        <float name="fov" value="18"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -459,8 +459,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2250"/>
+            <integer name="width" value="3840"/>
+            <integer name="height" value="2160"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
