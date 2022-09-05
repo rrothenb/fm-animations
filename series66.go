@@ -436,7 +436,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="15"/>
         </sampler>
 
         <film type="hdrfilm" id="film">

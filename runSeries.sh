@@ -1,4 +1,4 @@
-for frame in 5 9 13 15 21 25 29 43 53 57 59
+for frame in 3 11 38 96 42 67
 do
   time ./run.sh $1 $frame 50000000
 done
