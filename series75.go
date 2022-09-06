@@ -220,11 +220,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(-t).Scaled(.75*(cos(t)/2+.6)).Plus(geom.Vec{0, 0, cos(t)/2-.6})
+	loc, _ := circle(-t).Plus(geom.Vec{0, 0, cos(t)/2-.5}).Unit()
+	return loc.Scaled(3)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,.25}
+	return geom.Vec{0,0,.4}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -257,7 +258,7 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return shape(u, v, t).Plus(geom.Vec{0, 0, (1-isCurved(v))*texture(u, v, t)}.Scaled(.01))
+	return shape(u, v, t).Plus(geom.Vec{0, 0, (1-isCurved(v))*(texture(u, v, t)/2-.5)}.Scaled(.01))
 }
 
 func index2radians(index float64, n int) float64 {
@@ -477,12 +478,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -509,14 +510,12 @@ end_header
 					<string name="filename" value="mitsuba.land.blend.rgbe"/>
 				</texture>
 			   <bsdf type="twosided">
-					<bsdf type="roughconductor">
-						<float name="alpha" value="0.001"/>
+					<bsdf type="conductor">
 						<string name="material" value="Ag"/>
 					</bsdf>
 				</bsdf>
 			   <bsdf type="twosided">
-					<bsdf type="roughconductor">
-						<float name="alpha" value="0.001"/>
+					<bsdf type="conductor">
 						<string name="material" value="Cu"/>
 					</bsdf>
 				</bsdf>
@@ -554,7 +553,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 100, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
