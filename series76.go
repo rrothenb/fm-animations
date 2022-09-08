@@ -179,7 +179,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(t).Scaled(7+5*sin(2*t)).Plus(geom.Vec{0,0,3*sin(3*t)})
+	return circle(0).Scaled(7+5*sin(2*t))
 }
 
 func focusPath(t float64) geom.Vec {
@@ -201,17 +201,23 @@ func knot(t float64) geom.Vec {
 
 func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 	loc = loc.Scaled(f*2*pi)
-	return sin(
-		a*strength(7, t)*sin(a*strength(23, t)*loc.X)+
-			a*strength(11, t)*sin(a*strength(19, t)*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
+	return sin(loc.Z+
+		a*strength(7, t)*sin(a*strength(23, t)*loc.Z)+
+			a*strength(11, t)*sin(a*strength(19, t)*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*loc.Y))+
 			a*strength(13, t)*sin(a*strength(17, t)*loc.Z)+a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y)+
-			.1*a*strength(47, t)*sin(loc.X*loc.Y+.1*a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
+			a*strength(47, t)*sin(loc.Z+a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
+}
+
+func cube(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+.5*sin(v)) * cos(u-.5*sin(2*u)),
+		sin(v/2.0+.5*sin(v)) * sin(u+.5*sin(2*u)),
+		cos(v/2.0-.5*sin(v)),
+	}
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := pathWrapper(u, v, .3, circle)
-	loc = pathWrapper(u, v, .3-.025*(spow(shapeTexture(.5, 1, t, loc), .5)/2+.5), circle)
-	return geom.Vec{loc.X, loc.Z, loc.Y}
+	return cube(u, v, t).Scaled(.4)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -349,7 +355,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(nV) * 2 * pi
 			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(pow(spow(shapeTexture(4, .25, t, loc), strength(41, t))/2+.5, strength(43, t)))
+			blendValue := float32(pow(spow(shapeTexture(2, 1, t, loc), 10)/2+.5, 10))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -374,9 +380,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			loc := shape(u, v, t)
-			envmapValue := float32(pow(spow(shapeTexture(.1, 2, t, loc), strength(2, t))/2+.5, strength(3, t)))
-			envmapArray = append(envmapArray, float32(pow(float64(envmapValue), 4)), envmapValue*.75+.25*float32(sin(v)), float32(pow(float64(envmapValue), .25)))
+			envmapValue := float32(pow(sin(u/2), 2)*pow(sin(v), 2))
+			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
 
@@ -438,16 +443,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="420"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="12960"/>
-            <integer name="height" value="23760"/>
-            <integer name="crop_offset_x" value="2160"/>
-            <integer name="crop_width" value="10800"/>
-            <integer name="crop_offset_y" value="0"/>
-            <integer name="crop_height" value="2160"/>
+            <integer name="width" value="2500"/>
+            <integer name="height" value="2500"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -459,8 +460,21 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-         <bsdf type="dielectric" id="object_bsdf">
-		 </bsdf>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+		   <bsdf type="dielectric">
+				<string name="int_ior" value="bk7"/>
+				<string name="ext_ior" value="air"/>
+			</bsdf>
+			   <bsdf type="twosided">
+					<bsdf type="conductor">
+                <spectrum name="eta" filename="spd/2.spd"/>
+                <spectrum name="k" filename="spd/12.spd"/>
+					</bsdf>
+				</bsdf>
+    </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -477,12 +491,12 @@ end_header
 `)
 	angle := 90.0
 	instances := []instance{}
-	num := 9
+	num := 5
 	for x := -num; x <= num; x++ {
 		for y := -num; y <= num; y++ {
 			for z := -num; z <= num; z++ {
-				loc := geom.Vec{float64(x) * 5, float64(y) * 5, float64(z) * 1.4}
-				angle := float64((x + y + z)%2)*90 + 15*shapeTexture(1, .5, t, loc.Scaled(.1))
+				loc := geom.Vec{float64(x), float64(y), float64(z)}
+				angle := float64((x + y + z)%4)*90
 				instances = append(instances, instance{angle , loc, 1})
 			}
 		}
@@ -496,7 +510,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
