@@ -179,7 +179,35 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return circle(0).Scaled(7+5*sin(2*t))
+	cameraLocs := [20]geom.Vec{
+		// faces
+		{1, 0, 0},
+		{0, 1, 0},
+		{-1, 0, 0},
+		{0, -1, 0},
+		//top edges
+		{0, 1, 1},
+		{1, 0, 1},
+		{-1, 0, 1},
+		{0, -1, 1},
+		// bottom edges
+		{0, 1, -1},
+		{1, 0, -1},
+		{-1, 0, -1},
+		{0, -1, -1},
+		// corners
+		{1, 1, 1},
+		{-1, 1, 1},
+		{1, -1, 1},
+		{1, 1, -1},
+		{-1, -1, 1},
+		{-1, 1, -1},
+		{1, -1, -1},
+		{-1, -1, -1},
+	}
+	index := int(t/2/pi*512)%len(cameraLocs)
+	unit, _ := cameraLocs[index].Unit()
+	return unit.Scaled(7+5*sin(2*t))
 }
 
 func focusPath(t float64) geom.Vec {
@@ -510,7 +538,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 128, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
