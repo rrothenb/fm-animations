@@ -29,10 +29,10 @@ def texture(xIndex, yIndex, zIndex, res):
     x = xIndex/res*2*pi
     y = yIndex/res*2*pi
     z = zIndex/res*2*pi
-    return sin(x-z+sin(y+z+2*sin(z-y+2*sin(x+y+z)))+sin(x-y+2*sin(y+z+2*sin(x-y-z))))*.5+.5
+    return power(sin(x-z+sin(y+z+2*sin(z-y+2*sin(x+y+z)))+sin(x-y+2*sin(y+z+2*sin(x-y-z))))*.5+.5, .5)*.25+.75
 
 
-res = 512
+res = 256
 
 volume = zeros((res, res, res, 3))
 
@@ -42,7 +42,7 @@ for z in range(res):
     for y in range(res):
         for x in range(res):
             t = texture(x, y, z, res)
-            volume[x, y, z] = colorsys.hsv_to_rgb(.5, 1-t, t)
+            volume[x, y, z] = colorsys.hsv_to_rgb(0, 0, t)
 
 write_binary_grid3d('textures/volume.vol', volume)
 
