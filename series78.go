@@ -212,7 +212,7 @@ func cameraPath(t float64) geom.Vec {
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return geom.Vec{0, 0, 1000}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -453,13 +453,6 @@ end_header
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
-	type instance struct {
-		AngleX float64
-		AngleY float64
-		AngleZ float64
-		Loc    geom.Vec
-		Scale  float64
-	}
 	type sensor struct {
 		Camera    geom.Vec
 		LookAt    geom.Vec
@@ -467,12 +460,6 @@ end_header
 		FogRadius float64
 		Angle     float64
 		MinZ      float64
-		Instances []instance
-	}
-	type rotation struct {
-		AngleX float64
-		AngleY float64
-		AngleZ float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -480,192 +467,54 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000025"/>
-        <float name="fov" value="40"/>
+        <float name="fov" value="135"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="3000"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="900"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
+        <string name="filename" value="24171064736_78e6b617c9_o.jpg"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="0"/>
         </transform>
     </emitter>
-        <integrator type="volpathmis">
-            <integer name="max_depth" value="16"/>
-        </integrator>
-    <medium id="medium1" type="homogeneous">
-        <float name="scale" value="1"/>
-
-        <volume name="sigma_t" type="gridvolume">
-            <string name="filename" value="textures/volume.vol"/>
-            <transform name="to_world">
-                <scale x=".5" y=".5" z=".5"/>
-                <translate x="-.25" y="-.25" z="-.25"/>
-            </transform>
-            <boolean name="use_grid_bbox" value="false"/>
-        </volume>
-
-        <volume name="albedo" type="gridvolume">
-            <string name="filename" value="textures/volume.vol"/>
-            <transform name="to_world">
-                <scale x=".5" y=".5" z=".5"/>
-                <translate x="-.25" y="-.25" z="-.25"/>
-            </transform>
-            <boolean name="use_grid_bbox" value="false"/>
-        </volume>
-
-        <phase type="hg">
-			<float name="g" value="0"/>
-		</phase>
-    </medium>
+    <integrator type="path" />
     <bsdf type="blendbsdf" id="object_bsdf">
         <texture type="bitmap" name="weight">
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
-		   <bsdf type="null">
+		   <bsdf type="dielectric">
 			</bsdf>
 			   <bsdf type="twosided">
 					<bsdf type="conductor">
-                    <spectrum name="eta" filename="spd/15.spd"/>
-                    <spectrum name="k" filename="spd/11.spd"/>
+                    <spectrum name="eta" filename="spd/27.spd"/>
+                    <spectrum name="k" filename="spd/95.spd"/>
 					</bsdf>
 				</bsdf>
     </bsdf>
-<shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
-            <scale value="1"/>
-            <translate x="0" y="0" z="0"/>
+            <scale value="600"/>
+            <translate x="0" y="0" z="100"/>
         </transform>
         <ref id="object_bsdf"/>
-        <ref id="medium1" name="interior"/>
     </shape>
-</shape>
-
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="1, 0, 0" angle="{{ .AngleX }}"/><rotate value="0, 1, 0" angle="{{ .AngleY }}"/><rotate value="0, 0, 1" angle="{{ .AngleZ }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 
-	// faces X direction
-	// y direction defined by first entry of each row
-	// z direction defined by first row
-	rotations := [4][4][4]rotation{
-		{
-			{
-				{0,  0, 0},
-				{0,  0, 90},
-				{0,  0, 180},
-				{0,  0, 270}},
-			{
-				{0,  90, 0},
-				{90,  0, 180},
-				{0,  0, 90},
-				{270,  0, 180}},
-			{
-				{0,  0, 270},
-				{0,  0, 180},
-				{180,  0, 90},
-				{0,  0, 0}},
-			{
-				{0,  270, 0},
-				{270,  0, 180},
-				{0,  0, 270},
-				{90,  0, 180}}},
-		{
-			{
-				{0,  90, 0},
-				{90,  0, 180},
-				{0,  0, 90},
-				{270,  0, 180}},
-			{
-				{0,  0, 270},
-				{0,  0, 180},
-				{180,  0, 90},
-				{0,  0, 0}},
-			{
-				{0,  270, 0},
-				{270,  0, 180},
-				{0,  0, 270},
-				{90,  0, 180}},
-			{
-				{0,  0, 0},
-				{0,  0, 90},
-				{0,  0, 180},
-				{0,  0, 270}}},
-		{
-			{
-				{0,  0, 270},
-				{0,  0, 180},
-				{180,  0, 90},
-				{0,  0, 0}},
-			{
-				{0,  270, 0},
-				{270,  0, 180},
-				{0,  0, 270},
-				{90,  0, 180}},
-			{
-				{0,  0, 0},
-				{0,  0, 90},
-				{0,  0, 180},
-				{0,  0, 270}},
-			{
-				{0,  90, 0},
-				{90,  0, 180},
-				{0,  0, 90},
-				{270,  0, 180}}},
-		{
-			{
-				{0,  270, 0},
-				{270,  0, 180},
-				{0,  0, 270},
-				{90,  0, 180}},
-			{
-				{0,  0, 0},
-				{0,  0, 90},
-				{0,  0, 180},
-				{0,  0, 270}},
-			{
-				{0,  90, 0},
-				{90,  0, 180},
-				{0,  0, 90},
-				{270,  0, 180}},
-			{
-				{0,  0, 270},
-				{0,  0, 180},
-				{180,  0, 90},
-				{0,  0, 0}}},
-	}
-	angle := 90.0
-	instances := []instance{}
-	num := 4
-	for x := -num; x <= num; x++ {
-		for y := -num; y <= num; y++ {
-			for z := -num; z <= num; z++ {
-				loc := geom.Vec{float64(x), float64(y), float64(z)}
-				rotation := rotations[(x+num)%4][(y+num)%4][(z+num)%4]
-				angleX := rotation.AngleX
-				angleY := rotation.AngleY
-				angleZ := rotation.AngleZ
-				instances = append(instances, instance{angleX, angleY, angleZ, loc, 1})
-			}
-		}
-	}
-	fmt.Println(len(instances))
-
-	sensorTemplate.Execute(sensorFile, sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), angle, minZ, instances})
+	sensorTemplate.Execute(sensorFile, sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), 0, minZ})
 }
 
 func main() {
