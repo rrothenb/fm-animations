@@ -45,7 +45,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(2, sin(pow(float64(n), .5)*(x+float64(n)/3)))
+	return pow(3, sin(pow(float64(n), .5)*(x+float64(n)/3))-.5)
 }
 
 type SLR2 struct {
@@ -212,7 +212,7 @@ func cameraPath(t float64) geom.Vec {
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 1000}
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -467,18 +467,18 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000025"/>
-        <float name="fov" value="135"/>
+        <float name="fov" value="120"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="900"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -486,7 +486,7 @@ end_header
         <string name="filename" value="24171064736_78e6b617c9_o.jpg"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="0"/>
+            <rotate value="1, 0, 0" angle="90"/>
         </transform>
     </emitter>
     <integrator type="path" />
@@ -498,16 +498,17 @@ end_header
 			</bsdf>
 			   <bsdf type="twosided">
 					<bsdf type="conductor">
-                    <spectrum name="eta" filename="spd/27.spd"/>
-                    <spectrum name="k" filename="spd/95.spd"/>
+                    <spectrum name="eta" filename="spd/2.spd"/>
+                    <spectrum name="k" filename="spd/12.spd"/>
 					</bsdf>
 				</bsdf>
     </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
-            <scale value="600"/>
-            <translate x="0" y="0" z="100"/>
+            <scale value="100"/>
+            <translate x="0" y="0" z="0"/>
+            <rotate value="1, 0, 0" angle="90"/>
         </transform>
         <ref id="object_bsdf"/>
     </shape>
