@@ -424,7 +424,7 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="25"/>
+        <float name="fov" value="21"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -434,8 +434,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="9600"/>
-            <integer name="height" value="6000"/>
+            <integer name="width" value="12000"/>
+            <integer name="height" value="9000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -459,7 +459,7 @@ end_header
 			<bsdf type="twosided">
 				<bsdf type="roughconductor">
 					<string name="distribution" value="ggx"/>
-					<float name="alpha" value=".03"/>
+					<float name="alpha" value=".02"/>
 					<spectrum name="eta" filename="spd/15i.spd"/>
 					<spectrum name="k" filename="spd/11i.spd"/>
 				</bsdf>
@@ -467,7 +467,7 @@ end_header
 			<bsdf type="twosided">
 				<bsdf type="roughconductor">
 					<string name="distribution" value="ggx"/>
-					<float name="alpha" value=".03"/>
+					<float name="alpha" value=".02"/>
 					<spectrum name="eta" filename="spd/15.spd"/>
 					<spectrum name="k" filename="spd/11.spd"/>
 				</bsdf>

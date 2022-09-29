@@ -75,7 +75,7 @@ func subtexture1(x, y, z, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + .1*strength2(13*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(10, sin(19*t)))*sin(v)*(spow(cos(v/2-.7*sin(v)), .1)*spow(sin(23*t), .1)/2+.5)
+	return 1.0 // + .1*strength2(13*t)*pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(10, sin(19*t)))*sin(v)*(spow(cos(v/2-.7*sin(v)), .1)*spow(sin(23*t), .1)/2+.5)
 }
 
 func uvTexture(u, v, t float64, texture func (x, y, z, t float64) float64, shape func (u, v, t float64) geom.Vec) float64 {
@@ -190,9 +190,9 @@ func sphere(u, v, t float64) geom.Vec {
 	thickness := .1
 	// r := 1.0 + cos(v/2-.7*sin(v))*thickness/2
 	r := 1.0 + (spow(cos(v/2-.7*sin(v)), pow(10, sin(11*t)))/2+.5)*thickness
-	r = r + .1*strength(13*t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(2, sin(17*t)))/2+.5, pow(2, sin(19*t)))
-	w := 1.0 - sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
-	w2 := 1.0 + pow(sin(v), 4)*(sin(7*t)*.75+.75)
+	// r = r + .1*strength(13*t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(2, sin(17*t)))/2+.5, pow(2, sin(19*t)))
+	w := 1.0 // - sin(5*t)*spow(sin(v/2),pow(3, sin(3*t)+1))*.9
+	w2 := 1.0 // + pow(sin(v), 4)*(sin(7*t)*.75+.75)
 	return geom.Vec{
 		sin(u)*sin(v/2) * w * w2 * r,
 		cos(u)*sin(v/2) * w * w2 * r,
@@ -509,14 +509,14 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
-            <rfilter type="box"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="3000"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -568,7 +568,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1440, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
