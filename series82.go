@@ -158,45 +158,30 @@ func boysSurface(u, v, t float64) geom.Vec {
 	}
 }
 
-func sinG(x, a, b float64) float64 {
-	offset := pow(pow(10, -a), sin(x))-pow(.1, sin(x))
-	return sin(x+offset+1.5*b*sin(2*(x+offset)))
+func distort(x, a, b float64) float64 {
+	return pow(spow(x, pow(3, sin(a)))/2+.5, pow(1.5, sin(b)))*2-1
 }
 
-func cosG(x, a, b float64) float64 {
-	offset := pow(pow(10, -a), sin(x))-pow(.1, sin(x))
-	return cos(x+offset-1.5*b*sin(2*(x+offset)))
+func weight(x float64) float64 {
+	return .35 - cos(x)*.35
 }
 
-func generalizedSphere(u,v,t float64) geom.Vec {
+func sinG(x, a, b, c, d, e, f float64) float64 {
+	return sin(x+weight(a)*distort(sin(x), d, e)+weight(b)*distort(sin(2*x), f, c))
+}
+
+func cosG(x, a, b, c, d, e, f float64) float64 {
+	return cos(x-weight(a)*distort(sin(x), d, e)-weight(b)*distort(sin(2*x), f, c))
+}
+
+func generalizedBowl(u,v,thickness,t float64) geom.Vec {
+	r := 1 - thickness/2 - spow(sin(v+.7*sin(2*v)), .2)*thickness/2
 	v = v/2
-	a := cos(3*t)
-	b := sin(5*t)
-	c := cos(7*t)
-	d := sin(11*t)
-	e := cos(13*t)
-	f := sin(17*t)
 	return geom.Vec{
-		sinG(v, a, b) * cosG(u, c, d),
-		sinG(v, a, b) * sinG(u, c, d),
-		cosG(v, e, f),
-	}
-}
-
-func printGeneralizedSphereEquation(frame int, t float64) {
-	a := cos(3*t)
-	b := sin(5*t)
-	c := cos(7*t)
-	d := sin(11*t)
-	e := cos(13*t)
-	f := sin(17*t)
-	fmt.Printf("\n--- Equations for %v ---\n", frame)
-	fmt.Printf("vOffset = pow(%v, sin(v))-pow(.1, sin(v))\n", pow(10, -a))
-	fmt.Printf("uOffset = pow(%v, sin(u))-pow(.1, sin(u))\n", pow(10, -c))
-	fmt.Printf("zOffset = pow(%v, sin(v))-pow(.1, sin(v))\n", pow(10, -e))
-	fmt.Printf("x = sin(v+vOffset+%v*sin(2*(v+vOffset)))*cos(u+uOffset-%v*sin(2*(u+uOffset)))\n", 1.5*b, 1.5*d)
-	fmt.Printf("y = sin(v+vOffset+%v*sin(2*(v+vOffset)))*sin(u+uOffset+%v*sin(2*(u+uOffset)))\n", 1.5*b, 1.5*d)
-	fmt.Printf("z = cos(v+zOffset-%v*sin(2*(v+zOffset)))\n", 1.5*f)
+		sinG(v, 2*t, 7*t, 17*t, 29*t, 41*t, 53*t) * cosG(u, 3*t, 11*t, 19*t, 31*t, 43*t, 23*t),
+		sinG(v, 2*t, 7*t, 17*t, 29*t, 41*t, 53*t) * sinG(u, 3*t, 11*t, 19*t, 31*t, 43*t, 23*t),
+		-abs(cosG(v, 5*t, 13*t, 0, 37*t, 0, 47*t)),
+	}.Scaled(r)
 }
 
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
@@ -226,11 +211,11 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,.5}).Unit()
-	return loc.Scaled(5.5)
+	return loc.Scaled(5)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,0}
+	return geom.Vec{0,0,-.4}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -247,16 +232,16 @@ func knot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return generalizedSphere(u, v, t)
+	return generalizedBowl(u, v, .25, t)
 }
 
 func shapeTexture(f, a, u, v, t float64) float64 {
 	loc := shape(u, v, t).Scaled(f*2*pi)
-	return sin(loc.X+loc.Y+loc.Z+a*(strength(2, t)*sin(loc.X)+strength(3, t)*sin(loc.Y)+strength(5, t)*sin(loc.Z)))
+	return sin(loc.X-loc.Y+a*(strength(2, t)*sin(2*loc.X-3*loc.Z)+strength(3, t)*sin(loc.Y+5*loc.Z+a*strength(5, t)*sin(loc.Z+2*loc.Y+3*loc.Z))))
 }
 
 func blendTexture(u, v, t float64) float64 {
-	return spow(pow(shapeTexture(2+sin(5*t), 1.5+sin(3*t), u, v, t)/2+.5, pow(4, sin(7*t)))*2-1, .1)/2+.5
+	return spow(pow(shapeTexture(1+sin(5*t)*.5, 1+sin(3*t)*.5, u, v, t)/2+.5, pow(4, sin(7*t)))*2-1, .1)/2+.5
 }
 
 func envTexture(u, v, t float64) float64 {
@@ -288,7 +273,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()-.4
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
-	printGeneralizedSphereEquation(frameNumber, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -397,7 +381,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			blendValue := float32(blendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(shapeTexture(50, 2, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/10+.5)
+			landBlendValue := float32(shapeTexture(.5, .5, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)/2+.5)
 			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
@@ -423,7 +407,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 5)*pow(sin(v), 15)*envTexture(u, v, t))
+			envmapValue := float32(pow(sin(u/2), 3)*pow(sin(v), 3))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -485,12 +469,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -510,13 +494,25 @@ end_header
         </texture>
 		   <bsdf type="dielectric">
 			</bsdf>
-		   <bsdf type="twosided">
-				<bsdf type="roughconductor">
-				<float name="alpha" value=".1"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
+		<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.land.blend.rgbe"/>
+			</texture>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".01"/>
+					<spectrum name="eta" filename="spd/15i.spd"/>
+					<spectrum name="k" filename="spd/11i.spd"/>
+					</bsdf>
 				</bsdf>
-			</bsdf>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".01"/>
+					<spectrum name="eta" filename="spd/15.spd"/>
+					<spectrum name="k" filename="spd/11.spd"/>
+					</bsdf>
+				</bsdf>
+		</bsdf>
     </bsdf>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
@@ -559,7 +555,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
