@@ -172,19 +172,19 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, circle)
+	return torusKnot(t, 1, .25, 5, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 2, outerKnot)
+	return torusKnot(t, 1, .15, 3, 5, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
-	return outerKnot(2*t).Scaled(1+.1*sin(5*t))
+	return innerKnot(t)
 }
 
 func focusPath(t float64) geom.Vec {
-	return outerKnot(2*t+pi+.001-cos(3*t)*pi)
+	return innerKnot(t+.001+1-cos(t))
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -222,14 +222,11 @@ func metalBlendValue(t float64, loc geom.Vec) float64 {
 }
 
 func blendValue(t float64, loc geom.Vec) float64 {
-	return spow(pow(shapeTexture(2, 1, t, loc), 10)*2-1, .1)/2 + .5
+	return spow(pow(shapeTexture(2, 1, t, loc)*shapeTexture(2, 1, t, geom.Vec{loc.Y, loc.Z, loc.X}), 100)*2-1, .1)/2+.5
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := pathWrapper(u, v, .1, innerKnot)
-	texture := .1 * pow(shapeTexture(2, 2, t, loc)/2+.5, 4)
-	scale := 1 + texture*blendValue(t, loc)
-	return pathWrapper(u, v, .1*scale, innerKnot)
+	return pathWrapper(u, v, .05, innerKnot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -368,7 +365,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(nV) * 2 * pi
 			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(blendValue(t, loc))
+			blendValue := float32(0)
+			if uIndex < 5 {
+				blendValue = float32(1)
+			}
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			metalBlendValue := float32(metalBlendValue(t, loc))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
@@ -395,7 +395,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 2) * pow(sin(v), 2))
+			envmapValue := float32(pow(sin(u/2), 10) * pow(sin(v), 10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -448,19 +448,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000000001"/>
+        <float name="aperture_radius" value=".000000000001"/>
         <float name="fov" value="40"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3200"/>
-            <integer name="height" value="1600"/>
+            <integer name="width" value="1000"/>
+            <integer name="height" value="1000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -478,23 +478,12 @@ end_header
 		</texture>
 	   <bsdf type="dielectric">
 		</bsdf>
-			<bsdf type="blendbsdf">
-				<texture type="bitmap" name="weight">
-					<string name="filename" value="mitsuba.metal.blend.rgbe"/>
-				</texture>
 			   <bsdf type="twosided">
 					<bsdf type="conductor">
-					<spectrum name="eta" filename="spd/5.spd"/>
-					<spectrum name="k" filename="spd/10.spd"/>
+					<spectrum name="eta" filename="spd/15.spd"/>
+					<spectrum name="k" filename="spd/11.spd"/>
 					</bsdf>
 				</bsdf>
-			   <bsdf type="twosided">
-					<bsdf type="conductor">
-					<spectrum name="eta" filename="spd/5i.spd"/>
-					<spectrum name="k" filename="spd/10i.spd"/>
-					</bsdf>
-				</bsdf>
-			</bsdf>
     </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -514,7 +503,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
