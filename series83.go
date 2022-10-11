@@ -366,7 +366,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
 			blendValue := float32(0)
-			if uIndex < 5 {
+			if u < pi/7 {
 				blendValue = float32(1)
 			}
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
@@ -455,12 +455,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1000"/>
-            <integer name="height" value="1000"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
