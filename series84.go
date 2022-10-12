@@ -172,11 +172,19 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 5, 3, circle)
+	return torusKnot(t, 1, .49, 2, 3, circle)
+}
+
+func middleKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, .14, 3, 2, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 5, outerKnot)
+	return torusKnot(t, 1, .25, 2, 3, middleKnot)
+}
+
+func shape(u, v, t float64) geom.Vec {
+	return pathWrapper(u, v, .075, innerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
@@ -184,7 +192,8 @@ func cameraPath(t float64) geom.Vec {
 }
 
 func focusPath(t float64) geom.Vec {
-	return innerKnot(t+.001+1-cos(t))
+	min := .001
+	return innerKnot(t+min+(1-cos(t))/2*(2*pi-min*2))
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -223,10 +232,6 @@ func metalBlendValue(t float64, loc geom.Vec) float64 {
 
 func blendValue(t float64, loc geom.Vec) float64 {
 	return spow(pow(shapeTexture(2, 1, t, loc)*shapeTexture(2, 1, t, geom.Vec{loc.Y, loc.Z, loc.X}), 100)*2-1, .1)/2+.5
-}
-
-func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .05, innerKnot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -356,22 +361,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		}
 	}
 	envmapArray := []float32{}
-	blendArray := []float32{}
-	metalBlendArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			u := float64(uIndex) / float64(nU) * 2 * pi
-			v := float64(vIndex) / float64(nV) * 2 * pi
-			loc := shape(u, v, t)
-			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(0)
-			if u < pi/7 {
-				blendValue = float32(1)
-			}
-			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(metalBlendValue(t, loc))
-			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -420,8 +412,6 @@ end_header
 `)
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
-	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
-	metalBlendPath := fmt.Sprintf("data/%v.metal.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -429,10 +419,6 @@ end_header
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
-	blend, _ := os.Create(blendPath)
-	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
-	metalBlend, _ := os.Create(metalBlendPath)
-	rgbe.Encode(metalBlend, endUIndex-startUIndex, endVIndex-startVIndex, metalBlendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -455,12 +441,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="5000"/>
-            <integer name="height" value="5000"/>
+            <integer name="width" value="1000"/>
+            <integer name="height" value="1000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -472,19 +458,20 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-		<texture type="bitmap" name="weight">
-			<string name="filename" value="mitsuba.blend.rgbe"/>
-		</texture>
-	   <bsdf type="dielectric">
-		</bsdf>
-			   <bsdf type="twosided">
-					<bsdf type="conductor">
-					<spectrum name="eta" filename="spd/15.spd"/>
-					<spectrum name="k" filename="spd/11.spd"/>
-					</bsdf>
-				</bsdf>
+	   <bsdf type="dielectric" id="object_bsdf">
     </bsdf>
+	<shape type="sphere">
+        <transform name="to_world">
+            <scale value=".15"/>
+        </transform>
+	   <bsdf type="twosided">
+			<bsdf type="roughconductor">
+			<float name="alpha" value=".1"/>
+			<spectrum name="eta" filename="spd/2.spd"/>
+			<spectrum name="k" filename="spd/12.spd"/>
+			</bsdf>
+		</bsdf>
+	</shape>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
