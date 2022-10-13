@@ -172,11 +172,11 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, circle)
+	return torusKnot(t, 1, .75, 5, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 2, outerKnot)
+	return torusKnot(t, 1, .45, 3, 5, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
@@ -227,7 +227,7 @@ func blendValue(t float64, loc geom.Vec) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .1, innerKnot)
+	return pathWrapper(u, v, .05, innerKnot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -456,7 +456,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="15"/>
+            <integer name="sample_count" value="42"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -473,19 +473,8 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-		<texture type="bitmap" name="weight">
-			<string name="filename" value="mitsuba.blend.rgbe"/>
-		</texture>
-	   <bsdf type="dielectric">
+	   <bsdf type="dielectric" id="object_bsdf">
 		</bsdf>
-			   <bsdf type="twosided">
-					<bsdf type="conductor">
-					<spectrum name="eta" filename="spd/15.spd"/>
-					<spectrum name="k" filename="spd/11.spd"/>
-					</bsdf>
-				</bsdf>
-    </bsdf>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -494,6 +483,19 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
+	<shape type="cylinder">
+        <transform name="to_world">
+            <scale value=".05, .05, 100"/>
+            <translate x="0" y="0" z="-50"/>
+        </transform>
+	   <bsdf type="twosided">
+			<bsdf type="roughconductor">
+			<float name="alpha" value=".1"/>
+			<spectrum name="eta" filename="spd/2.spd"/>
+			<spectrum name="k" filename="spd/10.spd"/>
+			</bsdf>
+		</bsdf>
+	</shape>
 </scene>
 `)
 
@@ -504,7 +506,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
