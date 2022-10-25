@@ -469,12 +469,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3200"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="2800"/>
+            <integer name="height" value="2100"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -501,8 +501,7 @@ end_header
 			   <bsdf type="twosided">
 					<bsdf type="roughconductor">
 					<float name="alpha" value=".01"/>
-					<spectrum name="eta" filename="spd/15i.spd"/>
-					<spectrum name="k" filename="spd/11i.spd"/>
+					<string name="material" value="Cu"/>
 					</bsdf>
 				</bsdf>
 			   <bsdf type="twosided">
