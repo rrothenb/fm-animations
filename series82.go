@@ -175,13 +175,16 @@ func cosG(x, a, b, c, d, e, f float64) float64 {
 }
 
 func generalizedBowl(u,v,thickness,t float64) geom.Vec {
-	r := 1 - thickness/2 - spow(sin(v+.7*sin(2*v)), .2)*thickness/2
-	v = v/2
+	percent := .5+sin(59*t)*.25
+	v2 := 2*pi*(sin(v/2))*percent
+	thickness = thickness*percent
+	r := 1 + spow(sin(v+.7*sin(2*v)), .25)*thickness/2
+	v = v2/2
 	return geom.Vec{
 		sinG(v, 2*t, 7*t, 17*t, 29*t, 41*t, 53*t) * cosG(u, 3*t, 11*t, 19*t, 31*t, 43*t, 23*t),
 		sinG(v, 2*t, 7*t, 17*t, 29*t, 41*t, 53*t) * sinG(u, 3*t, 11*t, 19*t, 31*t, 43*t, 23*t),
-		-abs(cosG(v, 5*t, 13*t, 0, 37*t, 0, 47*t)),
-	}.Scaled(r)
+		-cosG(v, 5*t, 13*t, 0, 37*t, 0, 47*t),
+	}.Scaled(r).Scaled(1/percent)
 }
 
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
@@ -211,11 +214,11 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0,0,.5}).Unit()
-	return loc.Scaled(5)
+	return loc.Scaled(10)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,0,-.4}
+	return geom.Vec{0,0,-1}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -285,12 +288,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxDistance := 0.0
 	maxX := 0.0
 	maxY := 0.0
-	maxZ := 0.0
+	maxZ := -100.0
 	minU := 500
 	minV := 500
 	maxU := 0
 	maxV := 0
-	minZ := 1.0
+	minZ := 100.0
 	closestPoint := geom.Vec{0,0,0}
 	for uIndex := 0; uIndex <= 500; uIndex++ {
 		for vIndex := 0; vIndex <= 500; vIndex++ {
@@ -306,7 +309,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				maxDistance = math.Max(maxDistance, vertex.Len())
 				maxX = math.Max(maxX, math.Abs(vertex.X))
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
-				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
+				maxZ = math.Max(maxZ, vertex.Z)
 				minZ = math.Min(minZ, vertex.Z)
 				if (minU > uIndex) {
 					minU = uIndex
@@ -331,6 +334,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
+	focusPoint.Z = (maxZ + minZ)/2
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth/totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
