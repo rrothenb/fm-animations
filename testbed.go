@@ -25,7 +25,6 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
-var atan = math.Atan
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -52,7 +51,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return .25*spow(cos(u+sin(v)*sin(u+5*sin(2*u+sin(5*v)*2*sin(3*u+sin(2*u+sin(13*u)))))+sin(3*v)*3*sin(2*u)), .25)
+	return 1+.1*cos(u+sin(v)*sin(u+5*sin(2*u+sin(5*v)*2*sin(3*u+sin(2*u+sin(13*u)))))+sin(3*v)*3*sin(2*u))
 }
 
 func pushdown(x, n float64) float64 {
@@ -148,35 +147,16 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	return false
 }
 
-/** TODO
-end up with vectors in xz and yz planes and add them together to figure out direction
-regardless of X and Y circle locs, effect should be 0 at center
-it might actually be easier to computer if effect is 0 at edges
-hard part may be converting from X or Y to angle on sphere
-I like the edges being fixed 0 or maybe just the corners
-so, only specify numbers for x and for y that just can't be zero but that determine the percent
-range of the scaled u and v such that the corners are at -1,-1 and 1,1
-0 would be 50% and infinity would be 0%.  at 1, what would the math be? It would be 1 below
-the line, but the radius would be higher.
-r = sqrt (1+x^2)
-angle = arctan(1/x)
- */
-func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	//a := radius(u, v, t)
-	xCenter := .0001
-	xRadius := pow(1+pow(xCenter, 2), .5)
-	angle := atan(1/xCenter)
-	u2 := -angle + u/pi*angle
-	xVector := geom.Vec{sin(u2), 0, cos(u2)}.Scaled(xRadius).Plus(geom.Vec{xCenter, v/pi - 1, 0})
-	return xVector
-	/*
+func sphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
-		sin(u2)*xRadius,
-		v/pi - 1,
-		.25*a+pow(sin(u/2), .5)+pow(sin(v/2), .5),
+		sin(v/2.0) * cos(u),
+		sin(v/2.0) * sin(u),
+		cos(v/2.0),
 	}
+}
 
-	 */
+func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
+	return sphere(u, v, t).Scaled(radius(u, v, t))
 }
 
 func index2radians(index float64, n int) float64 {
