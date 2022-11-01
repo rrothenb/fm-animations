@@ -192,8 +192,7 @@ func cameraPath(t float64) geom.Vec {
 }
 
 func focusPath(t float64) geom.Vec {
-	min := .001
-	return innerKnot(t+min+(1-cos(t))/2*(2*pi-min*2))
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -435,7 +434,7 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000000000001"/>
-        <float name="fov" value="40"/>
+        <float name="fov" value="45"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -445,8 +444,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2500"/>
-            <integer name="height" value="2500"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -460,15 +459,16 @@ end_header
     <integrator type="path" />
 	   <bsdf type="dielectric" id="object_bsdf">
     </bsdf>
-	<shape type="sphere">
+	<shape type="ply">
+        <string name="filename" value="aztec.symmetry.sphere.ply"/>
         <transform name="to_world">
-            <scale value=".15"/>
+            <scale value=".25"/>
         </transform>
 	   <bsdf type="twosided">
 			<bsdf type="roughconductor">
-			<float name="alpha" value=".1"/>
-			<spectrum name="eta" filename="spd/2.spd"/>
-			<spectrum name="k" filename="spd/12.spd"/>
+			<float name="alpha" value=".01"/>
+			<spectrum name="eta" filename="spd/15.spd"/>
+			<spectrum name="k" filename="spd/11.spd"/>
 			</bsdf>
 		</bsdf>
 	</shape>
