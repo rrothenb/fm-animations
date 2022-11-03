@@ -25,6 +25,11 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+
+func strength(t float64) float64 {
+	return pow(2.5, cos(t)*3-1)
+}
+
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -36,22 +41,8 @@ func spow(x, y float64) float64 {
 	return sign(x)*pow(abs(x), y)
 }
 
-func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+subtexture3(u, v, t))+sin(5*v+subtexture3(u, v, t))
-}
-
-func subtexture3(u, v, t float64) float64 {
-	return sin(2*u+3*v)
-}
-
-func texture(u, v, t float64) float64 {
-	u = u/2 + pi/2
-	v = v/2 + pi/2
-	return sin(3*u-3*v+subtexture2(3*u, 3*v, t))*sin(3*u+3*v+subtexture2(3*v, 3*u, t))
-}
-
 func radius(u, v, t float64) float64 {
-	return 1+.1*cos(u+sin(v)*sin(u+5*sin(2*u+sin(5*v)*2*sin(3*u+sin(2*u+sin(13*u)))))+sin(3*v)*3*sin(2*u))
+	return 1+.05*cos(u+sin(v)*sin(u+strength(2*t)*sin(2*u+sin(5*v)*strength(3*t)*sin(3*u+sin(2*u+strength(7*t)*sin(13*u)))))+sin(3*v)*strength(5*t)*sin(3*u))
 }
 
 func pushdown(x, n float64) float64 {
@@ -147,6 +138,10 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	return false
 }
 
+func circle(x float64) geom.Vec {
+	return geom.Vec{sin(x), cos(x), 0}
+}
+
 func sphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
 		sin(v/2.0) * cos(u),
@@ -155,8 +150,32 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
+	p := float64(pInt)
+	q := float64(qInt)
+	pathPoint := path(q*t)
+	return geom.Vec{(R+r*cos(p*t))*pathPoint.X, (R+r*cos(p*t))*pathPoint.Y, r*sin(p*t)+pathPoint.Z}
+}
+
+func outerKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, .3, 2, 3, circle)
+}
+
+func innerKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, .1, 2, 3, outerKnot)
+}
+
+func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
+	delta := .01
+	center := path(v)
+	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
+	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
+	cosVec, _ := normal.Cross(sinVec)
+	return cosVec.Scaled(r*cos(u-.5*sin(2*u))).Plus(sinVec.Scaled(r*sin(u+.5*sin(2*u)))).Plus(center)
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return sphere(u, v, t).Scaled(radius(u, v, t))
+	return pathWrapper(u, v, .0333, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -233,20 +252,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			if vIndex != 0 {
-				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
-				numFaces++
-			}
-			if vIndex != n-1 {
-				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
-				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-				numFaces++
-			}
+			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
+			numFaces++
+			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
+			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+			numFaces++
 		}
 	}
 
