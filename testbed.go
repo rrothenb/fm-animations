@@ -26,10 +26,6 @@ var abs = math.Abs
 var min = math.Min
 var max = math.Max
 
-func strength(t float64) float64 {
-	return pow(2.5, cos(t)*3-1)
-}
-
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -39,10 +35,6 @@ func sign(x float64) float64 {
 }
 func spow(x, y float64) float64 {
 	return sign(x)*pow(abs(x), y)
-}
-
-func radius(u, v, t float64) float64 {
-	return 1+.05*cos(u+sin(v)*sin(u+strength(2*t)*sin(2*u+sin(5*v)*strength(3*t)*sin(3*u+sin(2*u+strength(7*t)*sin(13*u)))))+sin(3*v)*strength(5*t)*sin(3*u))
 }
 
 func pushdown(x, n float64) float64 {
@@ -174,8 +166,25 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	return cosVec.Scaled(r*cos(u-.5*sin(2*u))).Plus(sinVec.Scaled(r*sin(u+.5*sin(2*u)))).Plus(center)
 }
 
+func strength(x float64) float64 {
+	return sin(x)*.75 + .85
+}
+
+func texture(u, v, t float64) float64 {
+	return sin(
+		3*u + 5*v + strength(.1+2*t)*sin(
+			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
+			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
+			11*u+13*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(23*v-11*u))
+}
+
+func radius(u, v, t float64) float64 {
+	return 1.0 - .1*pow(pow(texture(u, v, t), 2), 3)
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .05, innerKnot)
+	r := radius(u, v*2, t)
+	return geom.Vec{sin(u)*.5*r, cos(u)*.5*r, v/pi-1}
 }
 
 func index2radians(index float64, n int) float64 {
