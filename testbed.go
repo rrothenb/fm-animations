@@ -162,7 +162,7 @@ func outerKnot(t float64) geom.Vec {
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .1, 2, 3, outerKnot)
+	return torusKnot(t, 1, .25, 2, 3, outerKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -175,7 +175,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .0333, innerKnot)
+	return pathWrapper(u, v, .05, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
