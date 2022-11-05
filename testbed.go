@@ -167,7 +167,15 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .85
+	return sin(x) + 1.01
+}
+
+func texture17(u, v, t float64) float64 {
+	return sin(
+		3*u + 5*v + strength(.1+2*t)*sin(
+			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
+			7*v+strength(.4+7*t)*sin(5*v)) + strength(.7+11*t)*sin(
+			5*u+7*v) + strength(.5+13*t)*sin(17*u)*sin(19*v))
 }
 
 func texture(u, v, t float64) float64 {
@@ -175,7 +183,7 @@ func texture(u, v, t float64) float64 {
 		3*u + 5*v + strength(.1+2*t)*sin(
 			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
 			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
-			11*u+13*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(23*v-11*u))
+			5*u+7*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(19*v-11*u))
 }
 
 func radius(u, v, t float64) float64 {
@@ -304,7 +312,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
