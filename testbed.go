@@ -167,15 +167,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 }
 
 func strength(x float64) float64 {
-	return sin(x) + 1.01
-}
-
-func texture17(u, v, t float64) float64 {
-	return sin(
-		3*u + 5*v + strength(.1+2*t)*sin(
-			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
-			7*v+strength(.4+7*t)*sin(5*v)) + strength(.7+11*t)*sin(
-			5*u+7*v) + strength(.5+13*t)*sin(17*u)*sin(19*v))
+	return pow(2, sin(x)*2)
 }
 
 func texture(u, v, t float64) float64 {
@@ -187,7 +179,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .1*pow(pow(texture(u, v, t), 2), 3)
+	return 1.0 - .1*pow(spow(texture(u, v, t), pow(10, sin(2*t)))/2+.5, pow(10, sin(3*t)))
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
