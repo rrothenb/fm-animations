@@ -44,8 +44,8 @@ func pushout(x, duty, degree float64) float64 {
 	return spow(pow(x, duty)*2-1, degree)/2 + .5
 }
 
-func strength(n int, x float64) float64 {
-	return pow(4, sin(float64(n)*(x+float64(n)/3))-.5)
+func strength(x float64) float64 {
+	return sin(x)*.75 + .75
 }
 
 type SLR2 struct {
@@ -139,21 +139,6 @@ func circle(x float64) geom.Vec {
 	return geom.Vec{sin(x), cos(x), 0}
 }
 
-func lipTexture(u, t float64) float64 {
-	return sin(u + 2*strength(5, t)*sin(u+2*strength(7, t)*sin(u)) + 2*strength(11, t)*sin(2*u) + 2*strength(13, t)*sin(3*u))
-}
-
-func bowl(thickness, insideTexture, outsideTexture, u, v, t float64) geom.Vec {
-	width := 1.0 + .1*strength(3, t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(3, sin(2*t)))/2+.5, pow(3, sin(3*t)))
-	height := sin(t)*.15 + .35 + .1*strength(2, t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(3, sin(2*t)))/2+.5, pow(3, sin(3*t)))
-	space := (cos(v/2-.7*sin(v))/2+.5)*(thickness+outsideTexture) + (.5-cos(v/2-.7*sin(v))/2)*insideTexture
-	return geom.Vec{
-		width * sin(u) * sin(v/2) * (1 + 1/height*space),
-		width * cos(u) * sin(v/2) * (1 + 1/height*space),
-		-height * cos(v-(sin(7*t)*.4+.5)*sin(2*v)) * (1 + 1/height*space),
-	}
-}
-
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -172,27 +157,24 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .49, 2, 3, circle)
-}
-
-func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .14, 3, 2, outerKnot)
+	return torusKnot(t, 1, .3, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, middleKnot)
+	return torusKnot(t, 1, .25, 2, 3, outerKnot)
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .075, innerKnot)
+	r :=  .15*(1-.2*pow(spow(texture(u, v, t), pow(2, sin(2*t)-1))/2+.5, pow(2, sin(3*t))))
+	return pathWrapper(u, v, r, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
-	return innerKnot(t)
+	return innerKnot(2*t)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return outerKnot(3*t)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -208,13 +190,16 @@ func knot(t float64) geom.Vec {
 	return unitLissajousKnot(t, 19, 20, 21)
 }
 
-func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
-	loc = loc.Scaled(f * 2 * pi)
-	return sin(loc.Z +
-		a*strength(7, t)*sin(a*strength(23, t)*loc.Z) +
-		a*strength(11, t)*sin(a*strength(19, t)*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*loc.Y)) +
-		a*strength(13, t)*sin(a*strength(17, t)*loc.Z) + a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y) +
-		a*strength(47, t)*sin(loc.Z+a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
+func subtexture2(u, v, t float64) float64 {
+	return sin(7*u+strength(4*t)*subtexture3(u, v, t))+sin(5*v+strength(3*t)*subtexture3(u, v, t))
+}
+
+func subtexture3(u, v, t float64) float64 {
+	return sin(2*u+3*v)
+}
+
+func texture(u, v, t float64) float64 {
+	return sin(3*u-3*v+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
 }
 
 func cube(u, v, t float64) geom.Vec {
@@ -223,14 +208,6 @@ func cube(u, v, t float64) geom.Vec {
 		sin(v/2.0+.6*sin(v)) * sin(u+.6*sin(2*u)),
 		cos(v/2.0 - .6*sin(v)),
 	}
-}
-
-func metalBlendValue(t float64, loc geom.Vec) float64 {
-	return spow(pow(shapeTexture(2, 1, t, loc)/2+.5, 10)*2-1, .1)/2 + .5
-}
-
-func blendValue(t float64, loc geom.Vec) float64 {
-	return spow(pow(shapeTexture(2, 1, t, loc)*shapeTexture(2, 1, t, geom.Vec{loc.Y, loc.Z, loc.X}), 100)*2-1, .1)/2+.5
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -427,6 +404,8 @@ end_header
 		FogRadius float64
 		Angle     float64
 		MinZ      float64
+		Weight1	  int
+		Weight2	  int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -434,7 +413,7 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
         <float name="aperture_radius" value=".000000000001"/>
-        <float name="fov" value="45"/>
+        <float name="fov" value="60"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
@@ -444,8 +423,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="5000"/>
-            <integer name="height" value="5000"/>
+            <integer name="width" value="6400"/>
+            <integer name="height" value="3600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -457,33 +436,68 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-	   <bsdf type="dielectric" id="object_bsdf">
-    </bsdf>
 	<shape type="ply">
-        <string name="filename" value="aztec.symmetry.sphere.ply"/>
         <transform name="to_world">
-            <scale value=".25"/>
+            <scale value="1"/>
         </transform>
-	   <bsdf type="twosided">
-			<bsdf type="roughconductor">
-			<float name="alpha" value=".01"/>
-			<spectrum name="eta" filename="spd/15.spd"/>
-			<spectrum name="k" filename="spd/11.spd"/>
-			</bsdf>
-		</bsdf>
+        <string name="filename" value="square.section.double.trefoil.small.ply"/>
+	   <bsdf type="dielectric">
+    </bsdf>
 	</shape>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-        <transform name="to_world">
-            <scale value="1"/>
-            <translate x="0" y="0" z="0"/>
-        </transform>
-        <ref id="object_bsdf"/>
+    	<bsdf type="blendbsdf">
+			<float name="weight" value="{{ .Weight1 }}"/>
+    		<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight2 }}"/>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".01"/>
+					<spectrum name="eta" filename="spd/2.spd"/>
+					<spectrum name="k" filename="spd/3.spd"/>
+					</bsdf>
+				</bsdf>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".01"/>
+					<spectrum name="eta" filename="spd/2.spd"/>
+					<spectrum name="k" filename="spd/12.spd"/>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+    		<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight2 }}"/>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".01"/>
+					<spectrum name="eta" filename="spd/15.spd"/>
+					<spectrum name="k" filename="spd/11.spd"/>
+					</bsdf>
+				</bsdf>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".01"/>
+					<spectrum name="eta" filename="spd/27.spd"/>
+					<spectrum name="k" filename="spd/10.spd"/>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+		</bsdf>
     </shape>
 </scene>
 `)
 
-	sensorTemplate.Execute(sensorFile, sensor{cameraLoc, focusPoint, distance, focusPoint.Minus(cameraLoc).Scaled(.5).Len(), 0, minZ})
+	sensorTemplate.Execute(
+		sensorFile,
+		sensor{
+			cameraLoc,
+			focusPoint,
+			distance,
+			focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
+			0,
+			minZ,
+			frameNumber%2,
+			(frameNumber/2)%2})
 }
 
 func main() {
