@@ -44,10 +44,6 @@ func pushout(x, duty, degree float64) float64 {
 	return spow(pow(x, duty)*2-1, degree)/2 + .5
 }
 
-func strength(x float64) float64 {
-	return sin(x)*.75 + .75
-}
-
 type SLR2 struct {
 	Width  float64
 	Height float64
@@ -169,14 +165,6 @@ func shape(u, v, t float64) geom.Vec {
 	return pathWrapper(u, v, r, outerKnot)
 }
 
-func cameraPath(t float64) geom.Vec {
-	return innerKnot(2*t)
-}
-
-func focusPath(t float64) geom.Vec {
-	return outerKnot(3*t)
-}
-
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	delta := .01
 	center := path(v)
@@ -198,10 +186,6 @@ func subtexture3(u, v, t float64) float64 {
 	return sin(2*u+3*v)
 }
 
-func texture(u, v, t float64) float64 {
-	return sin(3*u-3*v+strength(5*t)*subtexture2(3*u, 3*v, t))*sin(3*u+3*v+strength(7*t)*subtexture2(3*v, 3*u, t))
-}
-
 func cube(u, v, t float64) geom.Vec {
 	return geom.Vec{
 		sin(v/2.0+.6*sin(v)) * cos(u-.6*sin(2*u)),
@@ -210,8 +194,37 @@ func cube(u, v, t float64) geom.Vec {
 	}
 }
 
+func cameraPath(t float64) geom.Vec {
+	return geom.Vec{0,cos(2*t)*.15-.15, 0}
+}
+
+func focusPath(t float64) geom.Vec {
+	return geom.Vec{0,cos(3*t)-1, 1}
+}
+
+func strength(x float64) float64 {
+	return pow(2, sin(x)*2)
+}
+
+func texture(u, v, t float64) float64 {
+	return sin(
+		3*u + 5*v + strength(.1+2*t)*sin(
+			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
+			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
+			5*u+7*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(19*v-11*u))
+}
+
+func radius(u, v, t float64) float64 {
+	return 1.0 - .1*pow(spow(texture(u, v, t), pow(10, sin(2*t)))/2+.5, pow(10, sin(3*t)))
+}
+
+func blendTexture(u, v, t float64) float64 {
+	return pow(texture(u, v, t)/2+.5, pow(3, sin(7*t)))
+}
+
 func uv2xyz(u, v, t float64) geom.Vec {
-	return shape(u, v, t)
+	r := radius(u, v*2, t)
+	return geom.Vec{sin(u)*.5*r, cos(u)*.5*r, v/pi-1}
 }
 
 func index2radians(index float64, n int) float64 {
@@ -233,7 +246,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	distance := cameraLoc.Minus(focusPoint).Len()
+	//distance := cameraLoc.Minus(focusPoint).Len()
+	fov := sin(7*t)*40+130
+	d := .4-cameraLoc.Len()
+	maxD := sqrt(1+d*d)
+	minD := d/sin((180-fov)/360*2*pi)
+	distance := (spow(cos(5*t), .5)/2+.5)*(maxD-minD)+minD
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -337,9 +355,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		}
 	}
 	envmapArray := []float32{}
+	blendArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
+			blendValue := float32(blendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
+			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -388,6 +409,7 @@ end_header
 `)
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
+	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -395,6 +417,8 @@ end_header
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
+	blend, _ := os.Create(blendPath)
+	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -406,25 +430,31 @@ end_header
 		MinZ      float64
 		Weight1	  int
 		Weight2	  int
+		Weight3	  int
+		Weight4	  int
+		EnvX	  float64
+		EnvY      float64
+		EnvZ      float64
+		FOV		  float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000000000001"/>
-        <float name="fov" value="60"/>
+        <float name="aperture_radius" value=".002"/>
+        <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="6400"/>
-            <integer name="height" value="3600"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="900"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -432,53 +462,86 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="0"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
     <integrator type="path" />
-	<shape type="ply">
-        <transform name="to_world">
-            <scale value="1"/>
-        </transform>
-        <string name="filename" value="square.section.double.trefoil.small.ply"/>
-	   <bsdf type="dielectric">
-    </bsdf>
-	</shape>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
     	<bsdf type="blendbsdf">
-			<float name="weight" value="{{ .Weight1 }}"/>
-    		<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight2 }}"/>
-			   <bsdf type="twosided">
-					<bsdf type="roughconductor">
-					<float name="alpha" value=".01"/>
-					<spectrum name="eta" filename="spd/2.spd"/>
-					<spectrum name="k" filename="spd/3.spd"/>
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.blend.rgbe"/>
+			</texture>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight1 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".01"/>
+						<spectrum name="eta" filename="spd/27.spd"/>
+						<spectrum name="k" filename="spd/10.spd"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".1"/>
+						<string name="material" value="CuO"/>
+						</bsdf>
 					</bsdf>
 				</bsdf>
-			   <bsdf type="twosided">
-					<bsdf type="roughconductor">
-					<float name="alpha" value=".01"/>
-					<spectrum name="eta" filename="spd/2.spd"/>
-					<spectrum name="k" filename="spd/12.spd"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".1"/>
+						<spectrum name="eta" filename="spd/15.spd"/>
+						<spectrum name="k" filename="spd/11.spd"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".01"/>
+						<spectrum name="eta" filename="spd/15i.spd"/>
+						<spectrum name="k" filename="spd/11i.spd"/>
+						</bsdf>
 					</bsdf>
 				</bsdf>
 			</bsdf>
-    		<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight2 }}"/>
-			   <bsdf type="twosided">
-					<bsdf type="roughconductor">
-					<float name="alpha" value=".01"/>
-					<spectrum name="eta" filename="spd/15.spd"/>
-					<spectrum name="k" filename="spd/11.spd"/>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight3 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".01"/>
+						<string name="material" value="Cu"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".1"/>
+						<string name="material" value="Ag"/>
+						</bsdf>
 					</bsdf>
 				</bsdf>
-			   <bsdf type="twosided">
-					<bsdf type="roughconductor">
-					<float name="alpha" value=".01"/>
-					<spectrum name="eta" filename="spd/27.spd"/>
-					<spectrum name="k" filename="spd/10.spd"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".1"/>
+						<spectrum name="eta" filename="spd/15.spd"/>
+						<spectrum name="k" filename="spd/11.spd"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value=".01"/>
+						<spectrum name="eta" filename="spd/2.spd"/>
+						<spectrum name="k" filename="spd/12.spd"/>
+						</bsdf>
 					</bsdf>
 				</bsdf>
 			</bsdf>
@@ -497,14 +560,20 @@ end_header
 			0,
 			minZ,
 			frameNumber%2,
-			(frameNumber/2)%2})
+			(frameNumber/2)%2,
+			(frameNumber/4)%2,
+			(frameNumber/8)%2,
+			sin(2*t)*179,
+			sin(3*t)*179,
+			sin(5*t)*179,
+			fov})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 720, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
