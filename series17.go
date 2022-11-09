@@ -437,30 +437,33 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="15"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="512"/>
-            <integer name="height" value="512"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
-    <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
-        <transform name="to_world">
-            <rotate value="1, 0, 0" angle="45"/>
-        </transform>
-    </emitter>
-    <integrator type="path" />
-        <bsdf type="twosided" id="object_bsdf">
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+        <bsdf type="twosided">
             <bsdf type="roughconductor">
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/2.spd"/>
-                <spectrum name="k" filename="spd/10.spd"/>
+                <float name="alpha" value=".1"/>
+                <string name="material" value="CuO"/>
             </bsdf>
         </bsdf>
+        <bsdf type="twosided">
+            <bsdf type="roughconductor">
+                <float name="alpha" value=".1"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
+            </bsdf>
+        </bsdf>
+    </bsdf>
 
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -470,6 +473,14 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
+
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="45"/>
+        </transform>
+    </emitter>
 
 </scene>
 `)
