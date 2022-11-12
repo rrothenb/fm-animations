@@ -44,7 +44,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return .5*pow(10, sin(pow(float64(n), .5)*(x+float64(n)/3)))
+	return pow(10, cos(float64(n)*(x+float64(n)))-1)
 }
 
 type SLR2 struct {
@@ -161,11 +161,6 @@ func cube(u, v, t float64) geom.Vec {
 	}
 }
 
-func shape(u, v, t float64) geom.Vec {
-	return cube(u, v, t)
-}
-
-
 // maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
@@ -192,8 +187,35 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc := circle(t)
-	return loc.Scaled(3.5+.5*cos(t))
+	cameraLocs := [20]geom.Vec{
+		// faces
+		{1, 0, 0},
+		{0, 1, 0},
+		{-1, 0, 0},
+		{0, -1, 0},
+		//top edges
+		{0, 1, 1},
+		{1, 0, 1},
+		{-1, 0, 1},
+		{0, -1, 1},
+		// bottom edges
+		{0, 1, -1},
+		{1, 0, -1},
+		{-1, 0, -1},
+		{0, -1, -1},
+		// corners
+		{1, 1, 1},
+		{-1, 1, 1},
+		{1, -1, 1},
+		{1, 1, -1},
+		{-1, -1, 1},
+		{-1, 1, -1},
+		{1, -1, -1},
+		{-1, -1, -1},
+	}
+	index := int(t/2/pi*256) % len(cameraLocs)
+	unit, _ := cameraLocs[index].Unit()
+	return unit.Scaled(2.4)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -214,20 +236,35 @@ func knot(t float64) geom.Vec {
 }
 
 func dimensionTexture(x, y, z, t float64) float64 {
-	return 1-pow(spow(cos(x+.1*strength(2, t)*sin(y+strength(3, t)*sin(2*x + 3*y + 5*z))), sin(7*t)/4+.7)/2+.5, pow(10, sin(5*t)+1))
+	return 1-pow(spow(cos(x+.1*strength(5, t)*sin(y+strength(7, t)*sin(2*x + 3*y + 5*z))), sin(11*t)/4+.7)/2+.5, pow(10, sin(13*t)+1))
 }
 
 func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 	loc = loc.Scaled(f*2*pi)
-	xTexture := dimensionTexture(loc.X, loc.Y, loc.Z, t)
-	yTexture := dimensionTexture(loc.Y, loc.Z, loc.X, t)
-	zTexture := dimensionTexture(loc.Z, loc.X, loc.Y, t)
+	xTexture := dimensionTexture(loc.X, loc.Z, loc.Y, t)
+	yTexture := dimensionTexture(loc.Y, loc.X, loc.Z, t)
+	zTexture := dimensionTexture(loc.Z, loc.Y, loc.X, t)
 	return xTexture*yTexture*zTexture
+}
+
+func sphereish(u, v, t float64) geom.Vec {
+	a := sin(2*t)/5+.2
+	b := sin(3*t)/5+.2
+	c := sin(5*t)/5+.2
+	return geom.Vec{
+		sin(v/2.0+a*sin(v)) * cos(u-b*sin(2*u)),
+		sin(v/2.0+a*sin(v)) * sin(u+b*sin(2*u)),
+		cos(v/2.0-c*sin(v)),
+	}
+}
+
+func shape(u, v, t float64) geom.Vec {
+	return sphereish(u, v, t)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	r := .9 + .1*shapeTexture(3, 0, t, loc)
+	r := 1 - .1*shapeTexture(4, 0, t, loc)
 	return loc.Scaled(r)
 }
 
@@ -388,7 +425,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
 			loc := shape(u, v, t)
-			envmapValue := float32(pow(sin(u/2), 20)*pow(sin(v), 10)*pow(shapeTexture(25, 1, t, loc), .25))
+			envmapValue := float32(pow(sin(u/2), 4)*pow(sin(v), 4)*pow(shapeTexture(25, 1, t, loc), .25))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -434,6 +471,9 @@ end_header
 		MinZ float64
 		Scale float64
 		G float64
+		IntIOR float64
+		ExtIOR float64
+		Weight int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -447,18 +487,18 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3840"/>
-            <integer name="height" value="2160"/>
+            <integer name="width" value="600"/>
+            <integer name="height" value="600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="3"/>
+        <float name="scale" value="1"/>
         <transform name="to_world">
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
         </transform>
@@ -479,10 +519,22 @@ end_header
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
 				<bsdf type="thindielectric">
+					<float name="int_ior" value="{{ .IntIOR }}"/>
+					<float name="ext_ior" value="{{ .ExtIOR }}"/>
 				</bsdf>
-		   <bsdf type="twosided">
-				<bsdf type="conductor">
-                <string name="material" value="Cu"/>
+    		<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight }}"/>
+			   <bsdf type="twosided">
+					<bsdf type="roughconductor">
+					<float name="alpha" value=".1"/>
+					<spectrum name="eta" filename="spd/15.spd"/>
+					<spectrum name="k" filename="spd/11.spd"/>
+					</bsdf>
+				</bsdf>
+			   <bsdf type="twosided">
+					<bsdf type="conductor">
+					<string name="material" value="Cu"/>
+					</bsdf>
 				</bsdf>
 			</bsdf>
     </bsdf>
@@ -505,14 +557,17 @@ end_header
 		sin(t)*180-180,
 		minZ,
 		pow(10, cos(3*t)+1),
-		sin(5*t) * .9})
+		sin(5*t) * .9,
+		pow(sin(2*t)/2+.5, 2)+1,
+		pow(sin(3*t)/2+.5, 2)+1,
+		frameNumber%2})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
-	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
+	pixels := flag.Int("pixels", 25, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 384, "Max frames")
+	maxFrames := flag.Int("maxframes", 200, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
