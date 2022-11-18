@@ -62,7 +62,7 @@ var zAxis = geom.Dir{0, 0, 1}
 func NewSLR2() *SLR2 {
 	s := &SLR2{
 		Width:    0.054,
-		Height:   0.027,
+		Height:   0.054,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -109,11 +109,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .5
+	factor := 5.0
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -153,16 +152,11 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .3, 2, 3, circle)
+	return torusKnot(t, 1, .4, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, .25, 2, 3, outerKnot)
-}
-
-func shape(u, v, t float64) geom.Vec {
-	r :=  .15*(1-.2*pow(spow(texture(u, v, t), pow(2, sin(2*t)-1))/2+.5, pow(2, sin(3*t))))
-	return pathWrapper(u, v, r, outerKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -195,11 +189,11 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0,-.15-cos(2*t)*.15, -1/2*pi}
+	return innerKnot(t)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,-1-cos(3*t), 1}
+	return innerKnot(t+.01)
 }
 
 func strength(x float64) float64 {
@@ -225,7 +219,7 @@ func blendTexture(u, v, t float64) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	r := radius(u, v, t)
-	return geom.Vec{sin(u)*.5*r, cos(u)*.5*r, (v/pi-1)/2*pi}
+	return pathWrapper(u, v, r*.15, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -385,7 +379,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 4) * pow(sin(v), 4))
+			envmapValue := float32(pow(sin(u/2), 2) * pow(sin(v), 2))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -454,8 +448,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2300"/>
-            <integer name="height" value="2300"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -574,7 +568,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
