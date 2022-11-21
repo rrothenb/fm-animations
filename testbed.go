@@ -178,13 +178,25 @@ func texture(u, v, t float64) float64 {
 			5*u+7*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(19*v-11*u))
 }
 
-func radius(u, v, t float64) float64 {
-	return 1.0 - .1*pow(spow(texture(u, v, t), pow(10, sin(2*t)))/2+.5, pow(10, sin(3*t)))
+func radius(u, v, a float64) float64 {
+
+	return 1.0 + .1*a*shapeTexture(u, v, a)
+}
+
+func shapeTexture(u, v, a float64) float64 {
+	return sin(sin(4*u)+sin(4*v))
+}
+
+func sphereish(u, v, a float64) geom.Vec {
+	return geom.Vec{
+		sin(v/2.0+a*sin(v)) * cos(u-a*spow(sin(2*u), 1)),
+		sin(v/2.0+a*spow(sin(v),1)) * sin(u+a*spow(sin(2*u), 1)),
+		cos(v/2.0-a*spow(sin(v),1)),
+	}
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	r := radius(u, v*2, t)
-	return geom.Vec{sin(u)*.5*r, cos(u)*.5*r, v/pi-1}
+	return sphereish(u, v, .5).Scaled(radius(u, v, .5))
 }
 
 func index2radians(index float64, n int) float64 {
