@@ -150,11 +150,11 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .3, 2, 3, circle)
+	return torusKnot(t, 1, .45, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, outerKnot)
+	return torusKnot(t, 1, .35, 3, 2, outerKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -163,7 +163,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r*cos(u-.5*sin(2*u))).Plus(sinVec.Scaled(r*sin(u+.5*sin(2*u)))).Plus(center)
+	return cosVec.Scaled(r*cos(u)).Plus(sinVec.Scaled(r*sin(u))).Plus(center)
 }
 
 func strength(x float64) float64 {
@@ -196,7 +196,11 @@ func sphereish(u, v, a float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return sphereish(u, v, .5).Scaled(radius(u, v, .5))
+	minV := sin(2*t)*pi/2+pi/2
+	maxV := minV + sin(3*t)*pi/4+pi/2
+	limitedV := minV + v/2/pi*(maxV-minV)
+	a := 1-spow(cos(25*v), .5)*.5
+	return pathWrapper(u, limitedV+pow(a-.5, 2)/15, .25*pow(sin(v/2+.7*sin(v)), .5)*a, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
