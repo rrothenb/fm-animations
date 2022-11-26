@@ -170,14 +170,6 @@ func strength(x float64) float64 {
 	return pow(2, sin(x)*2)
 }
 
-func texture(u, v, t float64) float64 {
-	return sin(
-		3*u + 5*v + strength(.1+2*t)*sin(
-			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
-			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
-			5*u+7*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(19*v-11*u))
-}
-
 func radius(u, v, a float64) float64 {
 
 	return 1.0 + .1*a*shapeTexture(u, v, a)
@@ -195,12 +187,20 @@ func sphereish(u, v, a float64) geom.Vec {
 	}
 }
 
+func texture(u, v, t float64) float64 {
+	a := .5
+	minT := pi*.975
+	maxT := pi*1.025
+	t = minT + t/2/pi*(maxT-minT)
+	return sin(
+		10*u + a*strength(.1+2*t)*sin(
+			2*u+a*strength(.2+3*t)*sin(3*u)) + a*strength(.3+5*t)*sin(
+			2*v+a*strength(.4+7*t)*sin(-v)) + a*strength(.5+11*t)*sin(
+			5*u-v) + a*strength(.6+13*t)*sin(7*u-v) + a*strength(.7+17*t)*sin(v-3*u))
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	minV := sin(2*t)*pi/2+pi/2
-	maxV := minV + sin(3*t)*pi/4+pi/2
-	limitedV := minV + v/2/pi*(maxV-minV)
-	a := 1-spow(cos(25*v), .5)*.5
-	return pathWrapper(u, limitedV+pow(a-.5, 2)/15, .25*pow(sin(v/2+.7*sin(v)), .5)*a, innerKnot)
+	return geom.Vec{u/pi-1, v/pi-1, .01*pow(spow(texture(u, v, t), pow(1.5, sin(2*t)))/2+.5, pow(1.5, cos(3*t)))}
 }
 
 func index2radians(index float64, n int) float64 {
