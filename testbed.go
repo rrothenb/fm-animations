@@ -102,6 +102,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -199,8 +200,13 @@ func texture(u, v, t float64) float64 {
 			5*u-v) + a*strength(.6+13*t)*sin(7*u-v) + a*strength(.7+17*t)*sin(v-3*u))
 }
 
+func fabricPath(t float64) geom.Vec {
+	//return geom.Vec{sin(29*t), cos(31*t), .1*cos(2*29*31*t)*cos(29*t)}
+	return geom.Vec{sin(59*t), sin(61*t), sin(2*t)}
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return geom.Vec{u/pi-1, v/pi-1, .01*pow(spow(texture(u, v, t), pow(1.5, sin(2*t)))/2+.5, pow(1.5, cos(3*t)))}
+	return pathWrapper(u, v, .03, fabricPath).By(geom.Vec{1, 1, .1})
 }
 
 func index2radians(index float64, n int) float64 {
