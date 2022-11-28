@@ -179,40 +179,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	cameraLocs := [24]geom.Vec{
-		// faces
-		{1, 0, 0},
-		{0, 1, 0},
-		{-1, 0, 0},
-		{0, -1, 0},
-		// side edges
-		{1, 1, 0},
-		{-1, 1, 0},
-		{-1, -1, 0},
-		{1, -1, 0},
-		//top edges
-		{0, 1, 1},
-		{1, 0, 1},
-		{-1, 0, 1},
-		{0, -1, 1},
-		// bottom edges
-		{0, 1, -1},
-		{1, 0, -1},
-		{-1, 0, -1},
-		{0, -1, -1},
-		// corners
-		{1, 1, 1},
-		{-1, 1, 1},
-		{1, -1, 1},
-		{1, 1, -1},
-		{-1, -1, 1},
-		{-1, 1, -1},
-		{1, -1, -1},
-		{-1, -1, -1},
-	}
-	index := int(t/2/pi*240)%len(cameraLocs)
-	unit, _ := cameraLocs[index].Unit()
-	return unit.Scaled(10+sin(13*t))
+	return geom.Vec{0,0,2}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -225,7 +192,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r*cos(u)).Plus(sinVec.Scaled(r*sin(u))).Plus(center)
+	return cosVec.Scaled(r*cos(u-.5*sin(u))).Plus(sinVec.Scaled(r*sin(u+.5*sin(u)))).Plus(center)
 }
 
 func knot(t float64) geom.Vec {
@@ -276,8 +243,30 @@ func shape(u, v, t float64) geom.Vec {
 	return cube(u, v, t)
 }
 
+func strength2(x float64) float64 {
+	return pow(2, sin(x)*2)
+}
+
+func texture2(u, v, t float64) float64 {
+	a := .5
+	minT := pi*.975
+	maxT := pi*1.025
+	t = minT + t/2/pi*(maxT-minT)
+	return sin(
+		10*u + a*strength2(.1+2*t)*sin(
+			2*u+a*strength2(.2+3*t)*sin(3*u)) + a*strength2(.3+5*t)*sin(
+			2*v+a*strength2(.4+7*t)*sin(-v)) + a*strength2(.5+11*t)*sin(
+			5*u-v) + a*strength2(.6+13*t)*sin(7*u-v) + a*strength2(.7+17*t)*sin(v-3*u))
+}
+
+func fabricPath(t float64) geom.Vec {
+	return geom.Vec{sin(599*(t-pi)), sin(601*(t-pi)), sin(2*(t-pi))}
+}
+
 func uv2xyz(u, v, t float64) geom.Vec {
-	return shape(u, v, t)
+	loc := pathWrapper(u, v, .003, fabricPath).By(geom.Vec{1, 1, .1})
+	displacement :=  geom.Vec{0, 0, .1*pow(spow(texture2((loc.X-loc.Y)*pi, (loc.X+loc.Y)*pi, t), pow(1.5, sin(2*t)))/2+.5, pow(1.5, cos(3*t)))}
+	return loc.Plus(displacement)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -366,11 +355,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	for nV > 15000 {
-		ratio = ratio*10
-		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
-		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	}
 	startUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(minU))
 	endUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(maxU))
 	startVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(minV))
@@ -435,6 +419,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
+			v := float64(vIndex) / float64(envSize) * pi
+			envmapValue := float32(pow(sin(u/2), 2) * pow(sin(v), 2))
+			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
+			/*
+			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * 2 * pi
 			envmapValue := pow(spow(shapeTexture(1, .75-cos(41*t)*.5, t, sphere(u, v, t)), pow(10, sin(23*t)))/2+.5, pow(10, sin(29*t)))
 			envmapArray = append(
@@ -442,6 +431,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				float32(pow(envmapValue, pow(2, cos(11*t)))),
 				float32(pow(envmapValue, pow(2, sin(7*t)))),
 				float32(pow(envmapValue, pow(2, -cos(5*t)))))
+
+			 */
 		}
 	}
 
@@ -498,25 +489,34 @@ end_header
 		Albedo float64
 		G float64
 		Instances []instance
+		Red float64
+		Green float64
+		Blue float64
+		Red2 float64
+		Green2 float64
+		Blue2 float64
+		EnvX	  float64
+		EnvY      float64
+		EnvZ      float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000025"/>
+        <float name="aperture_radius" value=".00000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="1, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="42"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="900"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -524,7 +524,9 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="0"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
         <integrator type="volpathmis">
@@ -532,24 +534,19 @@ end_header
         </integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="{{ .SigmaT }}, {{ .SigmaT }}, {{ .SigmaT }}"/>
-        <rgb name="albedo" value="{{ .Albedo }}, {{ .Albedo }}, {{ .Albedo }}"/>
+        <rgb name="sigma_t" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+        <rgb name="albedo" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
         <phase type="hg">
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
-<shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-		<bsdf type="roughdielectric">
-			<float name="alpha" value="{{ .Roughness }}"/>
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="{{ .ExtIOR }}"/>
-    	</bsdf>
+        <ref id="medium1" name="interior"/>
+			<bsdf type="null">
+			</bsdf>
     </shape>
-</shape>
 
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
@@ -576,19 +573,28 @@ end_header
 		sin(7*t)+2,
 		cos(11*t)+2,
 		pow(10, sin(13*t)*2-3),
-		40+sin(17*t)*20,
-		pow(10, sin(19*t)-1),
+		40,
+		pow(10, sin(19*t)*2+1),
 		sin(23*t)/2+.5,
 		sin(29*t)/2+.5,
 		sin(31*t)*.99,
-		instances})
-}
+		instances,
+		cos(2*t)/3+.666,
+		sin(3*t)/3+.666,
+		sin(5*t)/3+.666,
+		.666-cos(2*t)/3,
+		.666-sin(3*t)/3,
+		.666-sin(5*t)/3,
+		sin(19*t)*175,
+		sin(23*t)*175,
+		sin(29*t)*175,
+	})}
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 240, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
