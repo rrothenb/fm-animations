@@ -25,6 +25,7 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+var floor = math.Floor
 
 func sign(x float64) float64 {
 	if x < 0 {
@@ -159,12 +160,13 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
+	u = u + 0
 	delta := .01
 	center := path(v)
 	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r*cos(u)).Plus(sinVec.Scaled(r*sin(u))).Plus(center)
+	return cosVec.Scaled(r*cos(u-.5*sin(2*u))).Plus(sinVec.Scaled(r*sin(u+.5*sin(2*u)))).Plus(center)
 }
 
 func strength(x float64) float64 {
@@ -202,11 +204,11 @@ func texture(u, v, t float64) float64 {
 
 func fabricPath(t float64) geom.Vec {
 	//return geom.Vec{sin(29*t), cos(31*t), .1*cos(2*29*31*t)*cos(29*t)}
-	return geom.Vec{sin(59*t), sin(61*t), sin(2*t)}
+	return geom.Vec{sin(29*t), sin(31*t), sin((29*31-2)*t)*.1}
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .03, fabricPath).By(geom.Vec{1, 1, .1})
+	return pathWrapper(u, v, .05, fabricPath).By(geom.Vec{1, 1, .1})
 }
 
 func index2radians(index float64, n int) float64 {
