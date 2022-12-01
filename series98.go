@@ -118,7 +118,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV*1.25/360*pi)
+	factor := tan(s.FOV*1.5/360*pi)
 	aspectRatio := s.Width/s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -181,7 +181,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{sin(11*t)*.75,sin(13*t)*.75,1.75+sin(17*t)*.25}
+	return geom.Vec{sin(11*t)*.5,sin(13*t)*.5,1.5-cos(7*t)}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -290,7 +290,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FOV = 35
+	c.FOV = 30
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -432,7 +432,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 2) * pow(sin(v), 2))
+			power := 2*pow(10, sin(5*t)/2+.5)
+			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -505,7 +506,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="4"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -550,17 +551,17 @@ end_header
 		distance,
 		minZ,
 		c.FOV,
-		pow(10, cos(t/2)*2+1),
+		pow(10, cos(t/2)+2),
 		cos(t/2)*.99,
-		1,
+		cos(2*t)/3+.666,
+		sin(3*t)/3+.666,
+		sin(5*t)/3+.666,
+		.666-cos(2*t)/3,
+		.666-sin(3*t)/3,
+		.666-sin(5*t)/3,
 		0,
-		0,
-		0,
-		0,
-		1,
-		cos(t/2)*175,
-		cos(t/2)*175,
-		cos(t/2)*175,
+		sin(3*t)*135,
+		sin(2*t)*179,
 	})}
 
 func main() {
