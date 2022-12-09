@@ -25,7 +25,8 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
-var floor = math.Floor
+
+var tGlobal = 0.0
 
 func sign(x float64) float64 {
 	if x < 0 {
@@ -152,15 +153,18 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .45, 2, 3, circle)
+	return torusKnot(t, 1, .5+sin(2*tGlobal+1)*.4, 2, 3, circle)
+}
+
+func middleKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, .5+sin(3*tGlobal+2)*.4, 3, 2, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .35, 3, 2, outerKnot)
+	return torusKnot(t, 1, .5+sin(5*tGlobal+3)*.4, 2, 3, middleKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
-	u = u + 0
 	delta := .01
 	center := path(v)
 	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
@@ -171,6 +175,14 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 
 func strength(x float64) float64 {
 	return pow(2, sin(x)*2)
+}
+
+func texture(u, v, t float64) float64 {
+	return sin(
+		3*u + 5*v + strength(.1+2*t)*sin(
+			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
+			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
+			5*u+7*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(19*v-11*u))
 }
 
 func radius(u, v, a float64) float64 {
@@ -190,25 +202,12 @@ func sphereish(u, v, a float64) geom.Vec {
 	}
 }
 
-func texture(u, v, t float64) float64 {
-	a := .5
-	minT := pi*.975
-	maxT := pi*1.025
-	t = minT + t/2/pi*(maxT-minT)
-	return sin(
-		10*u + a*strength(.1+2*t)*sin(
-			2*u+a*strength(.2+3*t)*sin(3*u)) + a*strength(.3+5*t)*sin(
-			2*v+a*strength(.4+7*t)*sin(-v)) + a*strength(.5+11*t)*sin(
-			5*u-v) + a*strength(.6+13*t)*sin(7*u-v) + a*strength(.7+17*t)*sin(v-3*u))
-}
-
-func fabricPath(t float64) geom.Vec {
-	//return geom.Vec{sin(29*t), cos(31*t), .1*cos(2*29*31*t)*cos(29*t)}
-	return geom.Vec{sin(5*t), sin(7*t), sin((5*7-2)*t)}
-}
-
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .1, fabricPath)
+	minV := sin(2*t)*pi/2+pi/2
+	maxV := minV + sin(3*t)*pi*.01+pi*.025
+	limitedV := minV + v/2/pi*(maxV-minV)
+	r := spow(sin(v/2+sin(7*t)*sin(v/2)), pow(4, sin(11*t)))*.5+pow(1-pow(cos(10*v), 2), pow(10, sin(5*t)))*.1
+	return pathWrapper(u, limitedV, r, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -226,6 +225,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	tGlobal = t
 	cameraLoc := geom.Vec{0, 0, 9}
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
