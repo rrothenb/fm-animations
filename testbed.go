@@ -153,15 +153,15 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(2*tGlobal+1)*.4, 2, 3, circle)
+	return torusKnot(t, 1, .5+sin(23*tGlobal+1)*.4, 2, 3, circle)
 }
 
 func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(3*tGlobal+2)*.4, 3, 2, outerKnot)
+	return torusKnot(t, 1, .5+sin(31*tGlobal+2)*.4, 3, 2, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(5*tGlobal+3)*.4, 2, 3, middleKnot)
+	return torusKnot(t, 1, .5+sin(29*tGlobal+3)*.4, 2, 3, middleKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -203,10 +203,10 @@ func sphereish(u, v, a float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	minV := sin(2*t)*pi/2+pi/2
-	maxV := minV + sin(3*t)*pi*.01+pi*.025
+	minV := sin(5*t)*pi/2+pi/2
+	maxV := minV + sin(7*t)*pi*.05+pi*.06
 	limitedV := minV + v/2/pi*(maxV-minV)
-	r := spow(sin(v/2+sin(7*t)*sin(v/2)), pow(4, sin(11*t)))*.5+pow(1-pow(cos(10*v), 2), pow(10, sin(5*t)))*.1
+	r := spow(sin(v/2+(sin(11*t)/2+.5)*sin(v/2)), pow(10, sin(13*t)))*.25+pow(spow(sin(10*v), pow(10, sin(19*t)))/2+.5, pow(10, sin(17*t)))*.05*sin(v/2+.5*sin(v))
 	return pathWrapper(u, limitedV, r, innerKnot)
 }
 
