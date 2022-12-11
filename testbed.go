@@ -206,7 +206,9 @@ func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	minV := sin(5*t)*pi/2+pi/2
 	maxV := minV + sin(7*t)*pi*.05+pi*.06
 	limitedV := minV + v/2/pi*(maxV-minV)
-	r := spow(sin(v/2+(sin(11*t)/2+.5)*sin(v/2)), pow(10, sin(13*t)))*.25+pow(spow(sin(10*v), pow(10, sin(19*t)))/2+.5, pow(10, sin(17*t)))*.05*sin(v/2+.5*sin(v))
+	r :=
+		.25*spow(sin(v/2+(sin(11*t)*.4+.5)*sin(v/2)), pow(4, sin(13*t)-1))+
+		.05*pow(spow(sin(50*v), pow(10, sin(19*t)))/2+.5, pow(10, sin(17*t)))*sin(v/2+.5*sin(v))
 	return pathWrapper(u, limitedV, r, innerKnot)
 }
 
