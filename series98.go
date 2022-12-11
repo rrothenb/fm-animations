@@ -181,7 +181,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{sin(11*t)*.5,sin(13*t)*.5,1.5-cos(7*t)}
+	return geom.Vec{sin(11*t)*.5,sin(13*t)*.5,1.5+cos(7*t)}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -266,8 +266,8 @@ func fabricPath(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := pathWrapper(u, v, .0025+.001*cos(t/2), fabricPath).By(geom.Vec{1, 1, .1})
-	displacement :=  geom.Vec{0, 0, .1*pow(spow(texture2((loc.X-loc.Y)*pi, (loc.X+loc.Y)*pi, t), pow(2, cos(t/2)))/2+.5, pow(2, cos(t/2)))}
+	loc := pathWrapper(u, v, .0035+.0005*sin(7*t), fabricPath).By(geom.Vec{1, 1, .1})
+	displacement :=  geom.Vec{0, 0, .1*pow(spow(texture2((loc.X-loc.Y)*pi, (loc.X+loc.Y)*pi, t), pow(2, sin(5*t)))/2+.5, pow(2, cos(11*t)))}
 	return loc.Plus(displacement)
 }
 
@@ -493,6 +493,7 @@ end_header
 		EnvX	  float64
 		EnvY      float64
 		EnvZ      float64
+		Weight    float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -506,12 +507,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="4"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="900"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="5000"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -538,10 +539,17 @@ end_header
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <ref id="medium1" name="interior"/>
+		<bsdf type="blendbsdf">
+			<float name="weight" value="{{ .Weight }}"/>
 			<bsdf type="null">
+            </bsdf>
+		    <bsdf type="twosided">
+				<bsdf type="diffuse">
+					<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        		</bsdf>
+			</bsdf>
 		</bsdf>
     </shape>
-
 </scene>
 `)
 
@@ -551,8 +559,8 @@ end_header
 		distance,
 		minZ,
 		c.FOV,
-		pow(10, cos(t/2)+2),
-		cos(t/2)*.99,
+		pow(10, sin(17*t)+2),
+		cos(19*t)*.5,
 		cos(2*t)/3+.666,
 		sin(3*t)/3+.666,
 		sin(5*t)/3+.666,
@@ -560,15 +568,16 @@ end_header
 		.666-sin(3*t)/3,
 		.666-sin(5*t)/3,
 		0,
-		sin(3*t)*135,
+		sin(3*t)*120,
 		sin(2*t)*179,
+		sin(23*t)*.24+.25,
 	})}
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
