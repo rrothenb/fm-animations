@@ -203,7 +203,7 @@ func sphereish(u, v, a float64) geom.Vec {
 }
 
 func xyzTexture(a, x, y, z , t float64) float64 {
-	return (
+	return pow(spow(sin(
 		pow(texture(a, y, z, t), 2)+
 			pow(texture(a, -y, z, t), 2)+
 			pow(texture(a, y, -z, t), 2)+
@@ -211,16 +211,16 @@ func xyzTexture(a, x, y, z , t float64) float64 {
 		pow(texture(a, z, y, t), 2)+
 			pow(texture(a, -z, y, t), 2)+
 			pow(texture(a, z, -y, t), 2)+
-			pow(texture(a, -z, -y, t), 2))*spow(x, 4)
+			pow(texture(a, -z, -y, t), 2)), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t)))*spow(x, 4)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphereish(u, v, sin(t)*.25+.5)
-	a := pow(10, sin(t)-1)
+	loc := sphereish(u, v, sin(5*t)*.25+.4)
+	a := pow(10, sin(7*t)-1)
 	xTexture := xyzTexture(a, loc.X, loc.Y, loc.Z, t)
 	yTexture := xyzTexture(a, loc.Y, loc.X, loc.Z, t)
 	zTexture := xyzTexture(a, loc.Z, loc.Y, loc.X, t)
-	return loc.Plus(geom.Vec{xTexture, yTexture, zTexture}.Scaled(.01*cos(t)))
+	return loc.Plus(geom.Vec{xTexture, yTexture, zTexture}.Scaled(.05*cos(11*t)))
 }
 
 func index2radians(index float64, n int) float64 {
