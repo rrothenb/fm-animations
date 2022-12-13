@@ -177,12 +177,12 @@ func strength(x float64) float64 {
 	return pow(2, sin(x)*2)
 }
 
-func texture(u, v, t float64) float64 {
+func texture(a, u, v, t float64) float64 {
 	return sin(
-		3*u + 5*v + strength(.1+2*t)*sin(
-			2*u+strength(.2+3*t)*sin(3*u)) + strength(.3+5*t)*sin(
-			7*v+strength(.4+7*t)*sin(5*v)) + strength(.5+11*t)*sin(
-			5*u+7*v) + strength(.6+13*t)*sin(17*u-5*v) + strength(.7+17*t)*sin(19*v-11*u))
+		3*u + 5*v + a*strength(.1+2*t)*sin(
+			2*u+a*strength(.2+3*t)*sin(3*u)) + a*strength(.3+5*t)*sin(
+			7*v+a*strength(.4+7*t)*sin(5*v)) + a*strength(.5+11*t)*sin(
+			5*u+7*v) + a*strength(.6+13*t)*sin(17*u-5*v) + a*strength(.7+17*t)*sin(19*v-11*u))
 }
 
 func radius(u, v, a float64) float64 {
@@ -196,20 +196,31 @@ func shapeTexture(u, v, a float64) float64 {
 
 func sphereish(u, v, a float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0+a*sin(v)) * cos(u-a*spow(sin(2*u), 1)),
-		sin(v/2.0+a*spow(sin(v),1)) * sin(u+a*spow(sin(2*u), 1)),
-		cos(v/2.0-a*spow(sin(v),1)),
+		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
+		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
+		cos(v/2.0-a*sin(v)),
 	}
 }
 
+func xyzTexture(a, x, y, z , t float64) float64 {
+	return (
+		pow(texture(a, y, z, t), 2)+
+			pow(texture(a, -y, z, t), 2)+
+			pow(texture(a, y, -z, t), 2)+
+			pow(texture(a, -y, -z, t), 2)+
+		pow(texture(a, z, y, t), 2)+
+			pow(texture(a, -z, y, t), 2)+
+			pow(texture(a, z, -y, t), 2)+
+			pow(texture(a, -z, -y, t), 2))*spow(x, 4)
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	minV := sin(5*t)*pi/2+pi/2
-	maxV := minV + sin(7*t)*pi*.05+pi*.06
-	limitedV := minV + v/2/pi*(maxV-minV)
-	r :=
-		.25*spow(sin(v/2+(sin(11*t)*.4+.5)*sin(v/2)), pow(4, sin(13*t)-1))+
-		.05*pow(spow(sin(50*v), pow(10, sin(19*t)))/2+.5, pow(10, sin(17*t)))*sin(v/2+.5*sin(v))
-	return pathWrapper(u, limitedV, r, innerKnot)
+	loc := sphereish(u, v, sin(t)*.25+.5)
+	a := pow(10, sin(t)-1)
+	xTexture := xyzTexture(a, loc.X, loc.Y, loc.Z, t)
+	yTexture := xyzTexture(a, loc.Y, loc.X, loc.Z, t)
+	zTexture := xyzTexture(a, loc.Z, loc.Y, loc.X, t)
+	return loc.Plus(geom.Vec{xTexture, yTexture, zTexture}.Scaled(.01*cos(t)))
 }
 
 func index2radians(index float64, n int) float64 {
