@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"math"
 	"os"
 	"text/template"
-	"encoding/binary"
-	"bufio"
 
 	"github.com/Opioid/rgbe"
 	"github.com/hunterloftis/pbr/pkg/geom"
@@ -118,7 +118,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV*1.25/360*pi)
+	factor := tan(s.FOV * 1.25 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -191,14 +191,14 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := geom.Vec{sin(3*t), sin(2*t), 1}.Unit()
-	return loc.Scaled(5+sin(5*t)*3)
+	loc, _ := geom.Vec{sin(3 * t), sin(2 * t), 1}.Unit()
+	return loc.Scaled(5 + sin(5*t)*3)
 }
 
 func focusPath(t float64) geom.Vec {
-	v := pi-cos(t)*pi
-	minV := sin(5*t)*pi/2+pi/2
-	maxV := minV + sin(7*t)*pi*.025+pi*.035
+	v := pi - cos(t)*pi
+	minV := sin(5*t)*pi/2 + pi/2
+	maxV := minV + sin(7*t)*pi*.025 + pi*.035
 	minV2 := .9*minV + .1*maxV
 	maxV2 := .1*minV + .9*maxV
 	limitedV := minV2 + v/2/pi*(maxV2-minV2)
@@ -211,7 +211,7 @@ func strength(x float64) float64 {
 }
 
 func textureOriginal(u, v, t float64) float64 {
-	v = v*5;
+	v = v * 5
 	return sin(
 		3*u + 5*v +
 			strength(.1+2*t)*sin(2*u+strength(.2+3*t)*sin(3*u)) +
@@ -221,17 +221,17 @@ func textureOriginal(u, v, t float64) float64 {
 }
 
 func subtexture3(u, v, t float64) float64 {
-	return sin(2*u+3*v)
+	return sin(2*u + 3*v)
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+strength(17*t)*subtexture3(u, v, t))+sin(5*v+strength(19*t)*subtexture3(u, v, t))
+	return sin(7*u+strength(17*t)*subtexture3(u, v, t)) + sin(5*v+strength(19*t)*subtexture3(u, v, t))
 }
 
 func texture(a, u, v, t float64) float64 {
-	v = v*3
+	v = v * 3
 	return sin(
-		 a*strength(.1+2*t)*sin(u+a*strength(.5+11*t)*sin(2*u+a*strength(.8+19*t)*sin(3*u-5*v)*sin(2*u+3*v))) +
+		a*strength(.1+2*t)*sin(u+a*strength(.5+11*t)*sin(2*u+a*strength(.8+19*t)*sin(3*u-5*v)*sin(2*u+3*v))) +
 			a*strength(.3+5*t)*sin(3*v+a*strength(.2+3*t)*sin(2*v+a*strength(.7+17*t)*sin(3*u-2*v)*sin(5*u+2*v))) +
 			a*strength(.6+13*t)*sin(3*u+5*v) +
 			a*strength(.4+7*t)*sin(3*u)*sin(5*v))
@@ -246,15 +246,15 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	minV := sin(5*t)*pi/2+pi/2
-	maxV := minV + sin(7*t)*pi*.025+pi*.035
+	minV := sin(5*t)*pi/2 + pi/2
+	maxV := minV + sin(7*t)*pi*.025 + pi*.035
 	limitedV := minV + v/2/pi*(maxV-minV)
-	ridges := floor(sin(23*t)*15+20)
+	ridges := floor(sin(23*t)*15 + 20)
 	blendValue := 1 - pow(spow(texture(1, u, v, t), pow(2, cos(13*t)))/2+.5, pow(4, cos(17*t))) + .005*cos(31*t)*texture(7+sin(29*t)*5, u, v, t)
 	r :=
-		.25*spow(sin(v/2+(sin(11*t)*.4+.5)*sin(v/2)), pow(1.5, sin(13*t)-1))+
-		.1*pow(spow(sin(ridges*v), pow(4, sin(19*t)))/2+.5, pow(4, sin(17*t)))*sin(v/2)+
-		.005*blendValue
+		.25*spow(sin(v/2+(sin(11*t)*.4+.5)*sin(v/2)), pow(1.5, sin(13*t)-1)) +
+			.1*pow(spow(sin(ridges*v), pow(4, sin(19*t)))/2+.5, pow(4, sin(17*t)))*sin(v/2) +
+			.005*blendValue
 	return pathWrapper(u, limitedV, r, innerKnot)
 }
 
@@ -266,7 +266,7 @@ func uv2xyz(u, v, t float64) geom.Vec {
 	a := 1-spow(cos(25*v), .5)*.5
 	return pathWrapper(u, limitedV+pow(a-.5, 2)/15, .25*pow(sin(v/2+.7*sin(v)), .5)*a, outerKnot)
 }
- */
+*/
 
 func index2radians(index float64, n int) float64 {
 	return index / float64(n) * pi * 2
@@ -291,9 +291,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//distance := cameraLoc.Minus(focusPoint).Len()
 	fov := 5.0
 	c.FOV = fov
-	d := .4-cameraLoc.Len()
+	d := .4 - cameraLoc.Len()
 	//maxD := sqrt(1+d*d)
-	minD := d/sin((180-fov)/360*2*pi)
+	minD := d / sin((180-fov)/360*2*pi)
 	distance := minD // (spow(-cos(5*t), .5)/2+.5)*(maxD-minD)+minD
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -353,9 +353,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			}
 		}
 	}
-	midX := (minX+maxX)/2
-	midY := (minY+maxY)/2
-	midZ := (minZ+maxZ)/2
+	midX := (minX + maxX) / 2
+	midY := (minY + maxY) / 2
+	midZ := (minZ + maxZ) / 2
 	center := geom.Vec{midX, midY, midZ}
 	focusPoint = focusPath(t)
 	//focusPoint = geom.Vec{(minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2}
@@ -470,41 +470,41 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		Weight1	  int
-		Weight2	  int
-		Weight3	  int
-		Weight4	  int
-		EnvX	  float64
-		EnvY      float64
-		EnvZ      float64
-		FOV		  float64
-		Rough1    float64
-		Rough2    float64
-		Scale float64
-		SigmaT float64
-		Albedo float64
-		G float64
-		MinX float64
-		MaxX float64
-		MinY float64
-		MaxY float64
-		MinZ float64
-		MaxZ float64
-		MidX float64
-		MidY float64
-		MidZ float64
+		Camera               geom.Vec
+		LookAt               geom.Vec
+		Distance             float64
+		FogRadius            float64
+		Angle                float64
+		Weight1              int
+		Weight2              int
+		Weight3              int
+		Weight4              int
+		EnvX                 float64
+		EnvY                 float64
+		EnvZ                 float64
+		FOV                  float64
+		Rough1               float64
+		Rough2               float64
+		Scale                float64
+		SigmaT               float64
+		Albedo               float64
+		G                    float64
+		MinX                 float64
+		MaxX                 float64
+		MinY                 float64
+		MaxY                 float64
+		MinZ                 float64
+		MaxZ                 float64
+		MidX                 float64
+		MidY                 float64
+		MidZ                 float64
 		BoundingSphereRadius float64
-		Red float64
-		Green float64
-		Blue float64
-		Red2 float64
-		Green2 float64
-		Blue2 float64
+		Red                  float64
+		Green                float64
+		Blue                 float64
+		Red2                 float64
+		Green2               float64
+		Blue2                float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -518,12 +518,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2000"/>
+            <integer name="width" value="6000"/>
+            <integer name="height" value="4000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -639,20 +639,20 @@ end_header
 			distance,
 			focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 			0,
-			frameNumber%2,
-			(frameNumber/2)%2,
-			(frameNumber/4)%2,
-			(frameNumber/8)%2,
-			sin(19*t)*45,
-			sin(23*t)*45,
-			sin(29*t)*45,
+			frameNumber % 2,
+			(frameNumber / 2) % 2,
+			(frameNumber / 4) % 2,
+			(frameNumber / 8) % 2,
+			sin(19*t) * 45,
+			sin(23*t) * 45,
+			sin(29*t) * 45,
 			fov,
-			pow(10,sin(5*t)-2),
-			pow(10,cos(7*t)-2),
+			pow(10, sin(5*t)-2),
+			pow(10, cos(7*t)-2),
 			pow(10, sin(19*t)+2),
-			sin(23*t)/2+.5,
-			sin(29*t)/2+.5,
-			sin(31*t)*.99,
+			sin(23*t)/2 + .5,
+			sin(29*t)/2 + .5,
+			sin(31*t) * .99,
 			minX,
 			maxX,
 			minY,
@@ -663,12 +663,12 @@ end_header
 			midY,
 			midZ,
 			r,
-			cos(2*t)/3+.666,
-			sin(3*t)/3+.666,
-			sin(5*t)/3+.666,
-			.666-cos(2*t)/3,
-			.666-sin(3*t)/3,
-			.666-sin(5*t)/3,
+			cos(2*t)/3 + .666,
+			sin(3*t)/3 + .666,
+			sin(5*t)/3 + .666,
+			.666 - cos(2*t)/3,
+			.666 - sin(3*t)/3,
+			.666 - sin(5*t)/3,
 		})
 }
 

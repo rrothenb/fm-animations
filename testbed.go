@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"math"
 	"os"
 	"text/template"
-	"encoding/binary"
-	"bufio"
 
 	"github.com/hunterloftis/pbr/pkg/geom"
 )
@@ -36,11 +36,11 @@ func sign(x float64) float64 {
 	}
 }
 func spow(x, y float64) float64 {
-	return sign(x)*pow(abs(x), y)
+	return sign(x) * pow(abs(x), y)
 }
 
 func pushdown(x, n float64) float64 {
-	return pow(x/2+.5, n)*2-1
+	return pow(x/2+.5, n)*2 - 1
 }
 
 type SLR2 struct {
@@ -109,7 +109,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
 	factor := .01
-	aspectRatio := s.Width/s.Height
+	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
 	}
@@ -141,36 +141,32 @@ func sphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
 		sin(v/2.0) * cos(u),
 		sin(v/2.0) * sin(u),
-		cos(v/2.0),
+		cos(v / 2.0),
 	}
 }
 
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
 	q := float64(qInt)
-	pathPoint := path(q*t)
-	return geom.Vec{(R+r*cos(p*t))*pathPoint.X, (R+r*cos(p*t))*pathPoint.Y, r*sin(p*t)+pathPoint.Z}
+	pathPoint := path(q * t)
+	return geom.Vec{(R + r*cos(p*t)) * pathPoint.X, (R + r*cos(p*t)) * pathPoint.Y, r*sin(p*t) + pathPoint.Z}
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(23*tGlobal+1)*.4, 2, 3, circle)
-}
-
-func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(31*tGlobal+2)*.4, 3, 2, outerKnot)
+	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(29*tGlobal+3)*.4, 2, 3, middleKnot)
+	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, 3, 2, outerKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	delta := .01
 	center := path(v)
-	normal, _ := path(v+delta).Minus(path(v-delta)).Unit()
+	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r*cos(u)).Plus(sinVec.Scaled(r*sin(u))).Plus(center)
+	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
 }
 
 func strength(x float64) float64 {
@@ -191,36 +187,31 @@ func radius(u, v, a float64) float64 {
 }
 
 func shapeTexture(u, v, a float64) float64 {
-	return sin(sin(4*u)+sin(4*v))
+	return sin(sin(4*u) + sin(4*v))
 }
 
 func sphereish(u, v, a float64) geom.Vec {
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
-		cos(v/2.0-a*sin(v)),
+		cos(v/2.0 - a*sin(v)),
 	}
 }
 
-func xyzTexture(a, x, y, z , t float64) float64 {
+func xyzTexture(a, x, y, z, t float64) float64 {
 	return pow(spow(sin(
 		pow(texture(a, y, z, t), 2)+
 			pow(texture(a, -y, z, t), 2)+
 			pow(texture(a, y, -z, t), 2)+
 			pow(texture(a, -y, -z, t), 2)+
-		pow(texture(a, z, y, t), 2)+
+			pow(texture(a, z, y, t), 2)+
 			pow(texture(a, -z, y, t), 2)+
 			pow(texture(a, z, -y, t), 2)+
-			pow(texture(a, -z, -y, t), 2)), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t)))*spow(x, 4)
+			pow(texture(a, -z, -y, t), 2)), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t))) * spow(x, 4)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := sphereish(u, v, sin(5*t)*.25+.4)
-	a := pow(10, sin(7*t)-1)
-	xTexture := xyzTexture(a, loc.X, loc.Y, loc.Z, t)
-	yTexture := xyzTexture(a, loc.Y, loc.X, loc.Z, t)
-	zTexture := xyzTexture(a, loc.Z, loc.Y, loc.X, t)
-	return loc.Plus(geom.Vec{xTexture, yTexture, zTexture}.Scaled(.05*cos(11*t)))
+	return pathWrapper(u, v, 1.5, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
