@@ -211,7 +211,7 @@ func xyzTexture(a, x, y, z, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, 1.5, innerKnot)
+	return sphereish(u, v, cos(t)*.5)
 }
 
 func index2radians(index float64, n int) float64 {
