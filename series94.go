@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"math"
 	"os"
 	"text/template"
-	"encoding/binary"
-	"bufio"
 
 	"github.com/Opioid/rgbe"
 	"github.com/hunterloftis/pbr/pkg/geom"
@@ -64,7 +64,7 @@ var zAxis = geom.Dir{0, 0, 1}
 func NewSLR2() *SLR2 {
 	s := &SLR2{
 		Width:    0.054,
-		Height:   0.054,
+		Height:   0.027,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -114,7 +114,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV*1.25/360*pi)
+	factor := tan(s.FOV * 1.25 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -125,8 +125,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Z > 0.0 {
 		return true
 	}
-	return false
-	if projectedPoint.Z < -s.position.Len() {
+	if projectedPoint.Z < -s.position.Len()*1.1 {
 		return true
 	}
 	return false
@@ -187,7 +186,7 @@ func cameraPath(t float64) geom.Vec {
 }
 
 func focusPath(t float64) geom.Vec {
-	return outerKnot(t+.01-cos(t)*pi/2+pi/2)
+	return outerKnot(t + .01 - cos(t)*pi/2 + pi/2)
 }
 
 func strength(x float64) float64 {
@@ -195,7 +194,7 @@ func strength(x float64) float64 {
 }
 
 func textureOriginal(u, v, t float64) float64 {
-	v = v*5;
+	v = v * 5
 	return sin(
 		3*u + 5*v +
 			strength(.1+2*t)*sin(2*u+strength(.2+3*t)*sin(3*u)) +
@@ -205,15 +204,15 @@ func textureOriginal(u, v, t float64) float64 {
 }
 
 func subtexture3(u, v, t float64) float64 {
-	return sin(2*u+3*v)
+	return sin(2*u + 3*v)
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+strength(17*t)*subtexture3(u, v, t))+sin(5*v+strength(19*t)*subtexture3(u, v, t))
+	return sin(7*u+strength(17*t)*subtexture3(u, v, t)) + sin(5*v+strength(19*t)*subtexture3(u, v, t))
 }
 
 func texture(u, v, t float64) float64 {
-	v = v*10;
+	v = v * 10
 	return sin(
 		3*u + 5*v +
 			strength(.4+7*t)*sin(2*u+strength(.5+11*t)*sin(3*u+strength(.8+19*t)*sin(5*u-7*v)*sin(11*u+3*v))) +
@@ -232,7 +231,7 @@ func blendTexture(u, v, t float64) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	r := radius(u, v, t)
-	return pathWrapper(u, v, r*(.2+sin(2*t)*.1), outerKnot)
+	return pathWrapper(u, v, r*(.15+sin(2*t)*.1), outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -255,11 +254,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	//distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 75-cos(11*t)*60
+	fov := 75 - cos(11*t)*60
+	fov = fov * 1.5
 	c.FOV = fov
-	d := .4-cameraLoc.Len()
+	d := .4 - cameraLoc.Len()
 	//maxD := sqrt(1+d*d)
-	minD := d/sin((180-fov)/360*2*pi)
+	minD := d / sin((180-fov)/360*2*pi)
 	distance := minD // (spow(-cos(5*t), .5)/2+.5)*(maxD-minD)+minD
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -432,24 +432,24 @@ end_header
 		FogRadius float64
 		Angle     float64
 		MinZ      float64
-		Weight1	  int
-		Weight2	  int
-		Weight3	  int
-		Weight4	  int
-		EnvX	  float64
+		Weight1   int
+		Weight2   int
+		Weight3   int
+		Weight4   int
+		EnvX      float64
 		EnvY      float64
 		EnvZ      float64
-		FOV		  float64
+		FOV       float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0001"/>
+        <float name="focus_distance" value=".3"/>
+        <float name="aperture_radius" value=".000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
@@ -457,8 +457,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="10800"/>
+            <integer name="height" value="5400"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -494,7 +494,7 @@ end_header
 						<spectrum name="eta" filename="spd/27.spd"/>
 						<spectrum name="k" filename="spd/10.spd"/>
 						</bsdf>
-					</bsdf>
+				</bsdf>
 				</bsdf>
 				<bsdf type="blendbsdf">
 					<float name="weight" value="{{ .Weight2 }}"/>
@@ -511,8 +511,8 @@ end_header
 						<spectrum name="eta" filename="spd/2.spd"/>
 						<spectrum name="k" filename="spd/12.spd"/>
 						</bsdf>
-					</bsdf>
 				</bsdf>
+			</bsdf>
 			</bsdf>
 			<bsdf type="blendbsdf">
 				<float name="weight" value="{{ .Weight3 }}"/>
@@ -530,7 +530,7 @@ end_header
 						<float name="alpha" value=".1"/>
 						<string name="material" value="Ag"/>
 						</bsdf>
-					</bsdf>
+				</bsdf>
 				</bsdf>
 				<bsdf type="blendbsdf">
 					<float name="weight" value="{{ .Weight4 }}"/>
@@ -546,9 +546,9 @@ end_header
 						<spectrum name="eta" filename="spd/15i.spd"/>
 						<spectrum name="k" filename="spd/11i.spd"/>
 						</bsdf>
-					</bsdf>
 				</bsdf>
 			</bsdf>
+		</bsdf>
 		</bsdf>
     </shape>
 </scene>
@@ -563,13 +563,13 @@ end_header
 			focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 			0,
 			minZ,
-			frameNumber%2,
-			(frameNumber/2)%2,
-			(frameNumber/4)%2,
-			(frameNumber/8)%2,
-			sin(19*t)*179,
-			sin(23*t)*179,
-			sin(29*t)*179,
+			frameNumber % 2,
+			(frameNumber / 2) % 2,
+			(frameNumber / 4) % 2,
+			(frameNumber / 8) % 2,
+			sin(19*t) * 179,
+			sin(23*t) * 179,
+			sin(29*t) * 179,
 			fov})
 }
 
