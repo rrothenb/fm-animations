@@ -59,7 +59,7 @@ func texture(a, x, y, z, t float64) float64 {
 }
 
 func radius(x, y, z, t float64) float64 {
-	return 1.0 + .01*strength(1*t)*pow(pow(texture(.5+sin(5*t)*.25, x, y, z, t), 2), sin(1*t)*.5+1)
+	return 1.0 + .1*strength(1*t)*pow(pow(texture(.4+sin(5*t)*.1, x, y, z, t), 2), sin(1*t)*.5+1)
 }
 
 func blendTexture(x, y, z, t float64) float64 {
@@ -216,17 +216,21 @@ func outerKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, 2, 3, circle)
 }
 
+func middleKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, 3, 5, outerKnot)
+}
+
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, 3, 2, outerKnot)
+	return torusKnot(t, 1, .5+cos(5*tGlobal)*.49, 5, 2, middleKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
 	loc, _ := circle(t).Plus(geom.Vec{0, 0, .75 + 1*sin(2*t)}).Unit()
-	return loc.Scaled(7 + sin(t)*2)
+	return loc.Scaled(10 + sin(t)*5)
 }
 
 func focusPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+2, 3, 4, 5).Scaled(.4 - sin(5*t)*.2)
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -243,7 +247,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := pathWrapper(u, v, 1.5, innerKnot)
+	loc := pathWrapper(u, v, .75+.25*sin(7*t), innerKnot)
 	//a := radius(loc.X, loc.Y, loc.Z, t)
 	//fmt.Printf("loc: %v, a: %v\n", loc, a)
 	return loc.Scaled(radius(loc.X, loc.Y, loc.Z, t))
@@ -382,7 +386,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(10, sin(5*t)/2+.5)
+			power := 2 * pow(10, sin(2*t)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -430,17 +434,12 @@ end_header
 		Camera   geom.Vec
 		LookAt   geom.Vec
 		Distance float64
-		Angle    float64
 		G        float64
 		Scale    float64
-		Red      float64
-		Green    float64
-		Blue     float64
-		Red2     float64
-		Green2   float64
-		Blue2    float64
-		IntIOR   float64
-		ExtIOR   float64
+		SigmaT   float64
+		EnvX     float64
+		EnvY     float64
+		EnvZ     float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -454,12 +453,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="42"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2000"/>
-            <integer name="height" value="3000"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -467,7 +466,9 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
         <integrator type="volpathmis">
@@ -475,8 +476,8 @@ end_header
         </integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-        <rgb name="albedo" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        <rgb name="sigma_t" value="{{ .SigmaT }}, {{ .SigmaT }}, {{ .SigmaT }}"/>
+        <rgb name="albedo" value="1, 1, 1"/>
         <phase type="hg">
 			<float name="g" value="{{ .G }}"/>
 		</phase>
@@ -487,9 +488,7 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <bsdf type="thindielectric">
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="{{ .ExtIOR }}"/>
+        <bsdf type="null">
         </bsdf>
         <ref id="medium1" name="interior"/>
     </shape>
@@ -499,17 +498,12 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(2*t) * 180,
-		sin(5*t) * .9,
-		pow(10, sin(5*t)+2),
-		1 - (.9 + sin(7*t)*.1),
-		1 - (.75 + sin(7*t)*.2),
-		1 - (.7 + sin(7*t)*.25),
-		.9 + sin(11*t)*.1,
-		.75 + sin(11*t)*.2,
-		.7 + sin(11*t)*.25,
-		sin(13*t) + 2,
-		cos(17*t) + 2,
+		sin(2*t) * .75,
+		sin(3*t)*200 + 300,
+		sin(5*t)*.4 + .5,
+		sin(2*t) * 45,
+		sin(3*t) * 45,
+		sin(5*t) * 45,
 	})
 	fmt.Printf("ior diff: %v\n", abs(sin(13*t)-cos(17*t)))
 }
@@ -518,7 +512,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 1536, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

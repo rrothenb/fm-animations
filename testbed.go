@@ -27,6 +27,7 @@ var min = math.Min
 var max = math.Max
 
 var tGlobal = 0.0
+var frameGlobal = 0
 
 func sign(x float64) float64 {
 	if x < 0 {
@@ -179,10 +180,10 @@ func strength(x float64) float64 {
 
 func texture(a, u, v, t float64) float64 {
 	return sin(
-		3*u + 5*v + a*strength(.1+2*t)*sin(
-			2*u+a*strength(.2+3*t)*sin(3*u)) + a*strength(.3+5*t)*sin(
-			7*v+a*strength(.4+7*t)*sin(5*v)) + a*strength(.5+11*t)*sin(
-			5*u+7*v) + a*strength(.6+13*t)*sin(17*u-5*v) + a*strength(.7+17*t)*sin(19*v-11*u))
+		u + v + a*strength(.1+2*t)*sin(
+			u+a*strength(.2+3*t)*sin(u)) + a*strength(.3+5*t)*sin(
+			2*v+a*strength(.4+7*t)*sin(v)) + a*strength(.5+11*t)*sin(
+			u+2*v) + a*strength(.6+13*t)*sin(3*u-v) + a*strength(.7+17*t)*sin(5*v-3*u))
 }
 
 func radius(u, v, a float64) float64 {
@@ -194,12 +195,26 @@ func shapeTexture(u, v, a float64) float64 {
 	return sin(sin(4*u) + sin(4*v))
 }
 
-func sphereish(u, v, a float64) geom.Vec {
+func sphereish(u, v, a, b, c float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
-		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
-		cos(v/2.0 - a*sin(v)),
+		sin(v/2.0+a*sin(v)) * cos(u-b*sin(2*u)),
+		sin(v/2.0+a*sin(v)) * sin(u+b*sin(2*u)),
+		cos(v/2.0 - c*sin(v)),
 	}
+}
+
+func yzTexture(a, y, z, t float64) float64 {
+	y = y * pi
+	z = z * pi
+	return sin(
+		pow(texture(a, y, z, t), 2) +
+			pow(texture(a, -y, z, t), 2) +
+			pow(texture(a, y, -z, t), 2) +
+			pow(texture(a, -y, -z, t), 2) +
+			pow(texture(a, z, y, t), 2) +
+			pow(texture(a, -z, y, t), 2) +
+			pow(texture(a, z, -y, t), 2) +
+			pow(texture(a, -z, -y, t), 2))
 }
 
 func xyzTexture(a, x, y, z, t float64) float64 {
@@ -214,8 +229,31 @@ func xyzTexture(a, x, y, z, t float64) float64 {
 			pow(texture(a, -z, -y, t), 2)), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t))) * spow(x, 4)
 }
 
+func shape(x, a, b float64) float64 {
+	return pow(spow(x, pow(2, a))/2+.5, pow(2, b))
+}
+
+func displacement(loc geom.Vec, t float64) geom.Vec {
+	a := pow(2, sin(2*t)-3)
+	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t), sin(7*t), sin(11*t)) * spow(loc.X, 4)
+	yTexture := shape(yzTexture(a, loc.X, loc.Z, t), sin(7*t), sin(11*t)) * spow(loc.Y, 4)
+	zTexture := shape(yzTexture(a, loc.Y, loc.X, t), sin(7*t), sin(11*t)) * spow(loc.Z, 4)
+	return geom.Vec{xTexture, yTexture, zTexture}
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .75+.25*sin(7*t)+.1*texture(sin(11*t)*.25+.25, u, v*50, t), innerKnot)
+	weights := [8]geom.Vec{
+		{.5, .5, .5},
+		{.5, .5, -.5},
+		{.5, -.5, .5},
+		{.5, -.5, -.5},
+		{-.5, .5, .5},
+		{-.5, .5, -.5},
+		{-.5, -.5, .5},
+		{-.5, -.5, -.5},
+	}
+	loc := sphereish(u, v, weights[frameGlobal].X, weights[frameGlobal].Y, weights[frameGlobal].Z)
+	return loc.Plus(displacement(loc, t).Scaled(.1))
 }
 
 func index2radians(index float64, n int) float64 {
@@ -234,6 +272,7 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	tGlobal = t
+	frameGlobal = frameNumber
 	cameraLoc := geom.Vec{0, 0, 9}
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
