@@ -146,6 +146,14 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
+func halfSphere(u, v float64) geom.Vec {
+	return geom.Vec{
+		sin(v/4.0) * cos(u),
+		sin(v/4.0) * sin(u),
+		cos(v / 4.0),
+	}
+}
+
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
 	q := float64(qInt)
@@ -242,18 +250,14 @@ func displacement(loc geom.Vec, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	weights := [8]geom.Vec{
-		{.5, .5, .5},
-		{.5, .5, -.5},
-		{.5, -.5, .5},
-		{.5, -.5, -.5},
-		{-.5, .5, .5},
-		{-.5, .5, -.5},
-		{-.5, -.5, .5},
-		{-.5, -.5, -.5},
-	}
-	loc := sphereish(u, v, weights[frameGlobal].X, weights[frameGlobal].Y, weights[frameGlobal].Z)
-	return loc.Plus(displacement(loc, t).Scaled(.1))
+	loc := halfSphere(u, v).Scaled(pi)
+	a := cos(t/2) * 3
+	xTexture := texture(a, loc.Z, loc.Y, t)
+	yTexture := texture(a, loc.X, loc.Z, t)
+	zTexture := texture(a, loc.X, loc.Y, t)
+
+	r := 1 + .01*xTexture*yTexture*zTexture
+	return loc.Scaled(r / pi)
 }
 
 func index2radians(index float64, n int) float64 {
