@@ -115,7 +115,6 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -187,17 +186,24 @@ func cube(u, v, t float64) geom.Vec {
 	}
 }
 
+func halfSphere(u, v float64) geom.Vec {
+	return geom.Vec{
+		sin(v/4.0) * cos(u),
+		sin(v/4.0) * sin(u),
+		-cos(v / 4.0),
+	}
+}
+
 func cameraPath(t float64) geom.Vec {
-	loc, _ := geom.Vec{cos(3 * t), cos(2 * t), 1}.Unit()
-	return loc.Scaled(5)
+	return geom.Vec{0, 0, -sin(2*t)*.25 - .7}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return halfSphere(sin(3*t)*pi+pi, sin(5*t)*pi/3+pi/2)
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.25 + 1.25
+	return pow(4, sin(x)) //sin(x)*1.25 + 1.25
 }
 
 func textureOriginal(u, v, t float64) float64 {
@@ -224,11 +230,6 @@ func texture(a, u, v, t float64) float64 {
 			u+a*strength(.2+3*t)*sin(u)) + a*strength(.3+5*t)*sin(
 			2*v+a*strength(.4+7*t)*sin(v)) + a*strength(.5+11*t)*sin(
 			u+2*v) + a*strength(.6+13*t)*sin(3*u-v) + a*strength(.7+17*t)*sin(5*v-3*u))
-}
-
-func blendTexture(u, v, t float64) float64 {
-	loc := sphereish(u, v, sin(2*t)*.5, sin(3*t)*.5, sin(5*t)*.5)
-	return displacement(loc, t).Len()
 }
 
 func yzTexture(a, y, z, t float64) float64 {
@@ -269,9 +270,25 @@ func thingy(a, u, v, t float64) float64 {
 	return sin(pow(texture(a, u, v, t), 2) + pow(texture(a, v, u, t), 2))
 }
 
+func fm(a, t float64, loc geom.Vec) float64 {
+	loc = loc.Scaled(pi)
+	return sin(
+		a*strength(.0+19*t)*10*loc.Z +
+			a*strength(.1+2*t)*sin(
+				a*strength(.2+3*t)*sin(10*loc.Z)) + a*strength(.3+5*t)*sin(
+			a*strength(.4+7*t)*sin(10*loc.X)) + a*strength(.5+11*t)*sin(
+			7*loc.X+3*loc.Y) + a*strength(.6+13*t)*sin(4*loc.Y-6*loc.Z) + a*strength(.7+17*t)*sin(2*loc.Z-8*loc.X))
+
+}
+
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphereish(u, v, spow(sin(2*t), .5)*.5, spow(sin(3*t), .5)*.5, spow(sin(5*t), .5)*.5)
-	return loc.Scaled(displacement(loc, t).Len()*.1 + 1.1)
+	loc := halfSphere(u, v)
+	return loc.Scaled(shape(fm(pow(4, sin(19*t)), t, loc), pow(6, sin(13*t)), pow(6, sin(17*t)))*.1 + 1)
+}
+
+func blendTexture(u, v, t float64) float64 {
+	loc := halfSphere(u, v)
+	return shape(fm(pow(4, sin(19*t)), t, loc), pow(6, sin(7*t)), pow(6, sin(11*t)))
 }
 
 /*
@@ -305,7 +322,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 35.0
+	fov := 75 + sin(29*t)*45
 	c.FOV = fov
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -375,7 +392,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth / totalHeight
@@ -419,7 +436,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			blendValue := float32(blendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t) * .85)
+			blendValue := float32(blendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -489,8 +506,6 @@ end_header
 		Angle                float64
 		Weight1              int
 		Weight2              int
-		Weight3              int
-		Weight4              int
 		EnvX                 float64
 		EnvY                 float64
 		EnvZ                 float64
@@ -516,25 +531,26 @@ end_header
 		IntIOR               float64
 		Scale                float64
 		G                    float64
+		Aperture             float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000000001"/>
+        <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -567,13 +583,6 @@ end_header
 			</texture>
 			<bsdf type="blendbsdf">
 				<float name="weight" value="{{ .Weight1 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-					</bsdf>
 				      <bsdf type="twosided">
 						<bsdf type="roughplastic">
                 			<float name="alpha" value="{{ .Rough1 }}"/>
@@ -581,31 +590,16 @@ end_header
 							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 						</bsdf>
 				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
 				   <bsdf type="twosided">
 						<bsdf type="roughconductor">
 						<float name="alpha" value="{{ .Rough1 }}"/>
-						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
 						</bsdf>
 					</bsdf>
-						<bsdf type="roughdielectric">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-						</bsdf>
-				</bsdf>
 			</bsdf>
 			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight3 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
+				<float name="weight" value="{{ .Weight2 }}"/>
 				      <bsdf type="twosided">
 						<bsdf type="roughplastic">
                 			<float name="alpha" value="{{ .Rough2 }}"/>
@@ -613,33 +607,16 @@ end_header
 							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
 						</bsdf>
 				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
 				   <bsdf type="twosided">
 						<bsdf type="roughconductor">
 						<float name="alpha" value="{{ .Rough2 }}"/>
-						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 						</bsdf>
 					</bsdf>
-						<bsdf type="roughdielectric">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-						</bsdf>
-				</bsdf>
 			</bsdf>
 		</bsdf>
     </shape>
-	<shape type="rectangle">
-        <transform name="to_world">
-            <scale value="10"/>
-            <translate x="0" y="0" z="{{ .MinZ }}"/>
-        </transform>
-				<bsdf type="roughplastic">
-				<float name="alpha" value=".01"/>
-				</bsdf>
-	</shape>
 </scene>
 `)
 	r := 0.0
@@ -665,14 +642,12 @@ end_header
 			0,
 			frameNumber % 2,
 			(frameNumber / 2) % 2,
-			(frameNumber / 4) % 2,
-			(frameNumber / 8) % 2,
-			sin(19*t) * 45,
-			sin(23*t) * 45,
-			sin(29*t) * 45,
+			sin(19*t) * 175,
+			sin(23*t) * 175,
+			sin(29*t) * 175,
 			fov,
-			pow(10, sin(5*t)-2),
-			pow(10, cos(7*t)-2),
+			pow(10, sin(5*t)*2-2),
+			pow(10, cos(7*t)*2-2),
 			minX,
 			maxX,
 			minY,
@@ -692,6 +667,7 @@ end_header
 			1.5 + sin(17*t)*.4,
 			pow(10, sin(19*t)+2),
 			cos(23*t) * .9,
+			pow(10, sin(23*t)*3-6),
 		})
 }
 
@@ -699,7 +675,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
