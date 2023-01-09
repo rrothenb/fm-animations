@@ -146,14 +146,6 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
-func halfSphere(u, v float64) geom.Vec {
-	return geom.Vec{
-		sin(v/4.0) * cos(u),
-		sin(v/4.0) * sin(u),
-		cos(v / 4.0),
-	}
-}
-
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
 	q := float64(qInt)
