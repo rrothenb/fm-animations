@@ -414,13 +414,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * 2 * pi
-			power := 2 * pow(10, sin(19*t)/2+.5)
+			power := 2 * pow(10, sin(23*t)/2+.5)
 			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
+			if (frameNumber/4)%2 == 1 {
+				envmapValue = 1 - envmapValue
+			}
 			envmapArray = append(
 				envmapArray,
-				float32(pow(envmapValue, pow(2, cos(11*t)))),
-				float32(pow(envmapValue, pow(2, sin(17*t)))),
-				float32(pow(envmapValue, pow(2, -cos(13*t)))))
+				float32(pow(envmapValue, pow(2, sin(29*t)))),
+				float32(pow(envmapValue, pow(2, cos(31*t)))),
+				float32(pow(envmapValue, pow(2, -sin(37*t)))))
 		}
 	}
 
@@ -507,7 +510,8 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
-    <integrator type="path" />
+        <integrator type="path">
+        </integrator>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -521,16 +525,15 @@ end_header
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
-	sizeFactor := pow(1.1, sin(29*t))
 	angle := 90.0
 	instances := []instance{}
-	num := 9
+	num := 6 - int(math.Round(sin(2*t)*4))
 	for x := -num; x <= num; x++ {
 		for y := -num; y <= num; y++ {
 			for z := -num; z <= num; z++ {
 				loc := geom.Vec{float64(x), float64(y), float64(z)}
 				angle := float64((x+y+z)%4) * 90
-				instances = append(instances, instance{angle, loc, (.25 + cos(23*t)*.1) * pow(sizeFactor, loc.Len())})
+				instances = append(instances, instance{angle, loc, .47 + sin(19*t)*.02})
 			}
 		}
 	}
@@ -554,9 +557,9 @@ end_header
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
+		cos(2*t) + 2,
 		sin(3*t) + 2,
-		cos(5*t) + 2,
-		130 + sin(7*t)*20,
+		120 + cos(5*t)*30,
 		envRot.X,
 		envRot.Y,
 		envRot.Z,
@@ -567,7 +570,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
