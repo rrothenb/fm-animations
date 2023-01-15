@@ -495,8 +495,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="7200"/>
+            <integer name="height" value="7200"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
