@@ -118,7 +118,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * 1.25 / 360 * pi)
+	factor := tan(s.FOV * 1.5 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -531,14 +531,13 @@ end_header
 		IntIOR               float64
 		Scale                float64
 		G                    float64
-		Aperture             float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value="{{ .Aperture }}"/>
+        <float name="aperture_radius" value=".00000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -549,8 +548,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="9000"/>
-            <integer name="height" value="6000"/>
+            <integer name="width" value="7500"/>
+            <integer name="height" value="5000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -667,7 +666,6 @@ end_header
 			1.5 + sin(17*t)*.4,
 			pow(10, sin(19*t)+2),
 			cos(23*t) * .9,
-			pow(10, sin(23*t)*3-6),
 		})
 }
 
