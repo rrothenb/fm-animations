@@ -197,9 +197,9 @@ func shapeTexture(u, v, a float64) float64 {
 
 func sphereish(u, v, a, b, c float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0+a*sin(v)) * cos(u-b*sin(2*u)),
-		sin(v/2.0+a*sin(v)) * sin(u+b*sin(2*u)),
-		cos(v/2.0 - c*sin(v)),
+		spow(sin(v/2.0), a) * spow(cos(u), 1/b),
+		spow(sin(v/2.0), a) * spow(sin(u), b),
+		spow(cos(v/2.0), c),
 	}
 }
 
@@ -242,14 +242,10 @@ func displacement(loc geom.Vec, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := halfSphere(u, v).Scaled(pi)
-	a := cos(t/2) * 3
-	xTexture := texture(a, loc.Z, loc.Y, t)
-	yTexture := texture(a, loc.X, loc.Z, t)
-	zTexture := texture(a, loc.X, loc.Y, t)
-
-	r := 1 + .01*xTexture*yTexture*zTexture
-	return loc.Scaled(r / pi)
+	a := pow(10, sin(2*t))
+	b := pow(10, sin(3*t))
+	c := pow(10, sin(5*t))
+	return sphereish(u, v, a, b, c)
 }
 
 func index2radians(index float64, n int) float64 {

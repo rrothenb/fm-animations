@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"math"
 	"os"
 	"text/template"
-	"encoding/binary"
-	"bufio"
 
 	"github.com/Opioid/rgbe"
 	"github.com/hunterloftis/pbr/pkg/geom"
@@ -161,7 +161,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	r :=  .15*(1-.2*pow(spow(texture(u, v, t), pow(2, sin(2*t)-1))/2+.5, pow(2, sin(3*t))))
+	r := .15 * (1 - .2*pow(spow(texture(u, v, t), pow(2, sin(2*t)-1))/2+.5, pow(2, sin(3*t))))
 	return pathWrapper(u, v, r, outerKnot)
 }
 
@@ -179,11 +179,11 @@ func knot(t float64) geom.Vec {
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+strength(4*t)*subtexture3(u, v, t))+sin(5*v+strength(3*t)*subtexture3(u, v, t))
+	return sin(7*u+strength(4*t)*subtexture3(u, v, t)) + sin(5*v+strength(3*t)*subtexture3(u, v, t))
 }
 
 func subtexture3(u, v, t float64) float64 {
-	return sin(2*u+3*v)
+	return sin(2*u + 3*v)
 }
 
 func cube(u, v, t float64) geom.Vec {
@@ -195,11 +195,11 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0,-.15-cos(2*t)*.15, -1/2*pi}
+	return geom.Vec{0, -.15 - cos(2*t)*.15, -1 / 2 * pi}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0,-1-cos(3*t), 1}
+	return geom.Vec{0, -1 - cos(3*t), 1}
 }
 
 func strength(x float64) float64 {
@@ -225,7 +225,7 @@ func blendTexture(u, v, t float64) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	r := radius(u, v, t)
-	return geom.Vec{sin(u)*.5*r, cos(u)*.5*r, (v/pi-1)/2*pi}
+	return geom.Vec{sin(u) * .5 * r, cos(u) * .5 * r, (v/pi - 1) / 2 * pi}
 }
 
 func index2radians(index float64, n int) float64 {
@@ -248,10 +248,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	//distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 130-cos(11*t)*40
-	d := .4-cameraLoc.Len()
+	fov := 180 - cos(11*t)*40
+	d := .4 - cameraLoc.Len()
 	//maxD := sqrt(1+d*d)
-	minD := d/sin((180-fov)/360*2*pi)
+	minD := d / sin((180-fov)/360*2*pi)
 	distance := minD // (spow(-cos(5*t), .5)/2+.5)*(maxD-minD)+minD
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -429,33 +429,33 @@ end_header
 		FogRadius float64
 		Angle     float64
 		MinZ      float64
-		Weight1	  int
-		Weight2	  int
-		Weight3	  int
-		Weight4	  int
-		EnvX	  float64
+		Weight1   int
+		Weight2   int
+		Weight3   int
+		Weight4   int
+		EnvX      float64
 		EnvY      float64
 		EnvZ      float64
-		FOV		  float64
+		FOV       float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".001"/>
+        <float name="aperture_radius" value=".0000000000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="15"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2300"/>
-            <integer name="height" value="2300"/>
+            <integer name="width" value="1230"/>
+            <integer name="height" value="630"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -560,13 +560,13 @@ end_header
 			focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 			0,
 			minZ,
-			frameNumber%2,
-			(frameNumber/2)%2,
-			(frameNumber/4)%2,
-			(frameNumber/8)%2,
-			sin(19*t)*179,
-			sin(23*t)*179,
-			sin(29*t)*179,
+			frameNumber % 2,
+			(frameNumber / 2) % 2,
+			(frameNumber / 4) % 2,
+			(frameNumber / 8) % 2,
+			sin(19*t) * 179,
+			sin(23*t) * 179,
+			sin(29*t) * 179,
 			fov})
 }
 
