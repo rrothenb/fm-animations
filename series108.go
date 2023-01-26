@@ -241,7 +241,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 }
 
 func cube(u, v, t float64) geom.Vec {
-	a := sin(2*t) * .5
+	a := cos(t) * .5
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
@@ -477,6 +477,7 @@ end_header
 		EnvX      float64
 		EnvY      float64
 		EnvZ      float64
+		Scale     float64
 		Instances []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
@@ -491,12 +492,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="128"/>
-            <integer name="height" value="128"/>
+            <integer name="width" value="1024"/>
+            <integer name="height" value="1024"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -519,6 +520,12 @@ end_header
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
     	</bsdf>
+        <transform name="to_world">
+			<scale value="{{ .Scale }}"/>
+            <rotate value="1, 0, 0" angle="45"/>
+            <rotate value="0, 1, 0" angle="45"/>
+            <rotate value="0, 0, 1" angle="45"/>
+        </transform>
     </shape>
 </shape>
 
@@ -563,6 +570,7 @@ end_header
 		envRot.X,
 		envRot.Y,
 		envRot.Z,
+		pow(1.5, -cos(t)),
 		instances})
 }
 
@@ -570,7 +578,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
