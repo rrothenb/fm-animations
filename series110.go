@@ -182,14 +182,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	cameraLocs := [4]geom.Vec{
-		{1, 0, 0},
-		{1, 1, 0},
-		{1, 0, 1},
-		{1, 1, 1},
-	}
-	index := globalFrameNumber % len(cameraLocs)
-	return cameraLocs[index].Scaled(.5)
+	return geom.Vec{.5, 0, 0}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -241,7 +234,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 }
 
 func cube(u, v, t float64) geom.Vec {
-	a := sin(2*t) * .5
+	a := -(.25 + cos(21*t)*.25)
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
@@ -414,16 +407,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * 2 * pi
-			power := 2 * pow(10, sin(23*t)/2+.5)
+			power := 2 * pow(4, sin(15*t)-1)
 			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
-			if (frameNumber/4)%2 == 1 {
-				envmapValue = 1 - envmapValue
-			}
 			envmapArray = append(
 				envmapArray,
-				float32(pow(envmapValue, pow(2, sin(29*t)))),
-				float32(pow(envmapValue, pow(2, cos(31*t)))),
-				float32(pow(envmapValue, pow(2, -sin(37*t)))))
+				float32(pow(envmapValue, pow(2, sin(17*t)))),
+				float32(pow(envmapValue, pow(2, cos(18*t)))),
+				float32(pow(envmapValue, pow(2, -sin(19*t)))))
 		}
 	}
 
@@ -484,19 +474,19 @@ end_header
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".00000000001"/>
+        <float name="aperture_radius" value=".0000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="128"/>
-            <integer name="height" value="128"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -510,12 +500,23 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
-        <integrator type="path">
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="32"/>
         </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value=".5"/>
+        <rgb name="albedo" value="1,1,1"/>
+        <rgb name="sigma_t" value="1,1,1"/>
+        <phase type="hg">
+			<float name="g" value="0"/>
+		</phase>
+    </medium>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-		<bsdf type="dielectric">
+        <ref id="medium1" name="interior"/>
+		<bsdf type="roughdielectric">
+        	<float name="alpha" value=".005"/>
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
     	</bsdf>
@@ -525,15 +526,15 @@ end_header
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
-	angle := 90.0
+	maxDimension := math.Max(maxX, math.Max(maxY, maxZ))
+
 	instances := []instance{}
-	num := 6 - int(math.Round(sin(2*t)*4))
+	num := 9
 	for x := -num; x <= num; x++ {
 		for y := -num; y <= num; y++ {
 			for z := -num; z <= num; z++ {
 				loc := geom.Vec{float64(x), float64(y), float64(z)}
-				angle := float64((x+y+z)%4) * 90
-				instances = append(instances, instance{angle, loc, .47 + sin(19*t)*.02})
+				instances = append(instances, instance{0, loc, .49 / maxDimension})
 			}
 		}
 	}
@@ -541,25 +542,16 @@ end_header
 
 	envRot := geom.Vec{0, 0, 0}
 
-	if frameNumber%4 == 1 {
-		envRot.Z = 45
-	} else if frameNumber%4 == 2 {
-		envRot.Y = -45
-	} else if frameNumber%4 == 3 {
-		envRot.Z = 45
-		envRot.Y = -45
-	}
-
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
-		angle,
+		0,
 		minZ,
-		cos(2*t) + 2,
-		sin(3*t) + 2,
-		120 + cos(5*t)*30,
+		sin(11*t) + 2,
+		2 - cos(13*t),
+		120 + cos(14*t)*30,
 		envRot.X,
 		envRot.Y,
 		envRot.Z,
