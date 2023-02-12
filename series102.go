@@ -68,7 +68,7 @@ var zAxis = geom.Dir{0, 0, 1}
 func NewSLR2() *SLR2 {
 	s := &SLR2{
 		Width:    0.03,
-		Height:   0.01,
+		Height:   0.02,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -118,7 +118,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * .35 / 360 * pi)
+	factor := tan(s.FOV * 1.25 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -283,7 +283,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	//distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 10.0
+	fov := 5.0
 	c.FOV = fov
 	d := .4 - cameraLoc.Len()
 	//maxD := sqrt(1+d*d)
@@ -510,16 +510,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="40000"/>
-            <integer name="height" value="26666"/>
-            <integer name="crop_offset_y" value="6666"/>
-            <integer name="crop_height" value="12000"/>
-            <integer name="crop_offset_x" value="14666"/>
-            <integer name="crop_width" value="18000"/>
+            <integer name="width" value="3000"/>
+            <integer name="height" value="2000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>

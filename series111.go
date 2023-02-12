@@ -141,46 +141,6 @@ func circle(x float64) geom.Vec {
 	return geom.Vec{sin(x), cos(x), 0}
 }
 
-func lipTexture(u, t float64) float64 {
-	return sin(u + 2*strength(5, t)*sin(u+2*strength(7, t)*sin(u)) + 2*strength(11, t)*sin(2*u) + 2*strength(13, t)*sin(3*u))
-}
-
-func bowl(thickness, insideTexture, outsideTexture, u, v, t float64) geom.Vec {
-	width := 1.0 + .1*strength(3, t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(3, sin(2*t)))/2+.5, pow(3, sin(3*t)))
-	height := sin(t)*.15 + .35 + .1*strength(2, t)*pow(sin(v/2), 10)*pow(spow(lipTexture(u, t), pow(3, sin(2*t)))/2+.5, pow(3, sin(3*t)))
-	space := (cos(v/2-.7*sin(v))/2+.5)*(thickness+outsideTexture) + (.5-cos(v/2-.7*sin(v))/2)*insideTexture
-	return geom.Vec{
-		width * sin(u) * sin(v/2) * (1 + 1/height*space),
-		width * cos(u) * sin(v/2) * (1 + 1/height*space),
-		-height * cos(v-(sin(7*t)*.4+.5)*sin(2*v)) * (1 + 1/height*space),
-	}
-}
-
-// maybe torusKnot should have a path input and for a regular torus knot it's a circle but for a cable know it's a torusKnot
-func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
-	p := float64(pInt)
-	q := float64(qInt)
-	pathPoint := path(q * t)
-	return geom.Vec{(R + r*cos(p*t)) * pathPoint.X, (R + r*cos(p*t)) * pathPoint.Y, r*sin(p*t) + pathPoint.Z}
-}
-
-func lissajousKnot(t float64, xN, yN, zN int) geom.Vec {
-	return geom.Vec{sin(float64(xN) * t), sin(float64(yN) * t), cos(float64(zN) * t)}
-}
-
-func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
-	point, _ := lissajousKnot(t, xN, yN, zN).Unit()
-	return geom.Vec(point)
-}
-
-func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .25, 2, 3, circle)
-}
-
-func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .15, 3, 2, outerKnot)
-}
-
 func cameraPath(t float64) geom.Vec {
 	return geom.Vec{.5, 0, 0}
 }
@@ -196,10 +156,6 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
 	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
-}
-
-func knot(t float64) geom.Vec {
-	return unitLissajousKnot(t, 19, 20, 21)
 }
 
 func sphere(u, v, t float64) geom.Vec {
@@ -234,7 +190,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 }
 
 func cube(u, v, t float64) geom.Vec {
-	a := -(.25 + cos(21*t)*.25)
+	a := -(.2 + cos(t)*.3)
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
@@ -407,13 +363,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * 2 * pi
-			power := 2 * pow(4, sin(15*t)-1)
+			power := 8.0
 			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
 			envmapArray = append(
 				envmapArray,
-				float32(pow(envmapValue, pow(2, sin(17*t)))),
-				float32(pow(envmapValue, pow(2, cos(18*t)))),
-				float32(pow(envmapValue, pow(2, -sin(19*t)))))
+				float32(pow(envmapValue, pow(2, sin(7*t)*.25))),
+				float32(pow(envmapValue, pow(2, .75+sin(5*t)*.25))),
+				float32(pow(envmapValue, pow(2, sin(3*t)*.25-.75))))
 		}
 	}
 
@@ -473,8 +429,8 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".0000001"/>
+        <float name="focus_distance" value=".5"/>
+        <float name="aperture_radius" value=".000000000000000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
@@ -485,8 +441,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="600"/>
+            <integer name="height" value="600"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -500,23 +456,12 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
-        <integrator type="volpathmis">
-            <integer name="max_depth" value="32"/>
+        <integrator type="path">
         </integrator>
-    <medium id="medium1" type="homogeneous">
-        <float name="scale" value=".5"/>
-        <rgb name="albedo" value="1,1,1"/>
-        <rgb name="sigma_t" value="1,1,1"/>
-        <phase type="hg">
-			<float name="g" value="0"/>
-		</phase>
-    </medium>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-        <ref id="medium1" name="interior"/>
-		<bsdf type="roughdielectric">
-        	<float name="alpha" value=".005"/>
+		<bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
     	</bsdf>
@@ -549,9 +494,9 @@ end_header
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		0,
 		minZ,
-		sin(11*t) + 2,
-		2 - cos(13*t),
-		120 + cos(14*t)*30,
+		sin(2*t)*.25 + 1.75,
+		(sin(2*t)*.25 + 1.75) * pow(1.5, sin(4*t)),
+		90,
 		envRot.X,
 		envRot.Y,
 		envRot.Z,
@@ -562,7 +507,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
