@@ -242,10 +242,8 @@ func displacement(loc geom.Vec, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	a := pow(10, sin(2*t))
-	b := pow(10, sin(3*t))
-	c := pow(10, sin(5*t))
-	return sphereish(u, v, a, b, c)
+	r := .75 + .1*texture(1, u, v, t)
+	return pathWrapper(u, v+.1*texture(1, u, v, t), r, circle)
 }
 
 func index2radians(index float64, n int) float64 {
