@@ -195,11 +195,11 @@ func halfSphere(u, v float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, -sin(2*t)*.25 - .7}
+	return circle(t).Scaled(2).Plus(geom.Vec{0, 0, 2})
 }
 
 func focusPath(t float64) geom.Vec {
-	return halfSphere(sin(3*t)*pi+pi, sin(5*t)*pi/3+pi/2)
+	return circle(t + pi).Scaled(.25)
 }
 
 func strength(x float64) float64 {
@@ -282,8 +282,8 @@ func fm(a, t float64, loc geom.Vec) float64 {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := halfSphere(u, v)
-	return loc.Scaled(shape(fm(pow(4, sin(19*t)), t, loc), pow(6, sin(13*t)), pow(6, sin(17*t)))*.1 + 1)
+	r := .75 + .1*texture(1, u, v, t)
+	return pathWrapper(u, v+.1*texture(1, u, v, t), r, circle)
 }
 
 func blendTexture(u, v, t float64) float64 {
@@ -322,7 +322,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 75 + sin(29*t)*45
+	fov := 30 + sin(29*t)*10
 	c.FOV = fov
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -394,6 +394,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
+	if (frameNumber/4)%2 == 1 {
+		distance = 2.0
+	}
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth / totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -531,13 +534,14 @@ end_header
 		IntIOR               float64
 		Scale                float64
 		G                    float64
+		Aperture             float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".00000000001"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
@@ -548,8 +552,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2000"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -562,20 +566,10 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
-        <integrator type="volpathmis">
-            <integer name="max_depth" value="16"/>
+        <integrator type="path">
         </integrator>
-    <medium id="medium1" type="homogeneous">
-        <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="albedo" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-        <rgb name="sigma_t" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-        <phase type="hg">
-			<float name="g" value="{{ .G }}"/>
-		</phase>
-    </medium>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-        <ref id="medium1" name="interior"/>
     	<bsdf type="blendbsdf">
 			<texture type="bitmap" name="weight">
 				<string name="filename" value="mitsuba.blend.rgbe"/>
@@ -583,10 +577,9 @@ end_header
 			<bsdf type="blendbsdf">
 				<float name="weight" value="{{ .Weight1 }}"/>
 				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
+						<bsdf type="roughconductor">
                 			<float name="alpha" value="{{ .Rough1 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+							<string name="material" value="Ag"/>
 						</bsdf>
 				     </bsdf>
 				   <bsdf type="twosided">
@@ -600,10 +593,9 @@ end_header
 			<bsdf type="blendbsdf">
 				<float name="weight" value="{{ .Weight2 }}"/>
 				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough2 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						<bsdf type="roughconductor">
+                			<float name="alpha" value="{{ .Rough1 }}"/>
+							<string name="material" value="Ag"/>
 						</bsdf>
 				     </bsdf>
 				   <bsdf type="twosided">
@@ -666,6 +658,7 @@ end_header
 			1.5 + sin(17*t)*.4,
 			pow(10, sin(19*t)+2),
 			cos(23*t) * .9,
+			pow(10, cos(t)-3),
 		})
 }
 
