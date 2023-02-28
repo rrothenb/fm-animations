@@ -571,12 +571,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="25"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1600"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="1800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -598,12 +598,10 @@ end_header
 			<texture type="bitmap" name="weight">
 				<string name="filename" value="mitsuba.blend.rgbe"/>
 			</texture>
-			<bsdf type="roughdielectric">
-				<float name="alpha" value=".01"/>
+			<bsdf type="dielectric">
 			</bsdf>
 		   <bsdf type="twosided">
-				<bsdf type="roughconductor">
-                	<float name="alpha" value=".01"/>
+				<bsdf type="conductor">
 					<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 					<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
 				</bsdf>
