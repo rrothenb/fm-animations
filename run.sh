@@ -11,6 +11,8 @@ convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 mv data/$2.rgbe mitsuba.rgbe
 #convert mitsuba.rgbe -rotate 180 mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
+mv data/$2.land.blend.rgbe mitsuba.land.blend.rgbe
+convert mitsuba.land.blend.rgbe mitsuba.land.blend.jpg
 mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
