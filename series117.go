@@ -204,7 +204,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, -10}
+	return geom.Vec{0, 0, -12.5}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -225,7 +225,6 @@ func shapeTexture(f, a, u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	v = v * 10
 	return sin(
 		3*u + 5*v +
 			strength(1.7+19*t)*sin(2*u+strength(.7+7*t)*sin(3*u+strength(.3+3*t)*sin(5*u-7*v)*sin(11*u+3*v))) +
@@ -243,21 +242,19 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func landBlendTexture(u, v, t float64) float64 {
-	baseTexture := shapeTexture(1.1, 1.1, u, v, t)
-	texture := pow(baseTexture/2+.5, pow(20, spow(sin(16*t), .1)))*2 - 1
-	return spow(texture, pow(10, sin(5*t)-1))/2 + .5
+	baseTexture := sin(texture(-u/10, -v/10, t))
+	texture := 0.0
+	if abs(baseTexture) < sin(t)*.35+.45 {
+		texture = 1.0
+	}
+	return texture
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	//blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(17*t))) * sin(23*t)
-	//return geom.Vec{u/pi - 1, v/pi - 1, -.01 * blendValue}
-	minV := sin(t)*pi/2 + pi/2
-	maxV := minV + pi/3
-	limitedV := minV + v/2/pi*(maxV-minV)
-	//ridges := 20 + sin(7*t)*15
-	//a := 1 - spow(cos(floor(ridges)*v), pow(10, -cos(5*t)))*.5
 	blendValue := pow(spow(texture(u, v, t), pow(2, cos(3*t)))/2+.5, pow(2, cos(7*t))) * sin(5*t)
-	return pathWrapper(u, limitedV, .25*spow(sin(v/2), pow(10, sin(3*t)))*(1+.1*blendValue), innerKnot)
+	depth := texture(u/25, v/25, t)/2 + .5
+	wrinkle := pow(texture(v/50, u/50, t+1)/2+.5, pow(4, sin(3*t)))
+	return geom.Vec{u - pi, v - pi, .1*depth*blendValue - .5*wrinkle}
 }
 
 /*
@@ -291,7 +288,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 25.0
+	fov := 35.0
 	c.FOV = fov
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -521,7 +518,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -540,6 +537,12 @@ end_header
     <integrator type="path" />
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
+    	<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.land.blend.rgbe"/>
+			</texture>
+			<bsdf type="null">
+			</bsdf>
     	<bsdf type="blendbsdf">
 			<texture type="bitmap" name="weight">
 				<string name="filename" value="mitsuba.blend.rgbe"/>
@@ -615,6 +618,7 @@ end_header
 				</bsdf>
 			</bsdf>
 		</bsdf>
+			</bsdf>
     </shape>
     <shape type="rectangle">
         <bsdf type="twosided">
@@ -685,7 +689,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1536, "Max frames")
+	maxFrames := flag.Int("maxframes", 16, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
