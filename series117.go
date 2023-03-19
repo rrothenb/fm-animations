@@ -204,7 +204,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, -12.5}
+	return geom.Vec{0, 0, -10}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -241,10 +241,21 @@ func blendTexture(u, v, t float64) float64 {
 	return pow(texture(u, v, t)/2+.5, pow(3, sin(7*t)))
 }
 
-func landBlendTexture(u, v, t float64) float64 {
+func primaryMask(u, v, t float64) float64 {
 	baseTexture := sin(texture(-u/10, -v/10, t))
 	texture := 0.0
-	if abs(baseTexture) < sin(t)*.35+.45 {
+	if abs(baseTexture) < sin(2*t)*.25+.35 {
+		texture = 1.0
+	}
+	return texture
+}
+
+func secondaryMask(u, v, t float64) float64 {
+	baseTexture := sin(texture(-u/10, -v/10, t))
+	texture := 0.0
+	minThreshold := sin(2*t)*.25 + .55
+	maxThreshold := .8
+	if abs(baseTexture) > sin(3*t)*(maxThreshold-minThreshold)/2+(maxThreshold+minThreshold)/2 {
 		texture = 1.0
 	}
 	return texture
@@ -253,7 +264,7 @@ func landBlendTexture(u, v, t float64) float64 {
 func uv2xyz(u, v, t float64) geom.Vec {
 	blendValue := pow(spow(texture(u, v, t), pow(2, cos(3*t)))/2+.5, pow(2, cos(7*t))) * sin(5*t)
 	depth := texture(u/25, v/25, t)/2 + .5
-	wrinkle := pow(texture(v/50, u/50, t+1)/2+.5, pow(4, sin(3*t)))
+	wrinkle := texture(v/50, u/50, t+1)/2 + .5
 	return geom.Vec{u - pi, v - pi, .1*depth*blendValue - .5*wrinkle}
 }
 
@@ -288,7 +299,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 35.0
+	fov := 40.0
 	c.FOV = fov
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -400,14 +411,17 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	}
 	envmapArray := []float32{}
 	blendArray := []float32{}
-	landBlendArray := []float32{}
+	primaryMaskArray := []float32{}
+	secondaryMaskArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			blendValue := 1 - float32(pow(spow(texture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), pow(2, cos(3*t)))/2+.5, pow(4, cos(5*t))))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			landBlendValue := float32(landBlendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
-			landBlendArray = append(landBlendArray, landBlendValue, landBlendValue, landBlendValue)
+			primaryMaskValue := float32(primaryMask(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
+			primaryMaskArray = append(primaryMaskArray, primaryMaskValue, primaryMaskValue, primaryMaskValue)
+			secondaryMaskValue := float32(secondaryMask(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
+			secondaryMaskArray = append(secondaryMaskArray, secondaryMaskValue, secondaryMaskValue, secondaryMaskValue)
 
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -458,7 +472,8 @@ end_header
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
 	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
-	landBlendPath := fmt.Sprintf("data/%v.land.blend.rgbe", frameNumber)
+	primaryMaskPath := fmt.Sprintf("data/%v.primary.mask.rgbe", frameNumber)
+	secondaryMaskPath := fmt.Sprintf("data/%v.secondary.mask.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -468,8 +483,10 @@ end_header
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	blend, _ := os.Create(blendPath)
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
-	landBlend, _ := os.Create(landBlendPath)
-	rgbe.Encode(landBlend, endUIndex-startUIndex, endVIndex-startVIndex, landBlendArray)
+	primaryMaskFile, _ := os.Create(primaryMaskPath)
+	secondaryMaskFile, _ := os.Create(secondaryMaskPath)
+	rgbe.Encode(primaryMaskFile, endUIndex-startUIndex, endVIndex-startVIndex, primaryMaskArray)
+	rgbe.Encode(secondaryMaskFile, endUIndex-startUIndex, endVIndex-startVIndex, secondaryMaskArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -518,12 +535,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="25"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1000"/>
-            <integer name="height" value="1000"/>
+            <integer name="width" value="480"/>
+            <integer name="height" value="480"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -539,7 +556,7 @@ end_header
         <string name="filename" value="mitsuba.ply"/>
     	<bsdf type="blendbsdf">
 			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.land.blend.rgbe"/>
+				<string name="filename" value="mitsuba.primary.mask.rgbe"/>
 			</texture>
 			<bsdf type="null">
 			</bsdf>
@@ -620,7 +637,95 @@ end_header
 		</bsdf>
 			</bsdf>
     </shape>
-    <shape type="rectangle">
+   <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+    	<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.secondary.mask.rgbe"/>
+			</texture>
+			<bsdf type="null">
+			</bsdf>
+    	<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.blend.rgbe"/>
+			</texture>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight3 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+					</bsdf>
+				      <bsdf type="twosided">
+						<bsdf type="roughplastic">
+                			<float name="alpha" value="{{ .Rough1 }}"/>
+            				<float name="int_ior" value="{{ .IntIOR }}"/>
+							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+				     </bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough1 }}"/>
+						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough1 }}"/>
+						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						<rgb name="eta" value="1, 1, 1"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight1 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+					</bsdf>
+				      <bsdf type="twosided">
+						<bsdf type="roughplastic">
+                			<float name="alpha" value="{{ .Rough2 }}"/>
+            				<float name="int_ior" value="{{ .IntIOR }}"/>
+							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+				     </bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough2 }}"/>
+						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough2 }}"/>
+						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						<rgb name="eta" value="1, 1, 1"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+		</bsdf>
+			</bsdf>
+        <transform name="to_world">
+            <translate x="0" y="0" z="-.01"/>
+        </transform>
+    </shape>
+<shape type="rectangle">
         <bsdf type="twosided">
             <bsdf type="diffuse">
                 <rgb name="reflectance" value="0.8, 0.8, 0.8"/>
@@ -629,7 +734,7 @@ end_header
         <transform name="to_world">
             <scale value="10"/>
             <rotate value="0, 1, 0" angle="0"/>
-            <translate x="0" y="0" z="1.15"/>
+            <translate x="0" y="0" z=".5"/>
         </transform>
     </shape>
 </scene>
@@ -689,7 +794,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 1536, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
