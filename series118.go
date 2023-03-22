@@ -11,8 +11,6 @@ import (
 
 	"github.com/Opioid/rgbe"
 	"github.com/hunterloftis/pbr/pkg/geom"
-	"github.com/hunterloftis/pbr/pkg/material"
-	"github.com/hunterloftis/pbr/pkg/surface"
 )
 
 type MeshType struct {
@@ -213,20 +211,20 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, 2, 3, circle)
+	return torusKnot(t, 1, .5+sin(41*tGlobal)*.49, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, 3, 2, outerKnot)
+	return torusKnot(t, 1, .5+cos(43*tGlobal)*.49, 3, 2, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0, 0, .75 + 1*sin(2*t)}).Unit()
-	return loc.Scaled(7 + sin(t)*2)
+	loc, _ := circle(t).Plus(geom.Vec{0, 0, .75 + 1*sin(47*t)}).Unit()
+	return loc.Scaled(1.5 + cos(53*t))
 }
 
 func focusPath(t float64) geom.Vec {
-	return unitLissajousKnot(t+2, 3, 4, 5).Scaled(.4 - sin(5*t)*.2)
+	return innerKnot(t)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -243,10 +241,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	loc := pathWrapper(u, v, 1.5, innerKnot)
-	//a := radius(loc.X, loc.Y, loc.Z, t)
-	//fmt.Printf("loc: %v, a: %v\n", loc, a)
-	return loc.Scaled(radius(loc.X, loc.Y, loc.Z, t))
+	return pathWrapper(u, v, 1.5+sin(59+t), innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -270,7 +265,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = 35
-	distance := cameraLoc.Minus(focusPoint).Len() - .23
+	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -286,6 +281,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxY := 0.0
 	maxZ := 0.0
 	closestPoint := geom.Vec{0, 0, 0}
+	farthestPoint := cameraLoc
 	for uIndex := 1; uIndex <= 500; uIndex++ {
 		for vIndex := 1; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
@@ -304,14 +300,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				if cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len() {
 					closestPoint = vertex
 				}
+				if cameraLoc.Minus(farthestPoint).Len() < cameraLoc.Minus(vertex).Len() {
+					farthestPoint = vertex
+				}
 			}
 		}
 	}
-	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
-	dir, _ := focusPoint.Minus(cameraLoc).Unit()
-	_, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
-	//distance = cameraLoc.Len()
+	distance = cameraLoc.Minus(farthestPoint).Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -427,39 +422,40 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Camera   geom.Vec
-		LookAt   geom.Vec
-		Distance float64
-		Angle    float64
-		G        float64
-		Scale    float64
-		Red      float64
-		Green    float64
-		Blue     float64
-		Red2     float64
-		Green2   float64
-		Blue2    float64
-		IntIOR   float64
-		ExtIOR   float64
+		Camera    geom.Vec
+		LookAt    geom.Vec
+		Distance  float64
+		Angle     float64
+		G         float64
+		Scale     float64
+		Red       float64
+		Green     float64
+		Blue      float64
+		Red2      float64
+		Green2    float64
+		Blue2     float64
+		IntIOR    float64
+		ExtIOR    float64
+		Roughness float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".000001"/>
+        <float name="aperture_radius" value=".00000000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="7200"/>
-            <integer name="height" value="10800"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -487,7 +483,8 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <bsdf type="thindielectric">
+        <bsdf type="roughdielectric">
+			<float name="alpha" value="{{ .Roughness }}"/>
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
         </bsdf>
@@ -499,17 +496,18 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(2*t) * 180,
-		sin(5*t) * .9,
-		pow(10, sin(5*t)+2),
-		1 - (.9 + sin(7*t)*.1),
-		1 - (.75 + sin(7*t)*.2),
-		1 - (.7 + sin(7*t)*.25),
-		.9 + sin(11*t)*.1,
-		.75 + sin(11*t)*.2,
-		.7 + sin(11*t)*.25,
-		sin(13*t) + 2,
-		cos(17*t) + 2,
+		sin(29*t) * 180,
+		sin(23*t) * .9,
+		pow(5, sin(19*t)+2),
+		sin(2*t)*.5 + .5,
+		sin(7*t)*.5 + .5,
+		sin(11*t)*.5 + .5,
+		sin(3*t)*.5 + .5,
+		sin(5*t)*.5 + .5,
+		sin(13*t)*.5 + .5,
+		sin(31*t)*.25 + 1.25,
+		sin(37*t)*.25 + 1.25,
+		pow(10, cos(17*t)-2),
 	})
 	fmt.Printf("ior diff: %v\n", abs(sin(13*t)-cos(17*t)))
 }
@@ -518,7 +516,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 1024, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
