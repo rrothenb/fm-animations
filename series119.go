@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math"
@@ -29,6 +30,7 @@ var min = math.Min
 var max = math.Max
 
 var tGlobal = 0.0
+var frameNumberGlobal = 0
 
 func sign(x float64) float64 {
 	if x < 0 {
@@ -211,20 +213,26 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(41*tGlobal)*.49, 2, 3, circle)
+	p := [4]int{2, 2, 3, 3}
+	q := [4]int{3, 3, 2, 2}
+	i := (frameNumberGlobal / 64) % 4
+	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, p[i], q[i], circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+cos(43*tGlobal)*.49, 3, 2, outerKnot)
+	p := [4]int{3, 2, 3, 2}
+	q := [4]int{2, 3, 2, 3}
+	i := (frameNumberGlobal / 64) % 4
+	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, p[i], q[i], outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0, 0, .75 + 1*sin(47*t)}).Unit()
-	return loc.Scaled(1.5 + cos(53*t))
+	loc, _ := circle(t).Plus(geom.Vec{0, 0, .75 + 1*sin(5*t)}).Unit()
+	return loc.Scaled(10)
 }
 
 func focusPath(t float64) geom.Vec {
-	return innerKnot(t)
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -241,7 +249,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, 1.5+sin(59+t), innerKnot)
+	return pathWrapper(u, v, 1.5+sin(7*t), innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -260,6 +268,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	tGlobal = t
+	frameNumberGlobal = frameNumber
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t).Scaled(.075)
 	focusPoint := geom.Vec{0, 0, 0}
@@ -277,9 +286,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	totalHeight := 0.0
 	minDistance := 100.0
 	maxDistance := 0.0
-	maxX := 0.0
-	maxY := 0.0
-	maxZ := 0.0
+	maxX := -100.0
+	maxY := -100.0
+	maxZ := -100.0
+	minX := 100.0
+	minY := 100.0
+	minZ := 100.0
 	closestPoint := geom.Vec{0, 0, 0}
 	farthestPoint := cameraLoc
 	for uIndex := 1; uIndex <= 500; uIndex++ {
@@ -294,9 +306,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				totalHeight += vertex.Minus(vertexBelow).Len()
 				minDistance = math.Min(minDistance, vertex.Len())
 				maxDistance = math.Max(maxDistance, vertex.Len())
-				maxX = math.Max(maxX, math.Abs(vertex.X))
-				maxY = math.Max(maxY, math.Abs(vertex.Y))
-				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
+				maxX = math.Max(maxX, vertex.X)
+				maxY = math.Max(maxY, vertex.Y)
+				maxZ = math.Max(maxZ, vertex.Z)
+				minX = math.Min(minX, vertex.X)
+				minY = math.Min(minY, vertex.Y)
+				minZ = math.Min(minZ, vertex.Z)
 				if cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len() {
 					closestPoint = vertex
 				}
@@ -306,7 +321,15 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			}
 		}
 	}
-	distance = cameraLoc.Minus(farthestPoint).Len()
+	midX := (minX + maxX) / 2
+	midY := (minY + maxY) / 2
+	midZ := (minZ + maxZ) / 2
+	extent := math.Min(maxX-minX, math.Min(maxY-minY, maxZ-minZ))
+	cameraLoc = cameraLoc.Scaled(extent * 2.5)
+	fmt.Printf("\nextent: %v\n", extent)
+	center := geom.Vec{midX, midY, midZ}
+	focusPoint = center
+	distance = cameraLoc.Minus(closestPoint).Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -377,7 +400,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(10, sin(5*t)/2+.5)
+			power := 2 * pow(4, -cos(11*t)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -421,7 +444,7 @@ end_header
 	rgbe.Encode(metalBlend, nU, nV, metalBlendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
-	type sensor struct {
+	type Sensor struct {
 		Camera    geom.Vec
 		LookAt    geom.Vec
 		Distance  float64
@@ -450,12 +473,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="64"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="720"/>
+            <integer name="height" value="480"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -492,24 +515,58 @@ end_header
     </shape>
 </scene>
 `)
-	sensorTemplate.Execute(sensorFile, sensor{
+	red, green, blue := hsb2rgb(sin(13*t)/2+.5, .95, .95)
+	red2, green2, blue2 := hsb2rgb(cos(17*t)/2+.5, .95, .95)
+
+	sensor := Sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(29*t) * 180,
-		sin(23*t) * .9,
-		pow(5, sin(19*t)+2),
-		sin(2*t)*.5 + .5,
-		sin(7*t)*.5 + .5,
-		sin(11*t)*.5 + .5,
-		sin(3*t)*.5 + .5,
-		sin(5*t)*.5 + .5,
-		sin(13*t)*.5 + .5,
-		sin(31*t)*.25 + 1.25,
-		sin(37*t)*.25 + 1.25,
-		pow(10, cos(17*t)-2),
-	})
-	fmt.Printf("ior diff: %v\n", abs(sin(13*t)-cos(17*t)))
+		sin(19*t) * 180,
+		-cos(23*t) * .9,
+		pow(4, cos(29*t)+2),
+		red,
+		green,
+		blue,
+		red2,
+		green2,
+		blue2,
+		1 + pow(1.5, -cos(31*t)*4-3),
+		1,
+		pow(10, -cos(37*t)-3),
+	}
+
+	sensorTemplate.Execute(sensorFile, sensor)
+	formattedSensor, _ := json.MarshalIndent(sensor, "|", "    ")
+	fmt.Printf("\n%v\n", string(formattedSensor))
+}
+
+func hsb2rgb(hue, sat, bri float64) (r, g, b float64) {
+	u := bri
+	if sat == 0 {
+		r, g, b = u, u, u
+	} else {
+		h := (hue - math.Floor(hue)) * 6
+		f := h - math.Floor(h)
+		p := bri * (1 - sat)
+		q := bri * (1 - sat*f)
+		t := bri * (1 - sat*(1-f))
+		switch int(h) {
+		case 0:
+			r, g, b = u, t, p
+		case 1:
+			r, g, b = q, u, p
+		case 2:
+			r, g, b = p, u, t
+		case 3:
+			r, g, b = p, q, u
+		case 4:
+			r, g, b = t, p, u
+		case 5:
+			r, g, b = u, p, q
+		}
+	}
+	return
 }
 
 func main() {
