@@ -171,7 +171,8 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
+	a := cos(tGlobal) * .5
+	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
 func strength(x float64) float64 {
@@ -241,9 +242,13 @@ func displacement(loc geom.Vec, t float64) geom.Vec {
 	return geom.Vec{xTexture, yTexture, zTexture}
 }
 
+func fabricPath(t float64) geom.Vec {
+	//return geom.Vec{sin(29*t), cos(31*t), .1*cos(2*29*31*t)*cos(29*t)}
+	return geom.Vec{sin(17 * t), sin(19 * t), sin((17*19-2)*t) * .15}
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	r := .75 + .1*texture(1, u, v, t)
-	return pathWrapper(u, v+.1*texture(1, u, v, t), r, circle)
+	return pathWrapper(u, v, .075, fabricPath)
 }
 
 func index2radians(index float64, n int) float64 {
