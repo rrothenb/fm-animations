@@ -30,6 +30,8 @@ var abs = math.Abs
 var min = math.Min
 var max = math.Max
 
+var globalT = 0.0
+
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -67,8 +69,8 @@ var zAxis = geom.Dir{0, 1, 0}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.054,
-		Height:   0.054,
+		Width:    0.16,
+		Height:   0.09,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -115,11 +117,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * 1.0 / 360 * pi)
+	factor := tan(s.FOV * .5 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -186,7 +187,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{sin(t) * .75, (cos(t) - 1) * .75, 1.25 + cos(t)}
+	return geom.Vec{sin(41*t) * .75, (cos(41*t) - 1) * .75, 1.25 + cos(41*t)}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -267,21 +268,37 @@ func texture2(u, v, t float64) float64 {
 }
 
 func fabricPath(t float64) geom.Vec {
-	return geom.Vec{sin(29 * t), sin(31 * t), sin((29*31-2)*t) * .05}
+	return geom.Vec{sin(29 * t), sin(31 * t), sin((29*31-2)*t) * (wireRadius(globalT) + innerWireBundleRadius(globalT) + outerWireBundleRadius(globalT))}
 }
 
 func middlePath(t float64) geom.Vec {
-	return torusKnot(t, 1, .025, 2999, 3, fabricPath)
+	return torusKnot(t, 1, outerWireBundleRadius(globalT), 2999, 3, fabricPath)
 }
 
 func threadPath(t float64) geom.Vec {
-	return torusKnot(t, 1, .01, 3001, 3, middlePath)
+	return torusKnot(t, 1, innerWireBundleRadius(globalT), 3001, 3, middlePath)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := pathWrapper(u, v, .005, threadPath)
+	loc := pathWrapper(u, v, wireRadius(t), threadPath)
 	//displacement := geom.Vec{0, 0, .1 * pow(spow(texture2((loc.X-loc.Y)*pi, (loc.X+loc.Y)*pi, t), pow(2, sin(2*t)))/2+.5, pow(2, cos(3*t)))}
 	return loc
+}
+
+func wireRadius(t float64) float64 {
+	return pow(10, cos(5*t)*.5-.5) * .02
+}
+
+func innerWireBundleRadius(t float64) float64 {
+	minRadius := wireRadius(t)
+	maxRadius := .02
+	return (cos(7*t)/2+.5)*(maxRadius-minRadius) + minRadius
+}
+
+func outerWireBundleRadius(t float64) float64 {
+	minRadius := innerWireBundleRadius(t) * 2
+	maxRadius := .04
+	return (cos(11*t)/2+.5)*(maxRadius-minRadius) + minRadius
 }
 
 func index2radians(index float64, n int) float64 {
@@ -299,11 +316,12 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	globalT = t
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FOV = 30 + cos(t)*15
+	c.FOV = 30 + cos(41*t)*15
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -421,12 +439,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
 			blendValue := float32(pow(spow(shapeTexture(2, 1, t, loc), 10)/2+.5, 10))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			textureValue := pow(spow(shapeTexture(1, .75-cos(41*t)*.5, t, loc), .1)/2+.5, pow(10, sin(29*t)))
+			textureValue := pow(spow(shapeTexture(1, .75-cos(13*t)*.5, t, loc), .1)/2+.5, pow(10, sin(17*t)))
 			textureArray = append(
 				textureArray,
-				float32(pow(textureValue, pow(2, cos(11*t)))),
-				float32(pow(textureValue, pow(2, sin(7*t)))),
-				float32(pow(textureValue, pow(2, -cos(5*t)))))
+				float32(pow(textureValue, pow(2, cos(19*t)))),
+				float32(pow(textureValue, pow(2, sin(23*t)))),
+				float32(pow(textureValue, pow(2, -cos(29*t)))))
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -450,7 +468,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(10, sin(5*t)/2+.5)
+			power := 2 * pow(10, sin(31*t)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -497,18 +515,9 @@ end_header
 		Distance float64
 		MinZ     float64
 		FOV      float64
-		Scale    float64
-		G        float64
-		Red      float64
-		Green    float64
-		Blue     float64
-		Red2     float64
-		Green2   float64
-		Blue2    float64
 		EnvX     float64
 		EnvY     float64
 		EnvZ     float64
-		Weight   float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -522,12 +531,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="15"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="1920"/>
+            <integer name="height" value="1080"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -568,18 +577,9 @@ end_header
 		distance,
 		minZ,
 		c.FOV,
-		pow(10, sin(17*t)+2),
-		cos(19*t) * .5,
-		cos(2*t)/3 + .666,
-		sin(3*t)/3 + .666,
-		sin(5*t)/3 + .666,
-		.666 - cos(2*t)/3,
-		.666 - sin(3*t)/3,
-		.666 - sin(5*t)/3,
 		0,
 		sin(3*t) * 120,
 		sin(2*t) * 179,
-		sin(23*t)*.24 + .25,
 	})
 }
 

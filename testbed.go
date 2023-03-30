@@ -171,7 +171,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	a := cos(tGlobal) * .5
+	a := 0.0
 	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
@@ -247,8 +247,12 @@ func fabricPath(t float64) geom.Vec {
 	return geom.Vec{sin(17 * t), sin(19 * t), sin((17*19-2)*t) * .15}
 }
 
+func threadPath(t float64) geom.Vec {
+	return torusKnot(t, 1, .01, 7, 2, fabricPath)
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .075, fabricPath)
+	return pathWrapper(u, v, .001, threadPath)
 }
 
 func index2radians(index float64, n int) float64 {
