@@ -154,15 +154,19 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, 2, 3, circle)
+	return torusKnot(t, 1, pow(.666, 1), 3, 7, circle)
 }
 
 func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, 3, 5, outerKnot)
+	return torusKnot(t, 1, pow(.666, 2), 7, 3, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+cos(5*tGlobal)*.49, 5, 2, middleKnot)
+	return torusKnot(t, 1, pow(.666, 3), 7, 3, middleKnot)
+}
+
+func lastKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, pow(.666, 4), 3, 7, middleKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -251,8 +255,15 @@ func threadPath(t float64) geom.Vec {
 	return torusKnot(t, 1, .01, 7, 2, fabricPath)
 }
 
+func symmetricalKnot(t float64) geom.Vec {
+	a := sin(2 * tGlobal)
+	b := sin(3 * tGlobal)
+	c := sin(5 * tGlobal)
+	return circle(t).Plus(geom.Vec{cos(t - a*sin(2*t)), cos(t - b*sin(2*t)), cos(t - c*sin(2*t))}.Scaled(.75))
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .001, threadPath)
+	return pathWrapper(u, v, pow(.666, 10), lastKnot)
 }
 
 func index2radians(index float64, n int) float64 {
