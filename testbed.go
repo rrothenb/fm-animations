@@ -153,20 +153,26 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 	return geom.Vec{(R + r*cos(p*t)) * pathPoint.X, (R + r*cos(p*t)) * pathPoint.Y, r*sin(p*t) + pathPoint.Z}
 }
 
+var factor = .51
+
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(.666, 1), 3, 7, circle)
+	return torusKnot(t, 1, pow(factor, 1), 3, 2, circle)
 }
 
 func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(.666, 2), 7, 3, outerKnot)
+	return torusKnot(t, 1, pow(factor, 2), 2, 3, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(.666, 3), 7, 3, middleKnot)
+	return torusKnot(t, 1, pow(factor, 3), 3, 2, middleKnot)
 }
 
 func lastKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(.666, 4), 3, 7, middleKnot)
+	return torusKnot(t, 1, pow(factor, 4), 2, 3, innerKnot)
+}
+
+func lastKnotForRealz(t float64) geom.Vec {
+	return torusKnot(t, 1, pow(factor, 5), 3, 2, lastKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -234,10 +240,6 @@ func xyzTexture(a, x, y, z, t float64) float64 {
 			pow(texture(a, -z, -y, t), 2)), pow(2, sin(2*t)))/2+.5, pow(2, sin(3*t))) * spow(x, 4)
 }
 
-func shape(x, a, b float64) float64 {
-	return pow(spow(x, pow(2, a))/2+.5, pow(2, b))
-}
-
 func displacement(loc geom.Vec, t float64) geom.Vec {
 	a := pow(2, sin(2*t)-3)
 	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t), sin(7*t), sin(11*t)) * spow(loc.X, 4)
@@ -262,8 +264,20 @@ func symmetricalKnot(t float64) geom.Vec {
 	return circle(t).Plus(geom.Vec{cos(t - a*sin(2*t)), cos(t - b*sin(2*t)), cos(t - c*sin(2*t))}.Scaled(.75))
 }
 
+func shape(x, a, b float64) float64 {
+	return spow(pow(x/2+.5, pow(10, a))*2-1, pow(10, b))
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, pow(.666, 10), lastKnot)
+	a := sin(2 * t)
+	b := sin(3 * t)
+	c := sin(5 * t)
+	d := sin(7 * t)
+	e := sin(11 * t)
+	f := sin(13 * t)
+	g := sin(17 * t)
+	fm := pow(shape(sin(2*v+c*sin(u+d*sin(u-v)))*cos(u+e*sin(u)+f*sin(v+g*sin(3*u+2*v))), a, b), 2)
+	return sphere(u, v, t).Scaled(1 - .25*fm)
 }
 
 func index2radians(index float64, n int) float64 {

@@ -11,8 +11,8 @@ convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 mv data/$2.rgbe mitsuba.rgbe
 #convert mitsuba.rgbe -rotate 180 mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
-mv data/$2.primary.mask.rgbe mitsuba.primary.mask.rgbe
-convert mitsuba.primary.mask.rgbe mitsuba.primary.mask.jpg
+mv data/$2.clay.1.color.rgbe clay.1.color.rgbe
+convert clay.1.color.rgbe clay.1.color.jpg
 mv data/$2.secondary.mask.rgbe mitsuba.secondary.mask.rgbe
 convert mitsuba.secondary.mask.rgbe mitsuba.secondary.mask.jpg
 mv data/$2.texture.rgbe mitsuba.texture.rgbe

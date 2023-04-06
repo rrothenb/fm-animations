@@ -120,7 +120,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * .5 / 360 * pi)
+	factor := tan(s.FOV * .75 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -217,25 +217,23 @@ func sphere(u, v, t float64) geom.Vec {
 
 func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 	loc = loc.Scaled(f * 2 * pi)
-	loc.X = abs(loc.X)
-	loc.Y = abs(loc.Y)
-	loc.Z = abs(loc.Z)
+	s7 := strength(7, t)
+	s11 := strength(11, t)
+	s19 := strength(19, t)
+	s23 := strength(23, t)
+	s29 := strength(29, t)
+	s31 := strength(31, t)
 	return sin(
-		a*strength(7, t)*sin(a*strength(23, t)*loc.Z) +
-			a*strength(7, t)*sin(a*strength(23, t)*loc.Y) +
-			a*strength(7, t)*sin(a*strength(23, t)*loc.X) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y-a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z-a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)))
+		a*s7*sin(a*s23*loc.Y) +
+			a*s7*sin(a*s23*loc.X) +
+			a*s11*sin(a*s19*2*loc.X+a*s29*sin(a*s31*3*loc.Y)) +
+			a*s11*sin(a*s19*2*loc.X+a*s29*sin(a*s31*3*loc.Z)) +
+			a*s11*sin(a*s19*2*loc.Y+a*s29*sin(a*s31*3*loc.Z)) +
+			a*s11*sin(a*s19*2*loc.Z+a*s29*sin(a*s31*3*loc.X)) +
+			a*s11*sin(a*s19*2*loc.X-a*s29*sin(a*s31*3*loc.Z)) +
+			a*s11*sin(a*s19*2*loc.Y-a*s29*sin(a*s31*3*loc.X)) +
+			a*s11*sin(a*s19*2*loc.Z-a*s29*sin(a*s31*3*loc.X)) +
+			a*s11*sin(a*s19*2*loc.Z-a*s29*sin(a*s31*3*loc.Y)))
 }
 
 func cube(u, v, t float64) geom.Vec {
@@ -436,10 +434,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * 2 * pi
 			loc := uv2xyz(u, v, t).Scaled(2 * pi)
-			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(pow(spow(shapeTexture(2, 1, t, loc), 10)/2+.5, 10))
+			blendValue := float32(pow(spow(shapeTexture(2, .75-sin(43*t)*.5, t, loc), pow(10, -sin(53*t)))/2+.5, pow(10, cos(59*t))))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			textureValue := pow(spow(shapeTexture(1, .75-cos(13*t)*.5, t, loc), .1)/2+.5, pow(10, sin(17*t)))
+			textureValue := pow(spow(shapeTexture(1, .75-cos(13*t)*.5, t, loc), pow(10, -cos(47*t)))/2+.5, pow(10, sin(17*t)))
 			textureArray = append(
 				textureArray,
 				float32(pow(textureValue, pow(2, cos(19*t)))),
@@ -531,12 +528,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="15"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1920"/>
-            <integer name="height" value="1080"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="1800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -587,7 +584,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
