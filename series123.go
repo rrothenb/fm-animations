@@ -64,16 +64,16 @@ func roughnessTexture(x, y, z, t float64) float64 {
 }
 
 func clay1Color(x, y, z, t float64) geom.Vec {
-	r := sin(7*t)/2 + .5
+	r := sin(43*t)/2 + .5
 	rRange := min(r, 1-r)
-	g := sin(11*t)/2 + .5
+	g := sin(47*t)/2 + .5
 	gRange := min(r, 1-r)
-	b := sin(13*t)/2 + .5
+	b := sin(53*t)/2 + .5
 	bRange := min(r, 1-r)
 	return geom.Vec{
-		r + rRange*sin(2*t+x+20*sin(2*y+20*sin(3*y))),
-		g + gRange*sin(3*t+x+z+20*sin(3*z+20*sin(5*x))),
-		b + bRange*sin(5*t+x-y+20*sin(4*z+20*sin(x-y))),
+		r + rRange*sin(59*t+x+20*sin(2*y+20*sin(3*y))),
+		g + gRange*sin(61*t+x+z+20*sin(3*z+20*sin(5*x))),
+		b + bRange*sin(67*t+x-y+20*sin(4*z+20*sin(x-y))),
 	}
 }
 
@@ -196,9 +196,9 @@ func lipTexture(u, t float64) float64 {
 }
 
 func sphere(u, v, t float64) geom.Vec {
-	a := .25 - cos(2*t)*.25
-	b := .25 - cos(3*t)*.25
-	c := .25 - cos(5*t)*.25
+	a := .25 - cos(31*t)*.25
+	b := .25 - cos(37*t)*.25
+	c := .25 - cos(41*t)*.25
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-b*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+b*sin(2*u)),
@@ -280,20 +280,20 @@ func shape(x, a, b float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	vFreq := floor(12 + sin(5*t)*10)
-	uFreq := floor((sin(7*t)/2+.5)*(vFreq-2) + 2)
+	vFreq := floor(12 + sin(2*t)*10)
+	uFreq := floor((sin(3*t)/2+.5)*(vFreq-2) + 2)
 	a := sin(2 * t)
 	b := sin(3 * t)
 	return pow(shape(sin(vFreq*v)*sin((vFreq-uFreq)*v+uFreq*u), a, b), 2)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	microTexture := texture(pow(10, sin(2*t)+2)*u, pow(10, sin(3*t)+2)*v, t) * texture(pow(10, sin(5*t)+2)*v, pow(10, sin(7*t)+2)*u, t)
+	microTexture := texture(pow(10, sin(5*t)+2)*u, pow(10, sin(7*t)+2)*v, t) * texture(pow(10, sin(11*t)+2)*v, pow(10, sin(13*t)+2)*u, t)
 	return sphere(u, v, t).Scaled(1 - .25*texture(u, v, t) - .001*microTexture*(1-metalBlendTexture(u, v, t)))
 }
 
 func metalBlendTexture(u, v, t float64) float64 {
-	return pow(spow(shapeTexture(u, v, t), pow(10, sin(11*t)))/2+.5, pow(2, sin(13*t)*2))
+	return pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(2, sin(19*t)*2))
 
 }
 func index2radians(index float64, n int) float64 {
@@ -430,7 +430,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 			v := float64(vIndex) / float64(nV) * pi
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
 			// blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
-			blendValue := float32(spow((sin(2*u+1000*v+strength(3*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(2*t+1.8)*sin(u-1101*v)))/2, .1))/2 + .5
+			blendValue := float32(spow((sin(2*u+1000*v+strength(23*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(29*t+1.8)*sin(u-1101*v)))/2, .1))/2 + .5
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			metalBlendValue := float32(metalBlendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
@@ -531,12 +531,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1200"/>
-            <integer name="height" value="1200"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -568,11 +568,16 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
-	<shape type="rectangle">
+	<shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
-            <scale value="10"/>
-            <translate x="0" y="0" z="{{ .MinZ }}"/>
+            <scale value="10,10,.1"/>
+            <translate x="0" y="0" z="-1.1"/>
         </transform>
+         <bsdf type="twosided">
+            <bsdf type="diffuse">
+            </bsdf>
+		 </bsdf>
 	</shape>
 	<shape type="sphere">
         <transform name="to_world">
@@ -585,7 +590,10 @@ end_header
 	</shape>
 </scene>
 `)
-	squareness := max(.25-cos(2*t)*.25, max(.25-cos(3*t)*.25, .25-cos(5*t)*.25))
+	intIOR := 1 + pow(.5, cos(43*t)*5+6)
+	if intIOR < 1.015 {
+		intIOR = 1
+	}
 	angle := 180 - t/pi*180
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -594,16 +602,16 @@ end_header
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
-		1 + pow(.5, cos(t)*5+6),
-		20 + 10*squareness,
-		1.01 + squareness})
+		intIOR,
+		15 + 15*(maxDistance-1),
+		.01 + maxDistance})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 128, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

@@ -7,3 +7,10 @@
 *.mov
 .idea/
 images/
+*.mp4
+*.out
+*.jpeg
+*.avi
+*.gif
+*.mpeg
+*.hdr
