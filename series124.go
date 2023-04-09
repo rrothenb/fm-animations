@@ -22,6 +22,7 @@ type MeshType struct {
 
 var sin = math.Sin
 var cos = math.Cos
+var tan = math.Tan
 var pow = math.Pow
 var sqrt = math.Sqrt
 var pi = math.Pi
@@ -64,16 +65,16 @@ func roughnessTexture(x, y, z, t float64) float64 {
 }
 
 func clay1Color(x, y, z, t float64) geom.Vec {
-	r := sin(43*t)/2 + .5
+	r := sin(2*t)/2 + .5
 	rRange := min(r, 1-r)
-	g := sin(47*t)/2 + .5
+	g := sin(3*t)/2 + .5
 	gRange := min(r, 1-r)
-	b := sin(53*t)/2 + .5
+	b := sin(5*t)/2 + .5
 	bRange := min(r, 1-r)
 	return geom.Vec{
-		r + rRange*sin(59*t+x+20*sin(2*y+20*sin(3*y))),
-		g + gRange*sin(61*t+x+z+20*sin(3*z+20*sin(5*x))),
-		b + bRange*sin(67*t+x-y+20*sin(4*z+20*sin(x-y))),
+		r + rRange*sin(7*t+x+20*sin(2*y+20*sin(3*y))),
+		g + gRange*sin(11*t+x+z+20*sin(3*z+20*sin(5*x))),
+		b + bRange*sin(13*t+x-y+20*sin(4*z+20*sin(x-y))),
 	}
 }
 
@@ -106,19 +107,20 @@ type SLR2 struct {
 	Lens   float64
 	FStop  float64
 	Focus  float64
+	FOV    float64
 
 	trans    *geom.Mtx
 	position geom.Vec
 	target   geom.Vec
 }
 
-var zAxis = geom.Dir{0, 0, 1}
+var zAxis = geom.Dir{0, 1, 0}
 
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.054,
-		Height:   0.036,
+		Width:    0.16,
+		Height:   0.09,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -165,11 +167,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := .35
+	factor := tan(s.FOV * .666 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -177,10 +178,10 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	if projectedPoint.Y < projectedPoint.Z*factor || projectedPoint.Y > -projectedPoint.Z*factor {
 		return true
 	}
-	return false
 	if projectedPoint.Z > 0.0 {
 		return true
 	}
+	return false
 	if projectedPoint.Z < -s.position.Len() {
 		return true
 	}
@@ -196,9 +197,9 @@ func lipTexture(u, t float64) float64 {
 }
 
 func sphere(u, v, t float64) geom.Vec {
-	a := .25 - cos(31*t)*.25
-	b := .25 - cos(37*t)*.25
-	c := .25 - cos(41*t)*.25
+	a := .25 - cos(17*t)*.25
+	b := .25 - cos(19*t)*.25
+	c := .25 - cos(23*t)*.25
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-b*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+b*sin(2*u)),
@@ -232,8 +233,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0, 0, .666}).Unit()
-	return loc.Scaled(1)
+	cameraLocs := [3]geom.Vec{
+		{0, 0, 10},
+		{10, 0, 0},
+		{5.7735, 5.7735, 5.7735}}
+	return cameraLocs[frameNumber%3]
 }
 
 func focusPath(t float64) geom.Vec {
@@ -276,24 +280,24 @@ func shapeTexture(u, v, t float64) float64 {
 }
 
 func shape(x, a, b float64) float64 {
-	return spow(pow(x/2+.5, pow(4, a))*2-1, pow(4, b))
+	return spow(pow(x/2+.5, pow(3, a))*2-1, pow(3, b))
 }
 
 func texture(u, v, t float64) float64 {
-	vFreq := floor(12 + sin(2*t)*10)
-	uFreq := floor((sin(3*t)/2+.5)*(vFreq-2) + 2)
+	vFreq := floor(12 + sin(29*t)*10)
+	uFreq := floor((sin(31*t)/2+.5)*(vFreq-2) + 2)
 	a := sin(2 * t)
 	b := sin(3 * t)
 	return pow(shape(sin(vFreq*v)*sin((vFreq-uFreq)*v+uFreq*u), a, b), 2)
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	microTexture := texture(pow(10, sin(5*t)+2)*u, pow(10, sin(7*t)+2)*v, t) * texture(pow(10, sin(11*t)+2)*v, pow(10, sin(13*t)+2)*u, t)
+	microTexture := texture(pow(10, sin(37*t)+2)*u, pow(10, sin(41*t)+2)*v, t) * texture(pow(10, sin(43*t)+2)*v, pow(10, sin(47*t)+2)*u, t)
 	return sphere(u, v, t).Scaled(1 - .25*texture(u, v, t) - .001*microTexture*(1-metalBlendTexture(u, v, t)))
 }
 
 func metalBlendTexture(u, v, t float64) float64 {
-	return pow(spow(shapeTexture(u, v, t), pow(10, sin(17*t)))/2+.5, pow(2, sin(19*t)*2))
+	return pow(spow(shapeTexture(u, v, t), pow(10, sin(53*t)))/2+.5, pow(2, sin(59*t)*2))
 
 }
 func index2radians(index float64, n int) float64 {
@@ -315,6 +319,8 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
+	fov := 10.0
+	c.FOV = fov
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -370,7 +376,8 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 			}
 		}
 	}
-	cameraLoc = cameraLoc.Scaled(math.Max(maxX, math.Max(maxY, maxZ)) * 8)
+	fov = 9 + 5*(maxDistance-1)
+	c.FOV = fov
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
@@ -430,7 +437,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 			v := float64(vIndex) / float64(nV) * pi
 			roughnessValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, roughnessTexture, sphere))
 			// blendValue := float32(uvTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, blendTexture, sphere))
-			blendValue := float32(spow((sin(2*u+1000*v+strength(23*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(29*t+1.8)*sin(u-1101*v)))/2, .1))/2 + .5
+			blendValue := float32(spow((sin(2*u+1000*v+strength(61*t+1.7)*sin(5*u+873*v))+sin(3*u+901*v+strength(67*t+1.8)*sin(u-1101*v)))/2, .1))/2 + .5
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			metalBlendValue := float32(metalBlendTexture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
@@ -509,39 +516,43 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		MinZ      float64
-		IntIOR    float64
-		FOV       float64
-		Scale     float64
+		Camera   geom.Vec
+		LookAt   geom.Vec
+		Distance float64
+		FOV      float64
+		EnvX     float64
+		EnvY     float64
+		EnvZ     float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000001"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="aperture_radius" value=".0000000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="1600"/>
+            <integer name="height" value="900"/>
             <rfilter type="box"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="kloppenheim_06_4k.hdr"/>
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="1"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
+        </transform>
     </emitter>
     <integrator type="path" />
     <bsdf type="blendbsdf" id="object_bsdf">
@@ -568,50 +579,24 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
-	<shape type="ply">
-        <string name="filename" value="mitsuba.ply"/>
-        <transform name="to_world">
-            <scale value="10,10,.1"/>
-            <translate x="0" y="0" z="-1.1"/>
-        </transform>
-         <bsdf type="twosided">
-            <bsdf type="diffuse">
-            </bsdf>
-		 </bsdf>
-	</shape>
-	<shape type="sphere">
-        <transform name="to_world">
-            <scale value="{{ .Scale }}"/>
-        </transform>
-		<bsdf type="dielectric">
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="1"/>
-		</bsdf>
-	</shape>
 </scene>
 `)
-	intIOR := 1 + pow(.5, cos(43*t)*5+6)
-	if intIOR < 1.015 {
-		intIOR = 1
-	}
-	angle := 180 - t/pi*180
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
-		angle,
-		minZ,
-		intIOR,
-		15 + 15*(maxDistance-1),
-		.01 + maxDistance})
+		fov,
+		sin(73*t) * 175,
+		sin(79*t) * 175,
+		sin(71*t) * 175,
+	})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
