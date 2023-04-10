@@ -72,9 +72,9 @@ func clay1Color(x, y, z, t float64) geom.Vec {
 	b := sin(5*t)/2 + .5
 	bRange := min(r, 1-r)
 	return geom.Vec{
-		r + rRange*sin(7*t+x+20*sin(2*y+20*sin(3*y))),
-		g + gRange*sin(11*t+x+z+20*sin(3*z+20*sin(5*x))),
-		b + bRange*sin(13*t+x-y+20*sin(4*z+20*sin(x-y))),
+		r + rRange*sin(x+strength(7*t)*sin(2*y+strength(23*t)*sin(3*y))),
+		g + gRange*sin(x+z+strength(11*t)*sin(3*z+strength(19*t)*sin(5*x))),
+		b + bRange*sin(x-y+strength(13*t)*sin(4*z+strength(17*t)*sin(x-y))),
 	}
 }
 
@@ -292,7 +292,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	microTexture := texture(pow(10, sin(37*t)+2)*u, pow(10, sin(41*t)+2)*v, t) * texture(pow(10, sin(43*t)+2)*v, pow(10, sin(47*t)+2)*u, t)
+	microTexture := texture(pow(10, floor(sin(37*t)+2))*u, pow(10, floor(sin(41*t)+2))*v, t) * texture(pow(10, floor(sin(43*t)+2))*v, pow(10, floor(sin(47*t)+2))*u, t)
 	return sphere(u, v, t).Scaled(1 - .25*texture(u, v, t) - .001*microTexture*(1-metalBlendTexture(u, v, t)))
 }
 
@@ -536,12 +536,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1600"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="1800"/>
             <rfilter type="box"/>
         </film>
     </sensor>
