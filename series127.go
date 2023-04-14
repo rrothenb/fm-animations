@@ -234,15 +234,15 @@ func innerKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, .15, 3, 2, outerKnot)
 }
 
-func focusPath(t float64) geom.Vec {
+func cameraPath(t float64) geom.Vec {
 	x := .5 - cos(103*t)/2
 	z := 1 - x
 	y := pow(x*z, .5)
 	loc, _ := geom.Vec{x, y, z}.Unit()
-	return loc.Scaled(10)
+	return loc.Scaled(2)
 }
 
-func cameraPath(t float64) geom.Vec {
+func focusPath(t float64) geom.Vec {
 	return geom.Vec{0, 0, 0}
 }
 
@@ -369,7 +369,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	fov := 90.0 + 60*sin(t)
+	fov := 75.0
 	c.FOV = fov
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -429,8 +429,10 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = 1.0
+	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
+	fov = 75.0 + 50*(maxDistance-1)
+	c.FOV = fov
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -592,12 +594,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="1200"/>
+            <integer name="height" value="1200"/>
             <rfilter type="box"/>
         </film>
     </sensor>
@@ -626,6 +628,7 @@ end_header
             </bsdf>
 		 </bsdf>
     </bsdf>
+<shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -634,6 +637,17 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <scale value="3"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+</shape>
 </scene>
 `)
 
