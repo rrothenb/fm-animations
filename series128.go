@@ -171,7 +171,7 @@ func sphere(u, v, t float64) geom.Vec {
 }
 
 func baseShape(u, v, t float64) geom.Vec {
-	return sphere(u, v, t).Scaled(1 - .25*texture(u, v, t))
+	return sphere(u, v, t)
 }
 
 func cameraPath(t float64) geom.Vec {
@@ -352,6 +352,8 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
+	weight := sinft(36)/2 + .5
+	distance = weight*distance + (1-weight)*cameraLoc.Minus(closestPoint).Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -496,12 +498,12 @@ end_header
         </transform>
 
         <sampler type="independent">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="box"/>
         </film>
     </sensor>

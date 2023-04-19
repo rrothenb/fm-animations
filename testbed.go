@@ -268,16 +268,24 @@ func shape(x, a, b float64) float64 {
 	return spow(pow(x/2+.5, pow(10, a))*2-1, pow(10, b))
 }
 
+func sqrsin(t float64) float64 {
+	return sin(t + .6*sin(2*t))
+}
+
+func sqrcos(t float64) float64 {
+	return cos(t - .6*sin(2*t))
+}
+
+func box(u, v, t float64) geom.Vec {
+	return geom.Vec{
+		sqrsin(v/2.0) * sqrcos(u),
+		sqrsin(v/2.0) * sqrsin(u),
+		sqrcos(v / 2.0),
+	}
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	a := sin(2 * t)
-	b := sin(3 * t)
-	c := sin(5 * t)
-	d := sin(7 * t)
-	e := sin(11 * t)
-	f := sin(13 * t)
-	g := sin(17 * t)
-	fm := pow(shape(sin(2*v+c*sin(u+d*sin(u-v)))*cos(u+e*sin(u)+f*sin(v+g*sin(3*u+2*v))), a, b), 2)
-	return sphere(u, v, t).Scaled(1 - .25*fm)
+	return box(u, v, t)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -325,7 +333,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	plyDataPath := fmt.Sprintf("testbed.data.ply")
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
-	for uIndex := 0; uIndex <= n; uIndex++ {
+	for uIndex := 175; uIndex <= n; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, n+1)
 		for vIndex := 0; vIndex <= n; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius)
@@ -348,7 +356,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	}
 	numFaces := 0
 	for vIndex := 0; vIndex < n; vIndex++ {
-		for uIndex := 0; uIndex < n; uIndex++ {
+		for uIndex := 175; uIndex < n; uIndex++ {
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
