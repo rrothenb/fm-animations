@@ -176,7 +176,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 }
 
 func circle(x float64) geom.Vec {
-	return geom.Vec{sin(x), cos(x), 0}
+	return geom.Vec{sin(x + .7*sin(2*x)), cos(x - .7*sin(2*x)), 0}
 }
 
 func sphere(u, v, t float64) geom.Vec {
@@ -227,8 +227,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0, 0, .75 + 1*sin(5*t)}).Unit()
-	return loc.Scaled(10)
+	return geom.Vec{0, 0, 6 + sin(3*t)*3}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -241,7 +240,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
+	return cosVec.Scaled(r * cos(u-.7*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+.7*sin(2*u)))).Plus(center)
 }
 
 func knot(t float64) geom.Vec {
@@ -249,7 +248,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, 1.5+sin(7*t), innerKnot)
+	return pathWrapper(u, v, .333-pow(10, sin(2*t)-2), circle)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -257,10 +256,10 @@ func index2radians(index float64, n int) float64 {
 }
 
 func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
-	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
-	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
-	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius).Scaled(.075)
-	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius).Scaled(.075)
+	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius)
+	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius)
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
@@ -270,7 +269,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	tGlobal = t
 	frameNumberGlobal = frameNumber
 	envSize := int(pow(float64(desiredTriangles), .5))
-	cameraLoc := cameraPath(t).Scaled(.075)
+	cameraLoc := cameraPath(t)
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = 35
@@ -296,12 +295,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	farthestPoint := cameraLoc
 	for uIndex := 1; uIndex <= 500; uIndex++ {
 		for vIndex := 1; vIndex <= 500; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
+			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius)
 			if !c.invisible(vertex) {
 				//fmt.Println(vertex)
 				numTriangles++
-				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius).Scaled(.075)
-				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius).Scaled(.075)
+				vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius)
+				vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius)
 				totalWidth += vertex.Minus(vertexLeft).Len()
 				totalHeight += vertex.Minus(vertexBelow).Len()
 				minDistance = math.Min(minDistance, vertex.Len())
@@ -325,7 +324,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	midY := (minY + maxY) / 2
 	midZ := (minZ + maxZ) / 2
 	extent := math.Min(maxX-minX, math.Min(maxY-minY, maxZ-minZ))
-	cameraLoc = cameraLoc.Scaled(extent * 2.5)
 	fmt.Printf("\nextent: %v\n", extent)
 	center := geom.Vec{midX, midY, midZ}
 	focusPoint = center
@@ -345,7 +343,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	for uIndex := 0; uIndex <= nU; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
 		for vIndex := 0; vIndex <= nV; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius).Scaled(.075)
+			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius)
 			if c.invisible(vertex) {
 				vertexIndicies[uIndex][vIndex] = -1
 				continue
@@ -445,21 +443,20 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type Sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		Angle     float64
-		G         float64
-		Scale     float64
-		Red       float64
-		Green     float64
-		Blue      float64
-		Red2      float64
-		Green2    float64
-		Blue2     float64
-		IntIOR    float64
-		ExtIOR    float64
-		Roughness float64
+		Camera   geom.Vec
+		LookAt   geom.Vec
+		Distance float64
+		Angle    float64
+		G        float64
+		Scale    float64
+		Red      float64
+		Green    float64
+		Blue     float64
+		Red2     float64
+		Green2   float64
+		Blue2    float64
+		IntIOR   float64
+		ExtIOR   float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -469,16 +466,16 @@ end_header
         <float name="aperture_radius" value=".00000000001"/>
         <float name="fov" value="35"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3000"/>
-            <integer name="height" value="2000"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -500,19 +497,139 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
+ <shape type="shapegroup" id="ring">
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <bsdf type="roughdielectric">
-			<float name="alpha" value="{{ .Roughness }}"/>
+        <bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
         </bsdf>
         <ref id="medium1" name="interior"/>
     </shape>
+ </shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 0, 1" angle="0"/>
+		<translate x="0" y="0" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="1, 0, 0" angle="90"/>
+		<translate x="1.333" y=".333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="1, 0, 0" angle="90"/>
+		<translate x="-1.333" y="-.333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="90"/>
+		<translate x=".333" y="-1.333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="90"/>
+		<translate x="-.333" y="1.333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="0" y="2.666" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="0" y="-2.666" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="2.66" y="2.666" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="2.66" y="-2.666" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="-2.666" y="2.666" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="-2.666" y="-2.666" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="2.666" y="0" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="0"/>
+		<translate x="-2.666" y="0" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="1, 0, 0" angle="90"/>
+		<translate x="1.333" y="2.333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="1, 0, 0" angle="90"/>
+		<translate x="-1.333" y="-2.333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="90"/>
+		<translate x="2.333" y="-1.333" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="ring"/>
+	<transform name="to_world">
+		<rotate value="0, 1, 0" angle="90"/>
+		<translate x="-2.333" y="1.333" z="0"/>
+	</transform>
+</shape>
 </scene>
 `)
 	red, green, blue := hsb2rgb(sin(13*t)/2+.5, .95, .95)
@@ -531,9 +648,8 @@ end_header
 		red2,
 		green2,
 		blue2,
-		1 + pow(1.5, -cos(31*t)*4-3),
-		1,
-		pow(10, -cos(37*t)-3),
+		2 + sin(31*t),
+		2,
 	}
 
 	sensorTemplate.Execute(sensorFile, sensor)
@@ -573,7 +689,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1024, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
