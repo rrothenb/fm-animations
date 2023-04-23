@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/binary"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"math"
@@ -227,7 +226,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 6 + sin(3*t)*3}
+	return geom.Vec{sin(3*t) * 4, sin(5*t) * 4, 20 - sin(2*t)*17}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -248,7 +247,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(x, y, z, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .333-pow(10, sin(2*t)-2), circle)
+	return pathWrapper(u, v, .333-pow(10, sin(7*t)-2), circle)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -442,11 +441,16 @@ end_header
 	rgbe.Encode(metalBlend, nU, nV, metalBlendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
+	type instance struct {
+		Loc geom.Vec
+	}
 	type Sensor struct {
 		Camera   geom.Vec
 		LookAt   geom.Vec
 		Distance float64
-		Angle    float64
+		EnvX     float64
+		EnvY     float64
+		EnvZ     float64
 		G        float64
 		Scale    float64
 		Red      float64
@@ -457,6 +461,11 @@ end_header
 		Blue2    float64
 		IntIOR   float64
 		ExtIOR   float64
+		Rings    []instance
+		HLinks   []instance
+		VLinks   []instance
+		FOV      float64
+		Blend    float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -464,13 +473,13 @@ end_header
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".00000000001"/>
-        <float name="fov" value="35"/>
+        <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="144"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -483,7 +492,9 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="{{ .Angle }}"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
         <integrator type="volpathmis">
@@ -504,157 +515,69 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
+    	<bsdf type="blendbsdf">
+		<float name="weight" value="{{ .Blend }}"/>
         <bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
         </bsdf>
+		   <bsdf type="twosided">
+				<bsdf type="conductor">
+					<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+					<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+				</bsdf>
+			</bsdf>
+        </bsdf>
         <ref id="medium1" name="interior"/>
     </shape>
  </shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 0, 1" angle="0"/>
-		<translate x="0" y="0" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="1, 0, 0" angle="90"/>
-		<translate x="1.333" y=".333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="1, 0, 0" angle="90"/>
-		<translate x="-1.333" y="-.333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="90"/>
-		<translate x=".333" y="-1.333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="90"/>
-		<translate x="-.333" y="1.333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="0" y="2.666" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="0" y="-2.666" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="2.66" y="2.666" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="2.66" y="-2.666" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="-2.666" y="2.666" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="-2.666" y="-2.666" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="2.666" y="0" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="-2.666" y="0" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="1, 0, 0" angle="90"/>
-		<translate x="1.333" y="2.333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="1, 0, 0" angle="90"/>
-		<translate x="-1.333" y="-2.333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="90"/>
-		<translate x="2.333" y="-1.333" z="0"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="ring"/>
-	<transform name="to_world">
-		<rotate value="0, 1, 0" angle="90"/>
-		<translate x="-2.333" y="1.333" z="0"/>
-	</transform>
-</shape>
+{{range .Rings  }}<shape type="instance"><ref id="ring"/><transform name="to_world"><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .HLinks }}<shape type="instance"><ref id="ring"/><transform name="to_world"><rotate value="1, 0, 0" angle="90"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .VLinks }}<shape type="instance"><ref id="ring"/><transform name="to_world"><rotate value="0, 1, 0" angle="90"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	red, green, blue := hsb2rgb(sin(13*t)/2+.5, .95, .95)
 	red2, green2, blue2 := hsb2rgb(cos(17*t)/2+.5, .95, .95)
 
+	rings := []instance{}
+	hLinks := []instance{}
+	vLinks := []instance{}
+	num := 24.0
+	for x := -num; x <= num; x++ {
+		for y := -num; y <= num; y++ {
+			loc := geom.Vec{x * 2.666, y * 2.666, 0}
+			rings = append(rings, instance{loc})
+			offset := float64(int(abs(x+y))%2) * .666
+			hLinks = append(hLinks, instance{geom.Vec{1.333 + x*2.666, .333 + y*2.666 - offset, 0}})
+			vLinks = append(vLinks, instance{geom.Vec{-.333 + x*2.666 + offset, 1.333 + y*2.666, 0}})
+		}
+	}
+
 	sensor := Sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(19*t) * 180,
-		-cos(23*t) * .9,
-		pow(4, cos(29*t)+2),
+		sin(19*t) * 175,
+		sin(23*t) * 175,
+		sin(29*t) * 175,
+		-cos(31*t) * .9,
+		pow(4, cos(37*t)+2),
 		red,
 		green,
 		blue,
 		red2,
 		green2,
 		blue2,
-		2 + sin(31*t),
+		2 + sin(41*t),
 		2,
+		rings,
+		hLinks,
+		vLinks,
+		50 + sin(43*t)*25,
+		spow(sin(47*t), .25)/2 + .5,
 	}
 
 	sensorTemplate.Execute(sensorFile, sensor)
-	formattedSensor, _ := json.MarshalIndent(sensor, "|", "    ")
-	fmt.Printf("\n%v\n", string(formattedSensor))
 }
 
 func hsb2rgb(hue, sat, bri float64) (r, g, b float64) {
@@ -689,7 +612,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
