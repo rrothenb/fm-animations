@@ -216,7 +216,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	weight := .5 + cos(2*tGlobal)*.3
+	weight := .5 + cos(97*tGlobal)*.3
 	return cosVec.Scaled(r * cos(u-weight*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+weight*sin(2*u)))).Plus(center)
 }
 
@@ -226,9 +226,9 @@ func knot(t float64) geom.Vec {
 
 func texture(u, v, t float64) float64 {
 	v = v * 3
-	a := pow(3, cos(2*t)-1)
-	fU := floor(sin(3*t)*10 + 5)
-	fV := floor(sin(3*t)*10 + 5)
+	a := pow(3, cos(89*t)-1)
+	fU := floor(sin(83*t)*10 + 5)
+	fV := floor(sin(79*t)*10 + 5)
 	return sin(
 		fU*u + fV*v +
 			a*strength(1.7+19*t)*sin(2*u+a*strength(.7+7*t)*sin(3*u+a*strength(.3+3*t)*sin(5*u-7*v)*sin(11*u+3*v))) +
@@ -249,12 +249,12 @@ func blend(a, b, c float64) float64 {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	tuv := texture(pow(10, floor(sin(17*t)+2))*u, pow(10, floor(sin(18*t)+2))*v, t)
-	tvu := texture(pow(10, floor(sin(19*t)+2))*v, pow(10, floor(sin(20*t)+2))*u, t)
-	microTexture := blend(sin(21*t)/2+.5, tuv, tvu)
+	tuv := texture(pow(10, floor(sin(73*t)+2))*u, pow(10, floor(sin(71*t)+2))*v, t)
+	tvu := texture(pow(10, floor(sin(61*t)+2))*v, pow(10, floor(sin(67*t)+2))*u, t)
+	microTexture := blend(sin(59*t)/2+.5, tuv, tvu)
 	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(17*t)))
-	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(t)+2))
-	return pathWrapper(u, v, .333-pow(10, sin(7*t)-2)-pow(10, sin(t)-2)*blendValue*a-.001*spow(sin(t), 4)*(1-(sin(13*t)/2+.5)*a)*microTexture, circle)
+	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(53*t)+2))
+	return pathWrapper(u, v, .333-pow(10, sin(37*t)-2)-pow(10, sin(41*t)-2)*blendValue*a-.001*spow(sin(43*t), 4)*(1-(sin(47*t)/2+.5)*a)*microTexture, circle)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -394,7 +394,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(4, -cos(11*t)/2+.5)
+			power := 2 * pow(4, -cos(31*t)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -469,12 +469,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1200"/>
-            <integer name="height" value="1200"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="900"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -555,6 +555,25 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight3 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="diffuse">
+						</bsdf>
+					</bsdf>
+				      <bsdf type="twosided">
+						<bsdf type="conductor">
+					<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+					<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+				     </bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+        <bsdf type="dielectric">
+        </bsdf>
     	<bsdf type="blendbsdf">
 		<float name="weight" value="{{ .Blend }}"/>
 		   <bsdf type="twosided">
@@ -565,8 +584,10 @@ end_header
 			</bsdf>
         <bsdf type="dielectric">
         </bsdf>
+			</bsdf>
+			</bsdf>
         </bsdf>
-        <ref id="medium2" name="interior"/>
+	<ref id="medium2" name="interior"/>
     </shape>
  </shape>
 {{range .Rings  }}<shape type="instance"><ref id="ring"/><transform name="to_world"><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
@@ -575,8 +596,8 @@ end_header
 </scene>
 `)
 	colorDiff := 1 / float64(frameNumber%7+2)
-	red, green, blue := hsb2rgb(sin(13*t)/2+.5, .95, .95)
-	red2, green2, blue2 := hsb2rgb(sin(13*t)/2+.5+colorDiff, .95, .95)
+	red, green, blue := hsb2rgb(sin(29*t)/2+.5, .95, .95)
+	red2, green2, blue2 := hsb2rgb(sin(23*t)/2+.5+colorDiff, .95, .95)
 
 	rings := []instance{}
 	hLinks := []instance{}
@@ -586,7 +607,7 @@ end_header
 		for y := -num; y <= num; y++ {
 			loc := geom.Vec{x * 2.666, y * 2.666, 0}
 			offset := float64(int(abs(x+y))%2) * .666
-			rings = append(rings, instance{loc.Minus(geom.Vec{0, 0, offset * (cos(1*t)/2 + .333) * .5})})
+			rings = append(rings, instance{loc.Minus(geom.Vec{0, 0, offset * (cos(19*t)/2 + .333) * .5})})
 			hLinks = append(hLinks, instance{geom.Vec{1.333 + x*2.666, .333 + y*2.666 - offset, 0}})
 			vLinks = append(vLinks, instance{geom.Vec{-.333 + x*2.666 + offset, 1.333 + y*2.666, 0}})
 		}
@@ -596,11 +617,11 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(19*t) * 175,
-		sin(23*t) * 175,
-		sin(29*t) * 175,
-		-cos(31*t) * .9,
-		pow(4, cos(37*t)+2),
+		sin(17*t) * 175,
+		sin(13*t) * 175,
+		sin(11*t) * 175,
+		-cos(7*t) * .9,
+		pow(4, cos(5*t)+2),
 		red,
 		green,
 		blue,
@@ -610,8 +631,8 @@ end_header
 		rings,
 		hLinks,
 		vLinks,
-		50 + sin(41*t)*10,
-		spow(sin(43*t), .25)/2 + .5,
+		50 + sin(3*t)*10,
+		spow(sin(2*t), .25)/2 + .5,
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
 		(frameNumber / 4) % 2,
@@ -653,7 +674,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
