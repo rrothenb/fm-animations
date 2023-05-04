@@ -564,7 +564,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -672,8 +672,8 @@ end_header
 	red, green, blue := hsb2rgb(sin(29*t)/2+.5, .95, .95)
 	red2, green2, blue2 := hsb2rgb(sin(23*t)/2+.5+colorDiff, .95, .95)
 	angle := 180 - t/pi*180
-	height := 900
-	width := 1200
+	height := 2400
+	width := 3200
 	if maxZ-minZ > max(maxX-minX, maxY-minY) {
 		temp := height
 		height = width
