@@ -5,18 +5,18 @@ rm data/$2.data.ply
 #convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
 mv data/$2.blend.rgbe mitsuba.blend.rgbe
 convert mitsuba.blend.rgbe mitsuba.blend.jpg
-mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
-convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
+#mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
+#convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 #cp mitsuba.blend.jpg $2.blend.jpg
 mv data/$2.rgbe mitsuba.rgbe
 #convert mitsuba.rgbe -rotate 180 mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
-mv data/$2.clay.1.color.rgbe clay.1.color.rgbe
-convert clay.1.color.rgbe clay.1.color.jpg
+#mv data/$2.clay.1.color.rgbe clay.1.color.rgbe
+#convert clay.1.color.rgbe clay.1.color.jpg
 #mv data/$2.secondary.mask.rgbe mitsuba.secondary.mask.rgbe
 #convert mitsuba.secondary.mask.rgbe mitsuba.secondary.mask.jpg
-#mv data/$2.texture.rgbe mitsuba.texture.rgbe
-#convert mitsuba.texture.rgbe mitsuba.texture.jpg
+mv data/$2.texture.rgbe mitsuba.texture.rgbe
+convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 time mitsuba -m scalar_rgb test.xml
 convert test.exr -auto-gamma -modulate 100,125,100 -sigmoidal-contrast 5x0% $2.jpg
