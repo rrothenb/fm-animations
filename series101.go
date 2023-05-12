@@ -458,8 +458,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="7200"/>
-            <integer name="height" value="10800"/>
+            <integer name="width" value="1920"/>
+            <integer name="height" value="1080"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -518,7 +518,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 61440, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
