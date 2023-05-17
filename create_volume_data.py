@@ -41,8 +41,9 @@ for z in range(res):
         print(f"{100*z/res}% done")
     for y in range(res):
         for x in range(res):
-            t = texture(x, y, z, res)
-            volume[x, y, z] = colorsys.hsv_to_rgb(0, 0, t)
+            volume[x, y, z] = (.01, .01, .01)
+            if z < res/2:
+                volume[x, y, z] = (.25, .25, .25)
 
-write_binary_grid3d('textures/volume.vol', volume)
+write_binary_grid3d('belowplus.vol', volume)
 
