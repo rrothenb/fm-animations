@@ -443,12 +443,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1600"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="3200"/>
+            <integer name="height" value="1800"/>
             <rfilter type="lanczos"/>
         </film>
         <ref id="medium2"/>
