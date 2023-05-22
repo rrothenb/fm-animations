@@ -194,9 +194,9 @@ func lipTexture(u, t float64) float64 {
 
 func sphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0) * cos(u),
-		sin(v/2.0) * sin(u),
-		cos(v / 2.0),
+		sin(v/2.0+.5*sin(v)) * cos(u-.5*sin(2*u)),
+		sin(v/2.0+.5*sin(v)) * sin(u+.5*sin(2*u)) * .25,
+		cos(v/2.0-.5*sin(v)) * .25,
 	}
 }
 
@@ -226,12 +226,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0, 0, 1.5}).Unit()
-	return loc.Scaled(10)
+	return geom.Vec{1, 0, 7.5}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 1.25}
+	return geom.Vec{.15, 0, 1.25}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -275,8 +274,8 @@ func shape(x, a, b float64) float64 {
 
 func simpleTexture(u, v, t float64) float64 {
 	a := 4 - cos(t)
-	return (sqr(32*t)/2 + .5) * sin(16*t+v+
-		a*sin(4*t)*sin(v+a*sin(8*t-pi/2)*sin(v)+a*sin(t)*sin(u))+
+	return sin(16*t + v +
+		a*sin(4*t)*sin(v+a*sin(8*t-pi/2)*sin(v)+a*sin(t)*sin(u)) +
 		a*sin(2*t+pi/2)*sin(2*v+a*sin(16*t+pi)*sin(v)+a*sin(t)*sin(u)))
 }
 
@@ -524,12 +523,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="256"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="720"/>
-            <integer name="height" value="720"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="1200"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
