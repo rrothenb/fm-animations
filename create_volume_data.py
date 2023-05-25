@@ -41,9 +41,9 @@ for z in range(res):
         print(f"{100*z/res}% done")
     for y in range(res):
         for x in range(res):
-            volume[x, y, z] = (.01, .01, .01)
-            if z < res/2:
-                volume[x, y, z] = (.25, .25, .25)
+            volume[x, y, z] = (0, 0, 0)
+            if z > res/2:
+                volume[x, y, z] = (1, 1, 1)
 
-write_binary_grid3d('belowplus.vol', volume)
+write_binary_grid3d('aboveplus.vol', volume)
 
