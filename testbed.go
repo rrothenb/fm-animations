@@ -249,7 +249,7 @@ func displacement(loc geom.Vec, t float64) geom.Vec {
 
 func fabricPath(t float64) geom.Vec {
 	//return geom.Vec{sin(29*t), cos(31*t), .1*cos(2*29*31*t)*cos(29*t)}
-	return geom.Vec{sin(17 * t), sin(19 * t), sin((17*19-2)*t) * .15}
+	return geom.Vec{sin(11 * t), sin(7 * t), sin((11*7-2)*t) * .15}
 }
 
 func threadPath(t float64) geom.Vec {
@@ -297,7 +297,7 @@ func knot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .05, knot)
+	return pathWrapper(u, v, .05, fabricPath)
 }
 
 func index2radians(index float64, n int) float64 {
