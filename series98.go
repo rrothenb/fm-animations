@@ -67,8 +67,8 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.054,
-		Height:   0.054,
+		Width:    0.16,
+		Height:   0.09,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -118,7 +118,7 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * 1.5 / 360 * pi)
+	factor := tan(s.FOV * 1.1 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -194,7 +194,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r * cos(u-.5*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+.5*sin(2*u)))).Plus(center)
+	return cosVec.Scaled(r * cos(u-.25*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+.25*sin(2*u)))).Plus(center)
 }
 
 func knot(t float64) geom.Vec {
@@ -262,7 +262,7 @@ func texture2(u, v, t float64) float64 {
 }
 
 func fabricPath(t float64) geom.Vec {
-	return geom.Vec{sin(599 * t), sin(601 * t), sin((599*601-2)*t) * .01}
+	return geom.Vec{sin(599 * t), sin(601 * t), sin((599*601-2)*t) * .005}
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -404,9 +404,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			textureValue := pow(spow(shapeTexture(1, .75-cos(41*t)*.5, t, loc), .1)/2+.5, pow(10, sin(29*t)))
 			textureArray = append(
 				textureArray,
-				float32(pow(textureValue, pow(2, cos(11*t)))),
-				float32(pow(textureValue, pow(2, sin(7*t)))),
-				float32(pow(textureValue, pow(2, -cos(5*t)))))
+				float32(pow(textureValue, pow(4, -cos(5*t)))),
+				float32(pow(textureValue, pow(4, sin(7*t)))),
+				float32(pow(textureValue, pow(4, cos(11*t)))))
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -502,12 +502,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="11200"/>
+            <integer name="height" value="6300"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -525,20 +525,20 @@ end_header
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
 		<bsdf type="blendbsdf">
-			<float name="weight" value="{{ .Weight }}"/>
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.blend.rgbe"/>
+			</texture>
 		    <bsdf type="twosided">
-				<bsdf type="plastic">
-					<texture type="bitmap" name="diffuse_reflectance">
+				<bsdf type="conductor">
+					<texture type="bitmap" name="eta">
 						<string name="filename" value="mitsuba.texture.rgbe"/>
+					</texture>
+					<texture type="bitmap" name="k">
+						<string name="filename" value="mitsuba.blend.rgbe"/>
 					</texture>
         		</bsdf>
 			</bsdf>
-		    <bsdf type="twosided">
-				<bsdf type="diffuse">
-					<texture type="bitmap" name="reflectance">
-						<string name="filename" value="mitsuba.texture.rgbe"/>
-					</texture>
-        		</bsdf>
+				<bsdf type="dielectric">
 			</bsdf>
 		</bsdf>
     </shape>
