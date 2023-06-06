@@ -151,8 +151,7 @@ func cos2(x float64) float64 {
 }
 
 func circle(x float64) geom.Vec {
-	weight := .5 + cos(3*tGlobal)*.3
-	return geom.Vec{sin(x + weight*sin(2*x)), cos(x - weight*sin(2*x)), 0}
+	return geom.Vec{sin(x), cos(x), 0}
 }
 
 func sphere(u, v, t float64) geom.Vec {
@@ -188,13 +187,6 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 	return geom.Vec(point)
 }
 
-func outerKnot(t float64) geom.Vec {
-	p := [4]int{2, 2, 3, 3}
-	q := [4]int{3, 3, 2, 2}
-	i := (frameNumberGlobal / 64) % 4
-	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, p[i], q[i], circle)
-}
-
 func innerKnot(t float64) geom.Vec {
 	p := [4]int{3, 2, 3, 2}
 	q := [4]int{2, 3, 2, 3}
@@ -203,7 +195,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{sin(3*t) * 5 * (sin(2*t)/2 + .5), sin(5*t) * 5 * (sin(2*t)/2 + .5), 8 - sin(2*t)*4}
+	return geom.Vec{0, 0, 10}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -216,8 +208,8 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	weight := .5 + cos(97*tGlobal)*.3
-	return cosVec.Scaled(r * cos(u-weight*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+weight*sin(2*u)))).Plus(center)
+	a := cos(3*tGlobal) * .5
+	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
 func knot(t float64) geom.Vec {
@@ -226,9 +218,9 @@ func knot(t float64) geom.Vec {
 
 func texture(u, v, t float64) float64 {
 	v = v * 3
-	a := pow(3, cos(89*t)-1)
-	fU := floor(sin(83*t)*10 + 5)
-	fV := floor(sin(79*t)*10 + 5)
+	a := pow(3, cos(31*t)-1)
+	fU := floor(sin(29*t)*10 + 5)
+	fV := floor(sin(23*t)*10 + 5)
 	return sin(
 		fU*u + fV*v +
 			a*strength(1.7+19*t)*sin(2*u+a*strength(.7+7*t)*sin(3*u+a*strength(.3+3*t)*sin(5*u-7*v)*sin(11*u+3*v))) +
@@ -247,14 +239,17 @@ func or(a, b float64) float64 {
 func blend(a, b, c float64) float64 {
 	return a*and(b, c) + (1-a)*or(b, c)
 }
+func outerKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, .51, 11, 3, circle)
+}
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	tuv := texture(pow(10, floor(sin(73*t)+2))*u, pow(10, floor(sin(71*t)+2))*v, t)
-	tvu := texture(pow(10, floor(sin(61*t)+2))*v, pow(10, floor(sin(67*t)+2))*u, t)
-	microTexture := blend(sin(59*t)/2+.5, tuv, tvu)
-	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(17*t)))
-	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(53*t)+2))
-	return pathWrapper(u, v, .333-pow(10, sin(37*t)-2)-pow(10, sin(41*t)-2)*blendValue*a-.001*spow(sin(43*t), 4)*(1-(sin(47*t)/2+.5)*a)*microTexture, circle)
+	tuv := texture(pow(10, floor(sin(31*t)+2))*u, pow(10, floor(sin(29*t)+2))*v, t)
+	tvu := texture(pow(10, floor(sin(19*t)+2))*v, pow(10, floor(sin(23*t)+2))*u, t)
+	microTexture := blend(sin(17*t)/2+.5, tuv, tvu)
+	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(11*t)))
+	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(7*t)+2))
+	return pathWrapper(u, v, outerKnot(v).Len()/5.5-pow(10, sin(2*t)-2)*blendValue*a-.001*spow(sin(3*t), 4)*(1-(sin(5*t)/2+.5)*a)*microTexture, outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -278,7 +273,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	cameraLoc := cameraPath(t)
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FOV = 35
+	c.FOV = 15
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -394,7 +389,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(4, -cos(31*t)/2+.5)
+			power := 2 * pow(4, -cos(3*t)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -430,32 +425,32 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
-		Loc geom.Vec
+		Scale float64
+		Loc   geom.Vec
 	}
 	type Sensor struct {
-		Camera   geom.Vec
-		LookAt   geom.Vec
-		Distance float64
-		EnvX     float64
-		EnvY     float64
-		EnvZ     float64
-		G        float64
-		Scale    float64
-		Red      float64
-		Green    float64
-		Blue     float64
-		Red2     float64
-		Green2   float64
-		Blue2    float64
-		Rings    []instance
-		HLinks   []instance
-		VLinks   []instance
-		FOV      float64
-		Blend    float64
-		Weight1  int
-		Weight2  int
-		Weight3  int
-		Weight4  int
+		Camera     geom.Vec
+		LookAt     geom.Vec
+		Distance   float64
+		EnvX       float64
+		EnvY       float64
+		EnvZ       float64
+		G          float64
+		Scale      float64
+		Red        float64
+		Green      float64
+		Blue       float64
+		Red2       float64
+		Green2     float64
+		Blue2      float64
+		InnerRings []instance
+		OuterRings []instance
+		FOV        float64
+		Blend      float64
+		Weight1    int
+		Weight2    int
+		Weight3    int
+		Weight4    int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -469,12 +464,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="420"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -506,7 +501,7 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
- <shape type="shapegroup" id="ring">
+ <shape type="shapegroup" id="innerRing">
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -548,7 +543,7 @@ end_header
         <ref id="medium1" name="interior"/>
     </shape>
  </shape>
- <shape type="shapegroup" id="link">
+ <shape type="shapegroup" id="outerRing">
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
@@ -590,49 +585,50 @@ end_header
 	<ref id="medium2" name="interior"/>
     </shape>
  </shape>
-{{range .Rings  }}<shape type="instance"><ref id="ring"/><transform name="to_world"><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
-{{range .HLinks }}<shape type="instance"><ref id="link"/><transform name="to_world"><rotate value="1, 0, 0" angle="90"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
-{{range .VLinks }}<shape type="instance"><ref id="link"/><transform name="to_world"><rotate value="0, 1, 0" angle="90"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .InnerRings }}<shape type="instance"><ref id="innerRing"/><transform name="to_world"><scale value="{{ .Scale }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .OuterRings }}<shape type="instance"><ref id="outerRing"/><transform name="to_world"><scale value="{{ .Scale }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	colorDiff := 1 / float64(frameNumber%7+2)
 	red, green, blue := hsb2rgb(sin(29*t)/2+.5, .95, .95)
 	red2, green2, blue2 := hsb2rgb(sin(23*t)/2+.5+colorDiff, .95, .95)
 
-	rings := []instance{}
-	hLinks := []instance{}
-	vLinks := []instance{}
-	num := 24.0
+	innerRings := []instance{}
+	outerRings := []instance{}
+	num := 0.0
 	for x := -num; x <= num; x++ {
 		for y := -num; y <= num; y++ {
-			loc := geom.Vec{x * 2.666, y * 2.666, 0}
-			offset := float64(int(abs(x+y))%2) * .666
-			rings = append(rings, instance{loc.Minus(geom.Vec{0, 0, offset * (cos(19*t)/2 + .333) * .5})})
-			hLinks = append(hLinks, instance{geom.Vec{1.333 + x*2.666, .333 + y*2.666 - offset, 0}})
-			vLinks = append(vLinks, instance{geom.Vec{-.333 + x*2.666 + offset, 1.333 + y*2.666, 0}})
+			loc := geom.Vec{x, y, 0}
+			innerRings = append(innerRings, instance{1, loc})
+			innerRings = append(innerRings, instance{pow(5+cos(3*t)*.5, 6), loc})
+			outerRings = append(outerRings, instance{5 + cos(3*t)*.5, loc})
 		}
 	}
+
+	lowFOV := 45 + cos(3*t)*10
+	highFOV := 135 + cos(3*t)*10
+	fovWeight := .5 + cos(t)*.5
+	fov := fovWeight*lowFOV + (1-fovWeight)*highFOV
 
 	sensor := Sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(17*t) * 175,
-		sin(13*t) * 175,
-		sin(11*t) * 175,
+		sin(2*t) * 175,
+		sin(3*t) * 175,
+		sin(5*t) * 175,
 		-cos(7*t) * .9,
-		pow(4, cos(5*t)+2),
+		pow(4, cos(11*t)+2),
 		red,
 		green,
 		blue,
 		red2,
 		green2,
 		blue2,
-		rings,
-		hLinks,
-		vLinks,
-		50 + sin(3*t)*10,
-		spow(sin(2*t), .25)/2 + .5,
+		innerRings,
+		outerRings,
+		fov,
+		spow(sin(t), .25)/2 + .5,
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
 		(frameNumber / 4) % 2,
@@ -674,7 +670,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1000, "Max frames")
+	maxFrames := flag.Int("maxframes", 1024, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
