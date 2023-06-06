@@ -73,8 +73,8 @@ var zAxis = geom.Dir{0, 0, 1}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.02,
-		Height:   0.03,
+		Width:    0.16,
+		Height:   0.09,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -121,11 +121,10 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * 1.5 / 360 * pi)
+	factor := tan(s.FOV * 1.2 / 360 * pi)
 	aspectRatio := s.Width / s.Height
 	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
 		return true
@@ -134,9 +133,6 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 		return true
 	}
 	if projectedPoint.Z > 0.0 {
-		return true
-	}
-	if projectedPoint.Z < -s.position.Len() {
 		return true
 	}
 	return false
@@ -195,11 +191,11 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 10}
+	return geom.Vec{0, 0, 0.0001}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return circle(t).Scaled(10)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -244,12 +240,12 @@ func outerKnot(t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	tuv := texture(pow(10, floor(sin(31*t)+2))*u, pow(10, floor(sin(29*t)+2))*v, t)
-	tvu := texture(pow(10, floor(sin(19*t)+2))*v, pow(10, floor(sin(23*t)+2))*u, t)
-	microTexture := blend(sin(17*t)/2+.5, tuv, tvu)
-	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(11*t)))
-	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(7*t)+2))
-	return pathWrapper(u, v, outerKnot(v).Len()/5.5-pow(10, sin(2*t)-2)*blendValue*a-.001*spow(sin(3*t), 4)*(1-(sin(5*t)/2+.5)*a)*microTexture, outerKnot)
+	tuv := texture(pow(10, floor(sin(83*t)+2))*u, pow(10, floor(sin(79*t)+2))*v, t)
+	tvu := texture(pow(10, floor(sin(73*t)+2))*v, pow(10, floor(sin(71*t)+2))*u, t)
+	microTexture := blend(sin(67*t)/2+.5, tuv, tvu)
+	blendValue := pow(spow(texture(u, v, t), pow(2, cos(61*t)))/2+.5, pow(2, cos(59*t)))
+	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(53*t)+2))
+	return pathWrapper(u, v, outerKnot(v).Len()/5.5-pow(4, sin(47*t)*2-3)*blendValue*a-pow(10, -cos(43*t)-2)*spow(sin(41*t), 4)*(1-(sin(37*t)/2+.5)*a)*microTexture, outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -271,9 +267,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	frameNumberGlobal = frameNumber
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
-	focusPoint := geom.Vec{0, 0, 0}
+	focusPoint := focusPath(t)
+	fov := 135.0 + sin(13*t)*15
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
-	c.FOV = 15
+	c.FOV = fov
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -321,13 +318,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			}
 		}
 	}
-	midX := (minX + maxX) / 2
-	midY := (minY + maxY) / 2
-	midZ := (minZ + maxZ) / 2
 	extent := math.Min(maxX-minX, math.Min(maxY-minY, maxZ-minZ))
 	fmt.Printf("\nextent: %v\n", extent)
-	center := geom.Vec{midX, midY, midZ}
-	focusPoint = center
 	distance = cameraLoc.Minus(closestPoint).Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
@@ -389,7 +381,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(4, -cos(3*t)/2+.5)
+			power := 2 * pow(2, -cos(31*t)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -425,8 +417,10 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
-		Scale float64
-		Loc   geom.Vec
+		Scale    float64
+		Loc      geom.Vec
+		Rotation float64
+		Height   float64
 	}
 	type Sensor struct {
 		Camera     geom.Vec
@@ -451,16 +445,17 @@ end_header
 		Weight2    int
 		Weight3    int
 		Weight4    int
+		Aperture   float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".00000000001"/>
+        <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
@@ -468,8 +463,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="1600"/>
+            <integer name="height" value="900"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -586,7 +581,7 @@ end_header
     </shape>
  </shape>
 {{range .InnerRings }}<shape type="instance"><ref id="innerRing"/><transform name="to_world"><scale value="{{ .Scale }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
-{{range .OuterRings }}<shape type="instance"><ref id="outerRing"/><transform name="to_world"><scale value="{{ .Scale }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .OuterRings }}<shape type="instance"><ref id="outerRing"/><transform name="to_world"><rotate value="0, 0, 1" angle="{{ .Rotation }}"/><scale value="10000,10000,{{ .Height }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	colorDiff := 1 / float64(frameNumber%7+2)
@@ -599,21 +594,15 @@ end_header
 	for x := -num; x <= num; x++ {
 		for y := -num; y <= num; y++ {
 			loc := geom.Vec{x, y, 0}
-			innerRings = append(innerRings, instance{1, loc})
-			innerRings = append(innerRings, instance{pow(5+cos(3*t)*.5, 6), loc})
-			outerRings = append(outerRings, instance{5 + cos(3*t)*.5, loc})
+			innerRings = append(innerRings, instance{1, loc, 0, 1})
+			outerRings = append(outerRings, instance{10, loc.Plus(geom.Vec{sin(19*t) * 5000, sin(17*t) * 5000, 0}), sin(t) * 15, 40000 + sin(13*t)*10000})
 		}
 	}
-
-	lowFOV := 45 + cos(3*t)*10
-	highFOV := 135 + cos(3*t)*10
-	fovWeight := .5 + cos(t)*.5
-	fov := fovWeight*lowFOV + (1-fovWeight)*highFOV
 
 	sensor := Sensor{
 		cameraLoc,
 		focusPoint,
-		distance,
+		.5,
 		sin(2*t) * 175,
 		sin(3*t) * 175,
 		sin(5*t) * 175,
@@ -633,6 +622,7 @@ end_header
 		(frameNumber / 2) % 2,
 		(frameNumber / 4) % 2,
 		(frameNumber / 8) % 2,
+		pow(10, cos(t)*2-4),
 	}
 
 	sensorTemplate.Execute(sensorFile, sensor)
@@ -670,7 +660,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1024, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
