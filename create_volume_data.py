@@ -1,5 +1,5 @@
 import colorsys
-from numpy import sin, pi, power, zeros, uint8, int32, float32
+from numpy import sin, pi, power, zeros, uint8, int32, float32, absolute
 
 
 def write_binary_grid3d(filename, values):
@@ -26,10 +26,12 @@ def write_binary_grid3d(filename, values):
 
 
 def texture(xIndex, yIndex, zIndex, res):
-    x = xIndex/res*2*pi
-    y = yIndex/res*2*pi
-    z = zIndex/res*2*pi
-    return power(sin(x-z+sin(y+z+2*sin(z-y+2*sin(x+y+z)))+sin(x-y+2*sin(y+z+2*sin(x-y-z))))*.5+.5, .5)*.25+.75
+    x = float32(xIndex)/res*2.0-1
+    y = float32(yIndex)/res*2.0-1
+    z = float32(zIndex)/res*2.0-1
+    if absolute(x*x*x+y*y*y+z*z*z-1) < .1:
+        return 1
+    return 0
 
 
 res = 256
@@ -41,9 +43,8 @@ for z in range(res):
         print(f"{100*z/res}% done")
     for y in range(res):
         for x in range(res):
-            volume[x, y, z] = (0, 0, 0)
-            if z > res/2:
-                volume[x, y, z] = (1, 1, 1)
+            t = texture(x, y, z, res)
+            volume[x, y, z] = (t, t, t)
 
-write_binary_grid3d('aboveplus.vol', volume)
+write_binary_grid3d('shape.vol', volume)
 
