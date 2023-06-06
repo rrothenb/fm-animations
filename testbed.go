@@ -25,6 +25,7 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+var floor = math.Floor
 
 var tGlobal = 0.0
 var frameGlobal = 0
@@ -304,8 +305,56 @@ func knot(t float64) geom.Vec {
 	return lissajousKnot(t, 5, 6, 7)
 }
 
+func irrationalXYZTexture(a, f, x, y, z, t float64) float64 {
+	a1 := f*sin(2*t)*.5 + .5
+	a2 := f*sin(3*t)*.5 + .5
+	a3 := f*sin(5*t)*.5 + .5
+	a4 := a*sin(7*t)*.5 + .5
+	a5 := f*sin(11*t)*.5 + .5
+	a6 := f*sin(13*t)*.5 + .5
+	a7 := f*sin(17*t)*.5 + .5
+	a8 := a*sin(19*t)*.5 + .5
+	a9 := f*sin(23*t)*.5 + .5
+	a10 := f*sin(29*t)*.5 + .5
+	a11 := f*sin(31*t)*.5 + .5
+	return sin(a1*x + a2*y + a3*z + a4*sin(a5*x+a6*y+a7*z+a8*sin(a9*x+a10*y+a11*z)))
+}
+func rationalUVTexture(a, fU, fV, u, v, t float64) float64 {
+	a1 := floor(fU*sin(2*t)*.5 + .5)
+	a2 := floor(fV*sin(3*t)*.5 + .5)
+	a3 := a*sin(5*t)*.5 + .5
+	a4 := floor(fU*sin(7*t)*.5 + .5)
+	a5 := floor(fV*sin(11*t)*.5 + .5)
+	a6 := a*sin(13*t)*.5 + .5
+	a7 := floor(fU*sin(17*t)*.5 + .5)
+	a8 := floor(fV*sin(19*t)*.5 + .5)
+	a9 := a*sin(23*t)*.5 + .5
+	a10 := floor(fU*sin(29*t)*.5 + .5)
+	a11 := floor(fV*sin(31*t)*.5 + .5)
+	return sin(a1*u + a2*v + a3*sin(a4*u+a5*v+a6*sin(a7*u+a8*v+a9*sin(a10*u+a11*v))))
+}
+
+func symmetricalXYZTexture(a, f, x, y, z, t float64) float64 {
+	return pow(irrationalXYZTexture(a, f, x, y, z, t), 2) +
+		pow(irrationalXYZTexture(a, f, -x, y, z, t), 2) +
+		pow(irrationalXYZTexture(a, f, x, -y, z, t), 2) +
+		pow(irrationalXYZTexture(a, f, x, y, -z, t), 2)
+}
+
+func symmetricalUVTexture(a, fU, fV, u, v, t float64) float64 {
+	return pow(rationalUVTexture(a, fU, fV, u, v, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, -u, v, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, u, -v, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, -u, -v, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, v, u, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, -v, u, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, v, -u, t), 2) +
+		pow(rationalUVTexture(a, fU, fV, -v, -u, t), 2)
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, outerKnot(v).Len()/5.5, outerKnot)
+	texture := symmetricalUVTexture(3, 10, 1, u, v, t)
+	return pathWrapper(u, v, outerKnot(v).Len()/5.5+.01*texture, outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
