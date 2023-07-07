@@ -1,4 +1,29 @@
-for frame in 122 319 334 382 390 566 575 590 622 635 666 679 749 841 875 886 907 931 936 974
+fixedargs=`echo $* | sed "s/--aspect-ratio/-a/"`
+fixedargs=`echo $fixedargs | sed "s/--height/-h/"`
+fixedargs=`echo $fixedargs | sed "s/--samples/-s/"`
+options=""
+while getopts 'a:h:s:' opt $fixedargs; do
+  case "$opt" in
+    a)
+      options="$options -a $OPTARG"
+      ;;
+
+    h)
+      options="$options -h $OPTARG"
+      ;;
+
+    s)
+      options="$options -s $OPTARG"
+      ;;
+
+    ?)
+      echo "Usage: $(basename $0) [-r Number of rows] [-f First row] series frame triangles"
+      exit 1
+      ;;
+  esac
+done
+shift "$(($OPTIND -1))"
+for frame in `seq 0 999`
 do
-    time ./run.sh $1 $frame 100000000
+    time ./run.sh $options $1 $frame $2
 done

@@ -3,7 +3,6 @@ fixedargs=`echo $fixedargs | sed "s/--first-row/-f/"`
 fixedargs=`echo $fixedargs | sed "s/--aspect-ratio/-a/"`
 fixedargs=`echo $fixedargs | sed "s/--height/-h/"`
 fixedargs=`echo $fixedargs | sed "s/--samples/-s/"`
-echo $fixedargs
 numrows=1
 firstrow=0
 height=0
@@ -39,8 +38,6 @@ while getopts 'r:f:a:h:s:' opt $fixedargs; do
   esac
 done
 shift "$(($OPTIND -1))"
-echo $*
-
 time go run series$1.go $options -frame $2 -desiredtriangles $3
 cat data/$2.header.ply data/$2.data.ply > mitsuba.ply
 rm data/$2.data.ply
@@ -63,10 +60,16 @@ convert mitsuba.rgbe mitsuba.env.jpg
 mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
-for row in `seq $firstrow $(($numrows-1))`
-do
-  time mitsuba -Doffset=$(($row*$height/$numrows)) -m scalar_rgb test.xml
-  convert test.exr -auto-gamma -modulate 100,150,100 -sigmoidal-contrast 5x0% $2.$row.jpg
-  convert $2.{?,??}.jpg -append $2.jpg
-  mv test.exr $2.$row.exr
-done
+if [ $numrows -eq "1" ]
+then
+  time mitsuba -Doffset=0 -m scalar_rgb test.xml
+  convert test.exr -auto-gamma -modulate 100,150,100 -sigmoidal-contrast 5x0% $2.jpg
+else
+  for row in `seq $firstrow $(($numrows-1))`
+  do
+    time mitsuba -Doffset=$(($row*$height/$numrows)) -m scalar_rgb test.xml
+    convert test.exr -auto-gamma -modulate 100,150,100 -sigmoidal-contrast 5x0% $2.$row.jpg
+    convert $2.{?,??}.jpg -append $2.jpg
+    mv test.exr $2.$row.exr
+  done
+fi
