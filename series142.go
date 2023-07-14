@@ -140,14 +140,14 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * 1.25 / 360 * pi)
+	factor := tan(s.FOV * 1.5 / 360 * pi)
 	if projectedPoint.X < projectedPoint.Z*factor*s.AspectRatio || projectedPoint.X > -projectedPoint.Z*factor*s.AspectRatio {
 		return true
 	}
+	return false
 	if projectedPoint.Y < projectedPoint.Z*factor || projectedPoint.Y > -projectedPoint.Z*factor {
 		return true
 	}
@@ -207,12 +207,11 @@ func lastKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := circle(t).Plus(geom.Vec{0, 0, sin(t) * .5}).Unit()
-	return loc.Scaled(2.25 + cos(2*t)*.25)
+	return innerKnot(t)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, -sin(t) * .25}
+	return innerKnot(t + .1*pi - .09*cos(t)*pi)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -256,10 +255,10 @@ func blendValue(u, v, t float64) float64 {
 
 func texture(u, v, t float64) float64 {
 	return sin(
-		strength(53, t)*sin(4*u+strength(83, t)*sin(u))*sin(4000*v+strength(89, t)*1000*v) +
-			strength(59, t)*sin(3*u+strength(79, t)*sin(v)) +
-			strength(61, t)*sin(3000*v+strength(73, t)*sin(u)) +
-			strength(67, t)*sin(2*u+2000*v+strength(71, t)*sin(u+v+strength(97, t)*sin(u-v))))
+		strength(37, t)*sin(4*u+strength(53, t)*sin(u))*sin(4000*v+strength(61, t)*1000*v) +
+			strength(31, t)*sin(3*u+strength(43, t)*sin(v)) +
+			strength(29, t)*sin(3000*v+strength(47, t)*sin(u)) +
+			strength(41, t)*sin(2*u+2000*v+strength(59, t)*sin(u+v+strength(67, t)*sin(u-v))))
 
 }
 
@@ -268,7 +267,7 @@ func shaper(x, a, b float64) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .02+.005*shaper(texture(u, v, t), pow(4, sin(17*t)), pow(4, sin(13*t))), lastKnot)
+	return pathWrapper(u, v, .02+.005*shaper(texture(u, v, t), pow(4, sin(23*t)), pow(4, sin(19*t))), lastKnot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -294,7 +293,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
-	fov := 90.0 + cos(2*t)*0
+	fov := 60.0 + sin(2*t)*45
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -357,7 +356,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	//distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth / totalHeight
@@ -365,10 +364,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	startUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(minU))
-	endUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(maxU))
-	startVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(minV))
-	endVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(maxV))
+	startUIndex := 0
+	endUIndex := nU
+	startVIndex := 0
+	endVIndex := nV
 	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
 	vertexIndicies := make([][]int32, nU+1)
 	numVerticies := 0
@@ -572,14 +571,34 @@ end_header
         </bsdf>
         <bsdf type="blendbsdf">
             <float name="weight" value="{{ .Weight2 }}"/>
-            <bsdf type="dielectric">
-                <float name="int_ior" value="2"/>
-                <float name="ext_ior" value="{{ .IntIOR }}"/>
+            <bsdf type="blendbsdf">
+                <texture type="bitmap" name="weight">
+                    <string name="filename" value="mitsuba.blend.rgbe"/>
+                </texture>
+                <bsdf type="twosided">
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                    </bsdf>
+                </bsdf>
+                <bsdf type="twosided">
+                    <bsdf type="conductor">
+                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                    </bsdf>
+                </bsdf>
             </bsdf>
-            <bsdf type="twosided">
-                <bsdf type="conductor">
-                    <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                    <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+            <bsdf type="blendbsdf">
+                <texture type="bitmap" name="weight">
+                    <string name="filename" value="mitsuba.blend.rgbe"/>
+                </texture>
+                <bsdf type="dielectric">
+                    <float name="int_ior" value="2"/>
+                    <float name="ext_ior" value="{{ .IntIOR }}"/>
+                </bsdf>
+                <bsdf type="twosided">
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+                    </bsdf>
                 </bsdf>
             </bsdf>
         </bsdf>
@@ -603,8 +622,8 @@ end_header
 </scene>
 `)
 
-	s1 := sin(19*t)*.4 + .5
-	b1 := sin(23*t)*.4 + .5
+	s1 := cos(17*t)*.4 + .5
+	b1 := .5 - sin(13*t)*.4
 	s2 := s1 + .4
 	if s2 > .9 {
 		s2 = s1 - .4
@@ -613,8 +632,8 @@ end_header
 	if b2 > .9 {
 		b2 = b1 - .4
 	}
-	eta := hsb2rgb(3*t/2/pi, s1, b1)
-	k := hsb2rgb(5*t/2/pi+.5, s2, b2)
+	eta := hsb2rgb(11*t/2/pi+.25, s1, b1)
+	k := hsb2rgb(7*t/2/pi, s2, b2)
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -624,15 +643,15 @@ end_header
 		0,
 		minZ,
 		fov,
-		pow(10, cos(11*t)-3),
+		pow(10, cos(7*t)-3.5),
 		height,
 		width,
 		samples,
 		height / numRows,
-		cos(7*t) + 2.5,
+		cos(5*t) + 2.5,
 		eta,
 		k,
-		-cos(11*t) * .9,
+		-cos(3*t) * .9,
 		1000,
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
