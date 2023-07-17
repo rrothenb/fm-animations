@@ -134,8 +134,8 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
 	R := .6
-	r := (.25 + cos(7*t)*.15) * a
-	n := float64(frameNumber % 5)
+	r := (.4 + cos(7*t)*.1) * a
+	n := float64(frameNumber%4) + 1
 	a1 := sin(2*t) * .5
 	a2 := sin(3*t) * .5
 	a3 := sin(5*t) * .5
@@ -167,7 +167,9 @@ func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
 func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
-	cameraLoc := geom.Vec{0, 0, 4.5}
+	length := (float64(frameNumber%4)+1)/2 + 1
+	cameraDir, _ := geom.Vec{sin(t), cos(t), sin(2*t)*.25 + 1.75}.Unit()
+	cameraLoc := cameraDir.Scaled(1.25).By(geom.Vec{1, length, 1})
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
@@ -302,9 +304,9 @@ end_header
         <string name="fov_axis" value="smaller"/>
         <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value=".000001"/>
-        <float name="fov" value="30"/>
+        <float name="fov" value="60"/>
         <transform name="to_world">
-            <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="0, 1, 0"/>
+            <lookat target="0, 0, 0" origin="{{ .Loc.X }}, {{ .Loc.Y }}, {{ .Loc.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
@@ -339,14 +341,26 @@ end_header
             <rotate value="1, 0, 0" angle="45"/>
         </transform>
     </emitter>
+    <shape type="rectangle">
+        <bsdf type="twosided">
+            <bsdf type="diffuse">
+                <rgb name="reflectance" value="0, 0, 0"/>
+            </bsdf>
+        </bsdf>
+        <transform name="to_world">
+            <scale value="10000"/>
+            <rotate value="0, 1, 0" angle="0"/>
+            <translate x="0" y="0" z="-1.25"/>
+        </transform>
+    </shape>
 </scene>
 `)
 	fmt.Println(cameraLoc)
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		distance,
-		2000 * (float64(frameNumber%5)/2 + 1),
-		2000,
+		720,
+		1280,
 	})
 }
 
@@ -354,7 +368,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 100, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
