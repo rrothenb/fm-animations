@@ -310,7 +310,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -359,8 +359,8 @@ end_header
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		distance,
-		720,
-		1280,
+		2160,
+		3840,
 	})
 }
 
