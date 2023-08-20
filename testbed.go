@@ -190,7 +190,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r * cos(u-.25*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+.25*sin(2*u)))).Plus(center)
+	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
 }
 
 func strength(x float64) float64 {
@@ -293,16 +293,14 @@ func box(u, v, t float64) geom.Vec {
 }
 
 func lissajousKnot(t float64, xN, yN, zN int) geom.Vec {
-	a := sin(2*tGlobal) * .5
-	b := sin(3*tGlobal) * .5
 	return geom.Vec{
-		sin(float64(xN)*t + a*sin(2*float64(xN)*t) + b*sin(float64(xN)*t)),
-		sin(float64(yN)*t + a*sin(2*float64(yN)*t) + b*sin(float64(yN)*t)),
-		cos(float64(zN)*t - a*sin(2*float64(zN)*t) - b*sin(float64(zN)*t))}
+		sin(float64(xN) * t),
+		sin(float64(yN) * t),
+		cos(float64(zN) * t)}
 }
 
 func knot(t float64) geom.Vec {
-	return lissajousKnot(t, 5, 6, 7)
+	return lissajousKnot(t, 3+frameGlobal*3, 4+frameGlobal*3, 5+frameGlobal*3)
 }
 
 func irrationalXYZTexture(a, f, x, y, z, t float64) float64 {
@@ -353,8 +351,8 @@ func symmetricalUVTexture(a, fU, fV, u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	texture := symmetricalUVTexture(3, 10, 1, u, v, t)
-	return pathWrapper(u, v, outerKnot(v).Len()/5.5+.01*texture, outerKnot)
+	loc := knot(v)
+	return pathWrapper(u, v, .1*(irrationalXYZTexture(5, 5, loc.X, loc.Y, loc.Z, t)/2+.5), knot)
 }
 
 func index2radians(index float64, n int) float64 {

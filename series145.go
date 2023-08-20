@@ -29,6 +29,8 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+var frameNumber = 0
+var globalT = 0.0
 
 func hsb2rgb(hue, sat, bri float64) (rgb geom.Vec) {
 	u := bri
@@ -74,7 +76,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(6, sin(float64(n)*(x+float64(n)/10)))
+	return pow(10, sin(float64(n)*(x+float64(n)/10)))
 }
 
 type SLR2 struct {
@@ -207,11 +209,11 @@ func lastKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return innerKnot(t)
+	return unitLissajousKnot(t, 3, 4, 5).Scaled(2.5)
 }
 
 func focusPath(t float64) geom.Vec {
-	return innerKnot(t + .1*pi - .09*cos(t)*pi)
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -225,7 +227,8 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 }
 
 func knot(t float64) geom.Vec {
-	return unitLissajousKnot(t, 19, 20, 21)
+	n := int(pow(2, 1-cos(globalT))+.5) * 2
+	return lissajousKnot(t, 1+n, 2+n, 3+n)
 }
 
 func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
@@ -255,10 +258,10 @@ func blendValue(u, v, t float64) float64 {
 
 func texture(u, v, t float64) float64 {
 	return sin(
-		strength(37, t)*sin(4*u+strength(53, t)*sin(u))*sin(4000*v+strength(61, t)*1000*v) +
+		strength(37, t)*sin(4*u+strength(53, t)*sin(u))*sin(400*v+strength(61, t)*100*v) +
 			strength(31, t)*sin(3*u+strength(43, t)*sin(v)) +
-			strength(29, t)*sin(3000*v+strength(47, t)*sin(u)) +
-			strength(41, t)*sin(2*u+2000*v+strength(59, t)*sin(u+v+strength(67, t)*sin(u-v))))
+			strength(29, t)*sin(300*v+strength(47, t)*sin(u)) +
+			strength(41, t)*sin(2*u+200*v+strength(59, t)*sin(u+v+strength(67, t)*sin(u-v))))
 
 }
 
@@ -267,7 +270,8 @@ func shaper(x, a, b float64) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return pathWrapper(u, v, .02+.005*shaper(texture(u, v, t), pow(4, sin(23*t)), pow(4, sin(19*t))), lastKnot)
+	loc := knot(v)
+	return pathWrapper(u, v, .1*(.95-.05*texture(u, v, t))*shaper(shapeTexture(pow(2, sin(2*t)-1), pow(2, sin(2*t)-1), t, loc), pow(10, sin(23*t)), pow(10, sin(19*t))), knot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -287,13 +291,16 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
-func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
+func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
 	width := int(aspectRatio * float64(height))
 	t := float64(frameNumber) * dt
+	globalT = t
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
-	fov := 60.0 + sin(2*t)*45
+	mirrorLoc := focusPoint.Minus(cameraLoc).Scaled(.5)
+	mirrorLoc2 := cameraLoc.Scaled(1.5)
+	fov := 60.0
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -356,7 +363,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	//distance = cameraLoc.Minus(closestPoint).Len()
+	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth / totalHeight
@@ -432,7 +439,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 8) * pow(sin(v), 8))
+			envmapValue := float32(pow(sin(u/2), 2) * pow(sin(v), 2))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -473,25 +480,27 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		MinZ      float64
-		FOV       float64
-		Aperture  float64
-		Height    int
-		Width     int
-		Samples   int
-		RowHeight int
-		IntIOR    float64
-		ETA       geom.Vec
-		K         geom.Vec
-		G         float64
-		Scale     float64
-		Weight1   int
-		Weight2   int
+		Camera     geom.Vec
+		LookAt     geom.Vec
+		Distance   float64
+		FogRadius  float64
+		Angle      float64
+		MinZ       float64
+		FOV        float64
+		Aperture   float64
+		Height     int
+		Width      int
+		Samples    int
+		RowHeight  int
+		IntIOR     float64
+		ETA        geom.Vec
+		K          geom.Vec
+		G          float64
+		Scale      float64
+		Weight1    int
+		Weight2    int
+		MirrorLoc  geom.Vec
+		MirrorLoc2 geom.Vec
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -501,7 +510,7 @@ end_header
         <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
@@ -612,12 +621,25 @@ end_header
         <ref id="object_bsdf"/>
         <ref id="medium1" name="interior"/>
     </shape>
-    <shape type="ply">
-        <string name="filename" value="3-2-2-3-knot.ply"/>
-        <bsdf type="dielectric">
-            <float name="int_ior" value="{{ .IntIOR }}"/>
-            <float name="ext_ior" value="2"/>
+    <shape type="rectangle">
+        <bsdf type="twosided">
+            <bsdf type="conductor">
+            </bsdf>
         </bsdf>
+        <transform name="to_world">
+            <scale value="50"/>
+            <lookat origin="{{ .MirrorLoc.X }}, {{ .MirrorLoc.Y }}, {{ .MirrorLoc.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
+        </transform>
+    </shape>
+    <shape type="rectangle">
+        <bsdf type="twosided">
+            <bsdf type="conductor">
+            </bsdf>
+        </bsdf>
+        <transform name="to_world">
+            <scale value="50"/>
+            <lookat origin="{{ .MirrorLoc2.X }}, {{ .MirrorLoc2.Y }}, {{ .MirrorLoc2.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
+        </transform>
     </shape>
 </scene>
 `)
@@ -643,7 +665,7 @@ end_header
 		0,
 		minZ,
 		fov,
-		pow(10, cos(7*t)-3.5),
+		pow(10, cos(2*t)-2.5),
 		height,
 		width,
 		samples,
@@ -655,6 +677,8 @@ end_header
 		1000,
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
+		mirrorLoc,
+		mirrorLoc2,
 	})
 }
 
@@ -671,5 +695,6 @@ func main() {
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
-	renderSurfaces(*frame, *pixels, *maxSubdivisions, dt, *desiredTriangles, *aspectRatio, *height, *samples, *numRows)
+	frameNumber = *frame
+	renderSurfaces(*pixels, *maxSubdivisions, dt, *desiredTriangles, *aspectRatio, *height, *samples, *numRows)
 }
