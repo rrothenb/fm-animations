@@ -227,8 +227,8 @@ func texture(u, v, t float64) float64 {
 			strength(.1+2*t)*sin(17*u)*sin(19*v))
 }
 
-func radius(u, v, t float64) float64 {
-	return 1.0 - .1*pow(spow(texture(u, v, t), pow(10, sin(5*t)))/2+.5, pow(10, sin(7*t)))
+func radius(t float64) float64 {
+	return 4 - cos(t)*2
 }
 
 func blendTexture(u, v, t float64) float64 {
@@ -236,20 +236,20 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func bigCircle(t float64) geom.Vec {
-	radius := 3 + sin(t)
-	return circle(t).Scaled(radius).Plus(geom.Vec{0, -radius, 0})
+	radius := radius(tGlobal)
+	return circle(t).Scaled(radius)
 }
 
 func thickness(t float64) float64 {
-	return .5 + sin(t)*.25
+	return .75 + cos(t)*.5
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	minV := 3 * pi / 2
-	maxV := minV + pi
+	minV := pi + pi/2
+	maxV := 3*pi - pi/2
 	limitedV := minV + v/2/pi*(maxV-minV)
 	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(17*t))) * sin(23*t)
-	return pathWrapper(u, limitedV, thickness(t)*spow(sin(v/2), pow(10, sin(17*t)))*.5*(1+.1*blendValue), bigCircle)
+	return pathWrapper(u, limitedV, thickness(t)*spow(sin(v/2), pow(3, 1+cos(2*t)))*.5*(1+.1*blendValue), bigCircle)
 }
 
 /*
@@ -284,7 +284,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 27.0
+	fov := 60.0
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -418,7 +418,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 4) * pow(sin(v), 4))
+			envmapValue := float32(pow(sin(u/2), 50) * pow(sin(v), 50))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -456,36 +456,47 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		Weight1   int
-		Weight2   int
-		Weight3   int
-		Weight4   int
-		EnvX      float64
-		EnvY      float64
-		EnvZ      float64
-		FOV       float64
-		Rough1    float64
-		Rough2    float64
-		Scale     float64
-		SigmaT    float64
-		Albedo    float64
-		G         float64
-		MinX      float64
-		MaxX      float64
-		MinY      float64
-		MaxY      float64
-		MinZ      float64
-		MaxZ      float64
-		Aperture  float64
-		Height    int
-		Width     int
-		Samples   int
-		RowHeight int
+		Camera        geom.Vec
+		LookAt        geom.Vec
+		Distance      float64
+		FogRadius     float64
+		Angle         float64
+		Weight1       int
+		Weight2       int
+		Weight3       int
+		Weight4       int
+		EnvX          float64
+		EnvY          float64
+		EnvZ          float64
+		FOV           float64
+		Rough1        float64
+		Rough2        float64
+		Scale         float64
+		SigmaT        float64
+		Albedo        float64
+		G             float64
+		MinX          float64
+		MaxX          float64
+		MinY          float64
+		MaxY          float64
+		MinZ          float64
+		MaxZ          float64
+		Aperture      float64
+		Height        int
+		Width         int
+		Samples       int
+		RowHeight     int
+		BackOffset    float64
+		RadiusOffset1 float64
+		RadiusOffset2 float64
+		RadiusOffset3 float64
+		RadiusOffset4 float64
+		RadiusOffset5 float64
+		Rotation1     float64
+		Rotation2     float64
+		Rotation3     float64
+		Rotation4     float64
+		Rotation5     float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -512,7 +523,7 @@ end_header
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
             <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
@@ -530,6 +541,7 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
+<shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <ref id="medium1" name="interior"/>
@@ -605,6 +617,43 @@ end_header
 			</bsdf>
 		</bsdf>
     </shape>
+    </shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="{{ .Rotation1 }}"/>
+            <translate x="0" y="{{ .RadiusOffset1 }}" z="0"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="{{ .Rotation2 }}"/>
+            <translate x="0" y="{{ .RadiusOffset2 }}" z="0"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="{{ .Rotation3 }}"/>
+            <translate x="0" y="{{ .RadiusOffset3 }}" z="0"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="{{ .Rotation4 }}"/>
+            <translate x="0" y="{{ .RadiusOffset4 }}" z="0"/>
+        </transform>
+</shape>
+<shape type="instance">
+    <ref id="my_shape_group"/>
+        <transform name="to_world">
+            <rotate value="0, 0, 1" angle="{{ .Rotation5 }}"/>
+            <translate x="0" y="{{ .RadiusOffset5 }}" z="0"/>
+        </transform>
+</shape>
+
     <shape type="rectangle">
         <bsdf type="twosided">
             <bsdf type="diffuse">
@@ -612,9 +661,9 @@ end_header
             </bsdf>
         </bsdf>
         <transform name="to_world">
-            <scale value="10"/>
+            <scale value="1000000"/>
             <rotate value="0, 1, 0" angle="0"/>
-            <translate x="0" y="0" z="-.75"/>
+            <translate x="0" y="0" z="{{ .BackOffset }}"/>
         </transform>
     </shape>
 </scene>
@@ -631,9 +680,9 @@ end_header
 			(frameNumber / 2) % 2,
 			(frameNumber / 4) % 2,
 			(frameNumber / 8) % 2,
-			sin(19*t) * 45,
-			sin(23*t) * 45,
-			sin(29*t) * 45,
+			sin(5.5) * 180,
+			sin(2*5.5) * 180,
+			sin(4*5.5) * 180,
 			fov,
 			pow(10, sin(5*t)-2),
 			pow(10, cos(7*t)-2),
@@ -652,6 +701,17 @@ end_header
 			width,
 			samples,
 			height / numRows,
+			-1.1 * thickness(t),
+			-radius(t) - 2*1.25*thickness(t),
+			-radius(t) - 1.25*thickness(t),
+			-radius(t),
+			-radius(t) + 1.25*thickness(t),
+			-radius(t) + 2*1.25*thickness(t),
+			-sin(t) * 60,
+			sin(t) * 30,
+			0,
+			-sin(t) * 30,
+			sin(t) * 60,
 		})
 }
 
@@ -659,7 +719,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
