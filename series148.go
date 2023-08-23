@@ -45,7 +45,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(2, sin(pow(float64(n), .5)*(x+float64(n)/3)))
+	return pow(2, sin(float64(n)*x+float64(n)/10)+1)
 }
 
 type SLR2 struct {
@@ -247,9 +247,15 @@ func shape(u, v, t float64) geom.Vec {
 	return geom.Vec{0, u/pi - 1, v/pi - 1}
 }
 
+func texture(u, v, t float64) float64 {
+	a := 8.0
+	return sin(
+		a*strength(7, t)*sin(u-v+a*strength(11, t)*sin(u+v+a*strength(19, t)*sin(v+a*strength(2, t)*sin(u)))) +
+			a*strength(5, t)*sin(u+v+a*strength(13, t)*sin(u-v+a*strength(17, t)*sin(u+a*strength(3, t)*sin(v)))))
+}
+
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := shape(u, v, t)
-	return loc.Plus(geom.Vec{.001 * shapeTexture(.5, 30, t, loc), 0, 0})
+	return shape(u, v, t).Plus(geom.Vec{.0001 * texture(u, v, t), 0, 0})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -383,7 +389,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(nV) * 2 * pi
 			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(pow(spow(shapeTexture(2, 1, t, loc), 10)/2+.5, 10))
+			blendValue := float32(pow(spow(shapeTexture(1, .5, t, loc), 10)/2+.5, 10))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -471,7 +477,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -493,6 +499,7 @@ end_header
             <string name="filename" value="mitsuba.blend.rgbe"/>
         </texture>
 		   <bsdf type="diffuse">
+                <rgb name="reflectance" value=".9, .9, .9"/>
 			</bsdf>
 			   <bsdf type="twosided">
 					<bsdf type="conductor">
