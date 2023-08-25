@@ -184,7 +184,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 5}
+	return geom.Vec{0, 0, 10}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -284,7 +284,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 60.0
+	fov := 67.5
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -654,16 +654,87 @@ end_header
         </transform>
 </shape>
 
-    <shape type="rectangle">
-        <bsdf type="twosided">
-            <bsdf type="diffuse">
+   <shape type="ply">
+        <string name="filename" value="paper.ply"/>
+    <bsdf type="blendbsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="paper.rgbe"/>
+        </texture>
+		   <bsdf type="diffuse">
                 <rgb name="reflectance" value=".9, .9, .9"/>
-            </bsdf>
-        </bsdf>
+			</bsdf>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight1 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<string name="material" value="CuO"/>
+						</bsdf>
+					</bsdf>
+						<bsdf type="thindielectric">
+						</bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<spectrum name="eta" filename="spd/2.spd"/>
+						<spectrum name="k" filename="spd/3.spd"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<spectrum name="eta" filename="spd/2.spd"/>
+						<spectrum name="k" filename="spd/12.spd"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+</bsdf>
         <transform name="to_world">
-            <scale value="1000000"/>
-            <rotate value="0, 1, 0" angle="0"/>
+            <scale value="4"/>
+            <rotate value="0, 1, 0" angle="90"/>
             <translate x="0" y="0" z="{{ .BackOffset }}"/>
+        </transform>
+    </shape>
+   <shape type="ply">
+        <string name="filename" value="frame.ply"/>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight3 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<spectrum name="eta" filename="spd/15.spd"/>
+						<spectrum name="k" filename="spd/11.spd"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<string name="material" value="Ag"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<string name="material" value="Cu"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<spectrum name="eta" filename="spd/15i.spd"/>
+						<spectrum name="k" filename="spd/11i.spd"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+        <transform name="to_world">
+            <scale value="5"/>
+            <rotate value="0, 1, 0" angle="0"/>
+            <translate x="0" y="0" z=".5"/>
         </transform>
     </shape>
 </scene>
@@ -696,7 +767,7 @@ end_header
 			maxY,
 			minZ,
 			maxZ,
-			.0000000000001,
+			.00000000000000000001,
 			height,
 			width,
 			samples,
@@ -719,7 +790,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 16, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
