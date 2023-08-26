@@ -247,11 +247,27 @@ func shape(u, v, t float64) geom.Vec {
 	return geom.Vec{0, u/pi - 1, v/pi - 1}
 }
 
+func strength2(n int, x float64) float64 {
+	return pow(strength(n, x), .5)
+}
+
 func texture(u, v, t float64) float64 {
-	a := 8.0
+	a := 1 - cos(t)*.5
+
+	w1 := cos(31*t)/2 + .5
+	w2 := cos(37*t)/2 + .5
+	w3 := cos(41*t)/2 + .5
 	return sin(
-		a*strength(7, t)*sin(u-v+a*strength(11, t)*sin(u+v+a*strength(19, t)*sin(v+a*strength(2, t)*sin(u)))) +
-			a*strength(5, t)*sin(u+v+a*strength(13, t)*sin(u-v+a*strength(17, t)*sin(u+a*strength(3, t)*sin(v)))))
+		a*(1+w1)*sin(479*u+389*v+
+			a*(1+w2)*sin(599*u+229*v)+
+			a*(2-w2)*sin(113*u+661*v)) +
+			a*(2-w1)*sin(773*u+857*v+
+				a*(1+w3)*sin(487*u+811*v)+
+				a*(2-w3)*sin(941*u+509*v)))
+}
+
+func or(a, b float64) float64 {
+	return 1 - (.5-a/2)*(.5-b/2)*2
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -469,20 +485,20 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000025"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="aperture_radius" value=".000000000000001"/>
         <float name="fov" value="45"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="25"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1080"/>
-            <integer name="height" value="1080"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="2400"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
