@@ -212,25 +212,17 @@ func focusPath(t float64) geom.Vec {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.25 + 1.25
-}
-
-func shapeTexture(f, a, u, v, t float64) float64 {
-	return sin(
-		3*u + 5*v +
-			strength(.1+2*t)*sin(2*u+strength(.2+3*t)*sin(3*u)) +
-			strength(.3+5*t)*sin(7*v+strength(.4+7*t)*sin(5*v)) +
-			strength(.7+11*t)*sin(5*u+7*v) +
-			strength(.5+13*t)*sin(17*u)*sin(19*v))
+	return sin(x) + 1
 }
 
 func texture(u, v, t float64) float64 {
+	nU := floor(sin(23*t) + 1.5)
+	nV := floor(sin(29*t) + 1.5)
 	return sin(
-		3*u + 5*v +
-			strength(1.7+19*t)*sin(2*u+strength(.7+7*t)*sin(3*u+strength(.3+3*t)*sin(5*u-7*v)*sin(11*u+3*v))) +
-			strength(1.5+17*t)*sin(7*v+strength(.5+5*t)*sin(5*v+strength(.1+2*t)*sin(7*u-11*v)*sin(13*u+5*v))) +
-			strength(1.3+13*t)*sin(5*u+7*v) +
-			strength(1.1+11*t)*sin(17*u)*sin(19*v))
+		nU*u + nV*v +
+			strength(1.7+19*t)*sin(nU*u+strength(.7+7*t)*sin(nV*u+strength(.3+3*t)*sin(u-2*nU*v)*sin(4*nU*u+nU*v))) +
+			strength(1.5+17*t)*sin(nV*v+strength(.5+5*t)*sin(nU*v+strength(.1+2*t)*sin(nV*u-2*nV*v)*sin(4*nU*u+v))) +
+			strength(1.3+13*t)*sin(nU*u+nV*v))
 }
 
 func radius(u, v, t float64) float64 {
@@ -242,7 +234,7 @@ func blendTexture(u, v, t float64) float64 {
 }
 
 func primaryMask(u, v, t float64) float64 {
-	baseTexture := sin(texture(-u/10, -v/10, t))
+	baseTexture := sin(texture(u, v, t))
 	texture := 0.0
 	if abs(baseTexture) < sin(2*t)*.25+.35 {
 		texture = 1.0
@@ -251,7 +243,7 @@ func primaryMask(u, v, t float64) float64 {
 }
 
 func secondaryMask(u, v, t float64) float64 {
-	baseTexture := sin(texture(-u/10, -v/10, t))
+	baseTexture := sin(texture(u, v, t))
 	texture := 0.0
 	minThreshold := sin(2*t)*.25 + .55
 	maxThreshold := .8
@@ -263,9 +255,7 @@ func secondaryMask(u, v, t float64) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	blendValue := pow(spow(texture(u, v, t), pow(2, cos(3*t)))/2+.5, pow(2, cos(7*t))) * sin(5*t)
-	depth := texture(u/25, v/25, t)/2 + .5
-	wrinkle := texture(v/50, u/50, t+1)/2 + .5
-	return geom.Vec{u - pi, v - pi, .1*depth*blendValue - .5*wrinkle}
+	return geom.Vec{u - pi, v - pi, .1 * blendValue}
 }
 
 /*
@@ -525,22 +515,19 @@ end_header
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
-    <sensor type="thinlens" id="Camera-camera">
-        <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value=".000000000001"/>
-        <float name="fov" value="{{ .FOV }}"/>
+    <sensor type="orthographic" id="Camera-camera">
         <transform name="to_world">
+			<scale x="3.14159" y="3.14159"/>
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="144"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -725,18 +712,6 @@ end_header
             <translate x="0" y="0" z="-.01"/>
         </transform>
     </shape>
-<shape type="rectangle">
-        <bsdf type="twosided">
-            <bsdf type="diffuse">
-                <rgb name="reflectance" value="0.8, 0.8, 0.8"/>
-            </bsdf>
-        </bsdf>
-        <transform name="to_world">
-            <scale value="10"/>
-            <rotate value="0, 1, 0" angle="0"/>
-            <translate x="0" y="0" z=".5"/>
-        </transform>
-    </shape>
 </scene>
 `)
 	r := 0.0
@@ -794,8 +769,12 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1536, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
+	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
+	_ = flag.Int("height", 720, "Height")
+	_ = flag.Int("samples", 25, "Samples")
+	_ = flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)

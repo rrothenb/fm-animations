@@ -55,21 +55,25 @@ mv data/$2.rgbe mitsuba.rgbe
 convert mitsuba.rgbe mitsuba.env.jpg
 #mv data/$2.clay.1.color.rgbe clay.1.color.rgbe
 #convert clay.1.color.rgbe clay.1.color.jpg
-#mv data/$2.secondary.mask.rgbe mitsuba.secondary.mask.rgbe
-#convert mitsuba.secondary.mask.rgbe mitsuba.secondary.mask.jpg
+mv data/$2.primary.mask.rgbe mitsuba.primary.mask.rgbe
+convert mitsuba.primary.mask.rgbe mitsuba.primary.mask.jpg
+mv data/$2.secondary.mask.rgbe mitsuba.secondary.mask.rgbe
+convert mitsuba.secondary.mask.rgbe mitsuba.secondary.mask.jpg
 mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 if [ $numrows -eq "1" ]
 then
-  time mitsuba -Doffset=0 -m scalar_rgb test.xml
-  convert test.exr -auto-gamma -modulate 100,150,100 -sigmoidal-contrast 5x0% $2.jpg
+  time mitsuba -m scalar_rgb test.xml
+  convert test.exr -auto-gamma -modulate 100,150,100 -sigmoidal-contrast 5x0% $1-$2.jpg
+  convert $1-$2.jpg $1-$2.jpg +append row.jpg
+  convert row.jpg row.jpg -append $1-$2.jpg
 else
   for row in `seq $firstrow $(($numrows-1))`
   do
     time mitsuba -Doffset=$(($row*$height/$numrows)) -m scalar_rgb test.xml
-    convert test.exr -auto-gamma -modulate 100,150,100 -sigmoidal-contrast 5x0% $2.$row.jpg
-    convert $2.{?,??}.jpg -append $2.jpg
-    mv test.exr $2.$row.exr
+    convert test.exr -auto-gamma -modulate 100,125,100 -sigmoidal-contrast 2x0% $1-$2.$row.jpg
+    convert $1-$2.{?,??}.jpg -append $1-$2.jpg
+    mv test.exr $1-$2.$row.exr
   done
 fi

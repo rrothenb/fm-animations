@@ -252,7 +252,7 @@ func strength2(n int, x float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	a := 1 - cos(t)*.5
+	a := 1 - cos(29*t)*.5
 
 	w1 := cos(31*t)/2 + .5
 	w2 := cos(37*t)/2 + .5
@@ -497,8 +497,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -559,7 +559,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	_ = flag.Int("height", 720, "Height")

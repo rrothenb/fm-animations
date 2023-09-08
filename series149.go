@@ -497,54 +497,6 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
-    <medium id="medium2" type="homogeneous">
-        <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-        <rgb name="albedo" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-        <phase type="hg">
-			<float name="g" value="{{ .G }}"/>
-		</phase>
-    </medium>
-    <shape type="ply">
-        <string name="filename" value="mitsuba.ply"/>
-        <transform name="to_world">
-            <scale value="1"/>
-            <translate x="0" y="0" z="0"/>
-        </transform>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight1 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-						</bsdf>
-					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="conductor">
-					<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-					<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
-        <bsdf type="dielectric">
-        </bsdf>
-    	<bsdf type="blendbsdf">
-		<float name="weight" value="{{ .Blend }}"/>
-        <bsdf type="dielectric">
-        </bsdf>
-		   <bsdf type="twosided">
-				<bsdf type="conductor">
-					<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-					<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-				</bsdf>
-			</bsdf>
-			</bsdf>
-			</bsdf>
-        </bsdf>
-        <ref id="medium1" name="interior"/>
-    </shape>
 </scene>
 `)
 	colorDiff := 1 / float64(frameNumber%7+2)
@@ -612,7 +564,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")

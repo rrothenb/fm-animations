@@ -39,11 +39,14 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*.75 + .8
+	return sin(x)*.9 + 1
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+strength(4*t)*subtexture3(u, v, t)) + sin(5*v+strength(3*t)*subtexture3(u, v, t))
+	a := sin(7*u+strength(4*t)*subtexture3(u, v, t)) + sin(5*v+strength(3*t)*subtexture3(u, v, t))
+	b := sin(11*u + 13*v + strength(4*t)*subtexture3(u, v, t))
+	weight := sin(3*t+.5*sin(6*t))/2 + .5
+	return weight*a + (1-weight)*b
 }
 
 func subtexture3(u, v, t float64) float64 {
@@ -55,7 +58,7 @@ func texture(u, v, t float64) float64 {
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 + (sin(2*t)*.3)*texture(u, v, t)
+	return 1.0 + (sin(2*t)*.2+.3)*texture(u, v, t)
 }
 
 func pushdown(x, n float64) float64 {
@@ -275,7 +278,20 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Loc geom.Vec
+		Loc     geom.Vec
+		Weight1 int
+		Weight2 int
+		Weight3 int
+		Weight4 int
+		Rough1  float64
+		Rough2  float64
+		Red     float64
+		Green   float64
+		Blue    float64
+		Red2    float64
+		Green2  float64
+		Blue2   float64
+		IntIOR  float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -286,7 +302,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="25"/>
+            <integer name="sample_count" value="144"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -296,36 +312,88 @@ end_header
         </film>
     </sensor>
     <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.blend.rgbe"/>
-        </texture>
-        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/15.spd"/>
-                <spectrum name="k" filename="spd/11.spd"/>
-            </bsdf>
-        </bsdf>
-        <bsdf type="twosided">
-            <bsdf type="roughconductor">
-                <string name="distribution" value="ggx"/>
-                <float name="alpha" value=".01"/>
-                <spectrum name="eta" filename="spd/15i.spd"/>
-                <spectrum name="k" filename="spd/11i.spd"/>
-            </bsdf>
-        </bsdf>
-    </bsdf>
-
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <ref id="object_bsdf"/>
-    </shape>
+    	<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.blend.rgbe"/>
+			</texture>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight1 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+					</bsdf>
+				      <bsdf type="twosided">
+						<bsdf type="roughplastic">
+                			<float name="alpha" value="{{ .Rough1 }}"/>
+            				<float name="int_ior" value="{{ .IntIOR }}"/>
+							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+				     </bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight2 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough1 }}"/>
+						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+                <float name="alpha" value=".01"/>
+                <spectrum name="eta" filename="spd/15.spd"/>
+                <spectrum name="k" filename="spd/11.spd"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight3 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+					</bsdf>
+				      <bsdf type="twosided">
+						<bsdf type="roughplastic">
+                			<float name="alpha" value="{{ .Rough2 }}"/>
+            				<float name="int_ior" value="{{ .IntIOR }}"/>
+							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+				     </bsdf>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight4 }}"/>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough2 }}"/>
+						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						</bsdf>
+					</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="roughconductor">
+                <float name="alpha" value=".01"/>
+                <spectrum name="eta" filename="spd/15i.spd"/>
+                <spectrum name="k" filename="spd/11i.spd"/>
+						</bsdf>
+					</bsdf>
+				</bsdf>
+			</bsdf>
+		</bsdf>
+</shape>
 
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
@@ -337,14 +405,29 @@ end_header
 </scene>
 `)
 	fmt.Println(cameraLoc)
-	sensorTemplate.Execute(sensorFile, sensor{cameraLoc})
+	sensorTemplate.Execute(sensorFile, sensor{
+		cameraLoc,
+		frameNumber % 2,
+		(frameNumber / 2) % 2,
+		(frameNumber / 4) % 2,
+		(frameNumber / 8) % 2,
+		pow(10, sin(5*t)-2),
+		pow(10, cos(7*t)-2),
+		cos(2*t)/2 + .5,
+		cos(3*t)/2 + .5,
+		cos(5*t)/2 + .5,
+		.5 - cos(13*t)/2,
+		.5 - cos(11*t)/2,
+		.5 - cos(7*t)/2,
+		1.5 + sin(17*t)*.25,
+	})
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	_ = flag.Int("height", 720, "Height")

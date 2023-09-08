@@ -29,12 +29,12 @@ def texture(xIndex, yIndex, zIndex, res):
     x = float32(xIndex)/res*2.0-1
     y = float32(yIndex)/res*2.0-1
     z = float32(zIndex)/res*2.0-1
-    if absolute(x*x*x+y*y*y+z*z*z-1) < .1:
+    if absolute(x*x*x+y*y*y+z*z*z-1) < .25:
         return 1
     return 0
 
 
-res = 256
+res = 512
 
 volume = zeros((res, res, res, 3))
 
