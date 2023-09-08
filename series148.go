@@ -252,7 +252,7 @@ func strength2(n int, x float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
-	a := 1 - cos(29*t)*.5
+	a := .5 - cos(29*t)*.25
 
 	w1 := cos(31*t)/2 + .5
 	w2 := cos(37*t)/2 + .5
@@ -270,8 +270,13 @@ func or(a, b float64) float64 {
 	return 1 - (.5-a/2)*(.5-b/2)*2
 }
 
+func blend(t float64, loc geom.Vec) float64 {
+	return pow(spow(shapeTexture(1, .5, t, loc), sin(2*t)*3+7)/2+.5, sin(3*t)*3+7)
+}
+
 func uv2xyz(u, v, t float64) geom.Vec {
-	return shape(u, v, t).Plus(geom.Vec{.0001 * texture(u, v, t), 0, 0})
+	loc := shape(u, v, t)
+	return loc.Plus(geom.Vec{.001*texture(u, v, t) - .01*cos(t)*blend(t, loc), 0, 0})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -405,7 +410,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(nV) * 2 * pi
 			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(pow(spow(shapeTexture(1, .5, t, loc), 10)/2+.5, 10))
+			blendValue := float32(blend(t, loc))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -497,8 +502,12 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="10000"/>
+            <integer name="height" value="10000"/>
+            <integer name="crop_offset_y" value="4500"/>
+            <integer name="crop_height" value="900"/>
+            <integer name="crop_offset_x" value="4500"/>
+            <integer name="crop_width" value="900"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -559,7 +568,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1000, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	_ = flag.Int("height", 720, "Height")
