@@ -241,15 +241,17 @@ func bigCircle(t float64) geom.Vec {
 }
 
 func thickness(t float64) float64 {
-	return .75 + cos(t)*.5
+	return 1 + cos(t)*.25
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	minV := pi + pi/2
 	maxV := 3*pi - pi/2
 	limitedV := minV + v/2/pi*(maxV-minV)
+	ridges := 10 + cos(7*t)*5
+	a := .6 - spow(cos(floor(ridges)*v), pow(10, sin(5*t)))*.4
 	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(17*t))) * sin(23*t)
-	return pathWrapper(u, limitedV, thickness(t)*spow(sin(v/2), pow(3, 1+cos(2*t)))*.5*(1+.1*blendValue), bigCircle)
+	return pathWrapper(u, limitedV-pow(a, pow(10, sin(11*t)))/(15+sin(13*t)*5), thickness(t)*spow(sin(v/2), pow(3, 1+cos(2*t)))*.5*(1+.1*blendValue), bigCircle)
 }
 
 /*
@@ -284,7 +286,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 67.5
+	fov := 40.0
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -455,6 +457,11 @@ end_header
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
+	type instance struct {
+		Angle float64
+		Loc   geom.Vec
+		Scale float64
+	}
 	type sensor struct {
 		Camera        geom.Vec
 		LookAt        geom.Vec
@@ -497,15 +504,13 @@ end_header
 		Rotation3     float64
 		Rotation4     float64
 		Rotation5     float64
+		Instances     []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
-    <sensor type="thinlens" id="Camera-camera">
-        <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value="{{ .Distance }}"/>
-        <float name="aperture_radius" value="{{ .Aperture }}"/>
-        <float name="fov" value="{{ .FOV }}"/>
+    <sensor type="orthographic" id="Camera-camera">
         <transform name="to_world">
+			<scale x="4" y="4"/>
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
@@ -618,41 +623,7 @@ end_header
 		</bsdf>
     </shape>
     </shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="{{ .Rotation1 }}"/>
-            <translate x="0" y="{{ .RadiusOffset1 }}" z="0"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="{{ .Rotation2 }}"/>
-            <translate x="0" y="{{ .RadiusOffset2 }}" z="0"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="{{ .Rotation3 }}"/>
-            <translate x="0" y="{{ .RadiusOffset3 }}" z="0"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="{{ .Rotation4 }}"/>
-            <translate x="0" y="{{ .RadiusOffset4 }}" z="0"/>
-        </transform>
-</shape>
-<shape type="instance">
-    <ref id="my_shape_group"/>
-        <transform name="to_world">
-            <rotate value="0, 0, 1" angle="{{ .Rotation5 }}"/>
-            <translate x="0" y="{{ .RadiusOffset5 }}" z="0"/>
-        </transform>
-</shape>
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 
    <shape type="ply">
         <string name="filename" value="paper.ply"/>
@@ -698,47 +669,20 @@ end_header
             <translate x="0" y="0" z="{{ .BackOffset }}"/>
         </transform>
     </shape>
-   <shape type="ply">
-        <string name="filename" value="frame.ply"/>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight3 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="conductor">
-						<spectrum name="eta" filename="spd/15.spd"/>
-						<spectrum name="k" filename="spd/11.spd"/>
-						</bsdf>
-					</bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="conductor">
-						<string name="material" value="Ag"/>
-						</bsdf>
-					</bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="conductor">
-						<string name="material" value="Cu"/>
-						</bsdf>
-					</bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="conductor">
-						<spectrum name="eta" filename="spd/15i.spd"/>
-						<spectrum name="k" filename="spd/11i.spd"/>
-						</bsdf>
-					</bsdf>
-				</bsdf>
-			</bsdf>
-        <transform name="to_world">
-            <scale value="5"/>
-            <rotate value="0, 1, 0" angle="0"/>
-            <translate x="0" y="0" z=".5"/>
-        </transform>
-    </shape>
 </scene>
 `)
+	instances := []instance{}
+	num := 15
+	sign := 1.0
+	for i := -num; i <= num; i++ {
+		if frameNumber%2 == 0 {
+			sign = -1 * sign
+		}
+		fmt.Println(frameNumber, frameNumber%2, frameNumber%2 == 0, i, sign)
+		loc := geom.Vec{4 * sin(t), -2*(cos(2*t)/2+.5) - 2, 0}
+		angle := float64(i) * sin(t) * 30 * sign
+		instances = append(instances, instance{angle, loc, pow(1+(1.3+sin(t)*.2)*thickness(t)/radius(t), float64(i))})
+	}
 	sensorTemplate.Execute(
 		sensorFile,
 		sensor{
@@ -783,6 +727,7 @@ end_header
 			0,
 			-sin(t) * 30,
 			sin(t) * 60,
+			instances,
 		})
 }
 
@@ -790,7 +735,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
