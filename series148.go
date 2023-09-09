@@ -271,7 +271,7 @@ func or(a, b float64) float64 {
 }
 
 func blend(t float64, loc geom.Vec) float64 {
-	return pow(spow(shapeTexture(1, .5, t, loc), sin(2*t)*3+7)/2+.5, sin(3*t)*3+7)
+	return pow(spow(shapeTexture(1, .5, t, loc), sin(2*t)*4+6)/2+.5, sin(3*t)*4+6)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -498,16 +498,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="10000"/>
-            <integer name="height" value="10000"/>
-            <integer name="crop_offset_y" value="4500"/>
-            <integer name="crop_height" value="900"/>
-            <integer name="crop_offset_x" value="4500"/>
-            <integer name="crop_width" value="900"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="512"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -568,7 +564,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	_ = flag.Int("height", 720, "Height")

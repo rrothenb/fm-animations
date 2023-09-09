@@ -521,8 +521,6 @@ end_header
         <film type="hdrfilm" id="film">
             <integer name="width" value="{{ .Width }}"/>
             <integer name="height" value="{{ .Height }}"/>
-            <integer name="crop_offset_y" value="$offset"/>
-            <integer name="crop_height" value="{{ .RowHeight }}"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -735,7 +733,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
