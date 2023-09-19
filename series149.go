@@ -44,7 +44,7 @@ func spow(x, y float64) float64 {
 }
 
 func strength(x float64) float64 {
-	return sin(x)*1.25 + 1.25
+	return sin(x)*1 + 1
 }
 
 func pushdown(x, n float64) float64 {
@@ -153,9 +153,9 @@ func circle(x float64) geom.Vec {
 
 func sphere(u, v, t float64) geom.Vec {
 	return geom.Vec{
-		sin(v/2.0) * cos(u),
-		sin(v/2.0) * sin(u),
-		cos(v / 2.0),
+		sin(v) * cos(u),
+		sin(v) * sin(u),
+		cos(v),
 	}
 }
 
@@ -199,7 +199,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 5}
+	return geom.Vec{0, 0, 2.1}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -221,16 +221,10 @@ func knot(t float64) geom.Vec {
 }
 
 func texture(u, v, t float64) float64 {
-	v = v * 3
-	a := pow(3, cos(89*t)-1)
-	fU := floor(sin(83*t)*10 + 5)
-	fV := floor(sin(79*t)*10 + 5)
+	a := pow(3, -1-cos(t))
 	return sin(
-		fU*u + fV*v +
-			a*strength(1.7+19*t)*sin(2*u+a*strength(.7+7*t)*sin(3*u+a*strength(.3+3*t)*sin(5*u-7*v)*sin(11*u+3*v))) +
-			a*strength(1.5+17*t)*sin(7*v+a*strength(.5+5*t)*sin(5*v+a*strength(.1+2*t)*sin(7*u-11*v)*sin(13*u+5*v))) +
-			a*strength(1.3+13*t)*sin(5*u+7*v) +
-			a*strength(1.1+11*t)*sin(17*u)*sin(19*v))
+		a*strength(1.7+3*t)*sin(2*u+a*strength(.7+5*t)*sin(3*u+a*strength(.3+13*t)*sin(5*u-7*v))) +
+			a*strength(1.5+2*t)*sin(7*v+a*strength(.5+7*t)*sin(5*v+a*strength(.1+11*t)*sin(7*u-11*v))))
 }
 
 func and(a, b float64) float64 {
@@ -244,13 +238,40 @@ func blend(a, b, c float64) float64 {
 	return a*and(b, c) + (1-a)*or(b, c)
 }
 
+func xTexture(f, a, t float64, loc geom.Vec) float64 {
+	return loc.X/2 + .5
+}
+
+func yTexture(f, a, t float64, loc geom.Vec) float64 {
+	return loc.Y/2 + .5
+}
+
+func zTexture(f, a, t float64, loc geom.Vec) float64 {
+	return loc.Z/2 + .5
+}
+
+func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
+	loc = loc.Scaled(f * 2 * pi)
+	return sin(
+		a*strength(2*t)*sin(a*strength(7*t)*loc.Z) +
+			a*strength(2*t)*sin(a*strength(7*t)*loc.Y) +
+			a*strength(2*t)*sin(a*strength(7*t)*loc.X) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.X+a*strength(11*t)*sin(a*strength(13*t)*3*loc.Y)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.X+a*strength(11*t)*sin(a*strength(13*t)*3*loc.Z)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Y+a*strength(11*t)*sin(a*strength(13*t)*3*loc.X)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Y+a*strength(11*t)*sin(a*strength(13*t)*3*loc.Z)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Z+a*strength(11*t)*sin(a*strength(13*t)*3*loc.X)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Z+a*strength(11*t)*sin(a*strength(13*t)*3*loc.Y)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.X-a*strength(11*t)*sin(a*strength(13*t)*3*loc.Y)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.X-a*strength(11*t)*sin(a*strength(13*t)*3*loc.Z)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Y-a*strength(11*t)*sin(a*strength(13*t)*3*loc.X)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Y-a*strength(11*t)*sin(a*strength(13*t)*3*loc.Z)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Z-a*strength(11*t)*sin(a*strength(13*t)*3*loc.X)) +
+			a*strength(3*t)*sin(a*strength(5*t)*2*loc.Z-a*strength(11*t)*sin(a*strength(13*t)*3*loc.Y)))
+}
+
 func uv2xyz(u, v, t float64) geom.Vec {
-	tuv := texture(pow(10, floor(sin(73*t)+2))*u, pow(10, floor(sin(71*t)+2))*v, t)
-	tvu := texture(pow(10, floor(sin(61*t)+2))*v, pow(10, floor(sin(67*t)+2))*u, t)
-	microTexture := blend(sin(59*t)/2+.5, tuv, tvu)
-	blendValue := pow(spow(texture(u, v, t), pow(2, cos(13*t)))/2+.5, pow(2, cos(17*t)))
-	a := pow(sin(u/2-.25*pi)/2+.5, pow(10, sin(53*t)+2))
-	return pathWrapper(u, v, .15-pow(10, sin(41*t)-2)*blendValue*a-.001*spow(sin(43*t), 4)*(1-(sin(47*t)/2+.5)*a)*microTexture, circle)
+	return sphere(u, v, t)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -270,7 +291,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	width := int(aspectRatio * float64(height))
 	t := float64(frameNumber) * dt
 	tGlobal = t
-	envSize := int(pow(float64(desiredTriangles), .5))
+	envSize := int(pow(float64(desiredTriangles), .5)) * 25
 	cameraLoc := cameraPath(t)
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -365,9 +386,18 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 		}
 	}
 	envmapArray := []float32{}
+	blendArray := []float32{}
 	numFaces := 0
 	for vIndex := 0; vIndex < nV; vIndex++ {
 		for uIndex := 0; uIndex < nU; uIndex++ {
+			/*
+				blendValue := float32(texture(v, u, t))
+			*/
+			u := float64(uIndex) / float64(nU) * 2 * pi
+			v := float64(vIndex) / float64(nV) * 2 * pi
+			loc := sphere(u, v, t)
+			blendValue := float32(shapeTexture(1, .15-cos(t)*.15, t, loc) * pow(.5-cos(t)*.5, .25) * 0)
+			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -391,9 +421,11 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(4, -cos(31*t)/2+.5)
-			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
-			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
+			loc := sphere(u, v, t).Scaled(10 * 2 * pi)
+			y := pow(cos(loc.Y)/2+.5, pow(3, sin(2*t)-1))
+			z := pow(cos(loc.Z)/2+.5, pow(3, sin(3*t)-1))
+			value := y * z
+			envmapArray = append(envmapArray, float32(pow(value, 2+sin(2*t))), float32(value), float32(pow(value, .5+sin(3*t)*.25)))
 		}
 	}
 
@@ -417,6 +449,7 @@ end_header
 `)
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
+	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -424,6 +457,8 @@ end_header
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
+	blend, _ := os.Create(blendPath)
+	rgbe.Encode(blend, nU, nV, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
@@ -453,6 +488,10 @@ end_header
 		Blend     float64
 		Weight1   int
 		Weight2   int
+		IOR1      float64
+		IOR2      float64
+		IOR3      float64
+		IOR4      float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -479,7 +518,7 @@ end_header
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="1.5"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
             <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
@@ -497,6 +536,136 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
+    <medium id="medium2" type="homogeneous">
+        <float name="scale" value="{{ .Scale }}"/>
+        <rgb name="sigma_t" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        <rgb name="albedo" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+        <phase type="hg">
+			<float name="g" value="{{ .G }}"/>
+		</phase>
+    </medium>
+ <shape type="shapegroup" id="sphere1">
+    <shape type="sphere">
+		<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IOR1 }}"/>
+			<float name="ext_ior" value="1.0"/>
+    	</bsdf>
+    </shape>
+</shape>
+<shape type="shapegroup" id="sphere2">
+    <shape type="sphere">
+		<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IOR2 }}"/>
+			<float name="ext_ior" value="1.0"/>
+    	</bsdf>
+    </shape>
+</shape>
+<shape type="shapegroup" id="sphere3">
+    <shape type="sphere">
+		<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IOR3 }}"/>
+			<float name="ext_ior" value="1.0"/>
+    	</bsdf>
+    </shape>
+</shape>
+<shape type="shapegroup" id="sphere4">
+    <shape type="sphere">
+		<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IOR4 }}"/>
+			<float name="ext_ior" value="1.0"/>
+    	</bsdf>
+    </shape>
+</shape>
+<shape type="instance">
+	<ref id="sphere1"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="0" y="0" z="0"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere2"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="1.14" y="1.14" z="-2.1"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere2"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="-1.14" y="1.14" z="-2.1"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere2"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="1.14" y="-1.14" z="-2.1"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere2"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="-1.14" y="-1.14" z="-2.1"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere3"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="3.4" y="3.4" z="-6.3"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere3"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="-3.4" y="3.4" z="-6.3"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere3"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="3.4" y="-3.4" z="-6.3"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere3"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="-3.4" y="-3.4" z="-6.3"/>
+	</transform>
+</shape><shape type="instance">
+	<ref id="sphere4"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="7.91" y="7.91" z="-14.7"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere4"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="-7.91" y="7.91" z="-14.7"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere4"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="7.91" y="-7.91" z="-14.7"/>
+	</transform>
+</shape>
+<shape type="instance">
+	<ref id="sphere4"/>
+	<transform name="to_world">
+        <scale value="1"/>
+		<translate x="-7.91" y="-7.91" z="-14.7"/>
+	</transform>
+</shape>
 </scene>
 `)
 	colorDiff := 1 / float64(frameNumber%7+2)
@@ -507,9 +676,9 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(17*t) * 175,
-		sin(13*t) * 175,
-		sin(11*t) * 175,
+		sin(t) * 0,
+		sin(t) * 0,
+		sin(t) * 0,
 		-cos(7*t) * .9,
 		pow(4, cos(5*t)+2),
 		red,
@@ -518,7 +687,7 @@ end_header
 		red2,
 		green2,
 		blue2,
-		27,
+		60,
 		.0000000000001,
 		height,
 		width,
@@ -527,6 +696,10 @@ end_header
 		spow(sin(2*t), .25)/2 + .5,
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
+		1.2 - cos(t)*.2,
+		1 + (.2-cos(t)*.2)*pow(2, -1-cos(t)),
+		1 + (.2-cos(t)*.2)*pow(2, -2-cos(t)*2),
+		1 + (.2-cos(t)*.2)*pow(2, -3-cos(t)*3),
 	}
 
 	sensorTemplate.Execute(sensorFile, sensor)
@@ -564,7 +737,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 1440, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
