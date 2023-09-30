@@ -23,7 +23,11 @@ while getopts 'a:h:s:' opt $fixedargs; do
   esac
 done
 shift "$(($OPTIND -1))"
-for frame in `seq 0 1439`
+for frame in 431 432 433 451 466 467 471 502 508 509 545 558
 do
+    time ./run.sh $options 148 $frame $2
+    mv mitsuba.ply paper.ply
+    mv mitsuba.blend.rgbe paper.rgbe
+    rm 148-$frame.jpg
     time ./run.sh $options $1 $frame $2
 done
