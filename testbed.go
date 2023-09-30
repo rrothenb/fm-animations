@@ -190,7 +190,8 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
+	a := cos(tGlobal)*.25-.25
+	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
 func strength(x float64) float64 {
@@ -299,10 +300,6 @@ func lissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 		cos(float64(zN) * t)}
 }
 
-func knot(t float64) geom.Vec {
-	return lissajousKnot(t, 3+frameGlobal*3, 4+frameGlobal*3, 5+frameGlobal*3)
-}
-
 func irrationalXYZTexture(a, f, x, y, z, t float64) float64 {
 	a1 := f*sin(2*t)*.5 + .5
 	a2 := f*sin(3*t)*.5 + .5
@@ -350,9 +347,12 @@ func symmetricalUVTexture(a, fU, fV, u, v, t float64) float64 {
 		pow(rationalUVTexture(a, fU, fV, -v, -u, t), 2)
 }
 
+func knot(t float64) geom.Vec {
+	return torusKnot(t, 1, .5, 3, 2, circle)
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	loc := knot(v)
-	return pathWrapper(u, v, .1*(irrationalXYZTexture(5, 5, loc.X, loc.Y, loc.Z, t)/2+.5), knot)
+	return pathWrapper(u, v, .45-cos(t)*.0333, knot)
 }
 
 func index2radians(index float64, n int) float64 {
