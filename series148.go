@@ -276,7 +276,7 @@ func blend(t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	return loc.Plus(geom.Vec{.001*texture(u, v, t) - .01*cos(t)*blend(t, loc), 0, 0})
+	return loc.Plus(geom.Vec{.001*texture(u, v, t) - .001*cos(t)*blend(t, loc), 0, 0})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -564,7 +564,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1000, "Max frames")
+	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	_ = flag.Int("height", 720, "Height")
