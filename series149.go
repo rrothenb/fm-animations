@@ -199,7 +199,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 2.1}
+	return geom.Vec{0, -1, 1.5}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -421,11 +421,11 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			loc := sphere(u, v, t).Scaled(10 * 2 * pi)
-			y := pow(cos(loc.Y)/2+.5, pow(3, sin(2*t)-1))
-			z := pow(cos(loc.Z)/2+.5, pow(3, sin(3*t)-1))
-			value := y * z
-			envmapArray = append(envmapArray, float32(pow(value, 2+sin(2*t))), float32(value), float32(pow(value, .5+sin(3*t)*.25)))
+			loc := sphere(u, v, t).Scaled(3 * 2 * pi)
+			x := pow(spow(cos(loc.X), .1)/2+.5, pow(3, sin(2*t)-1))
+			z := pow(spow(cos(loc.Z), .1)/2+.5, pow(3, sin(3*t)-1))
+			value := x * z
+			envmapArray = append(envmapArray, float32(value), float32(value), float32(value))
 		}
 	}
 
@@ -492,6 +492,10 @@ end_header
 		IOR2      float64
 		IOR3      float64
 		IOR4      float64
+		Radius1 float64
+		Radius2 float64
+		Radius3 float64
+		Radius4 float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -516,179 +520,114 @@ end_header
             <rfilter type="lanczos"/>
         </film>
     </sensor>
-    <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1.5"/>
-        <transform name="to_world">
-            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
-            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
-            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
-        </transform>
-    </emitter>
-        <integrator type="volpathmis">
-            <integer name="max_depth" value="16"/>
-        </integrator>
-    <medium id="medium1" type="homogeneous">
-        <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-        <rgb name="albedo" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-        <phase type="hg">
-			<float name="g" value="{{ .G }}"/>
-		</phase>
-    </medium>
-    <medium id="medium2" type="homogeneous">
-        <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-        <rgb name="albedo" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-        <phase type="hg">
-			<float name="g" value="{{ .G }}"/>
-		</phase>
-    </medium>
+    <integrator type="path" />
  <shape type="shapegroup" id="sphere1">
     <shape type="sphere">
-		<bsdf type="dielectric">
+		<bsdf type="blendbsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.rgbe"/>
+        </texture>
+						<bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IOR1 }}"/>
-			<float name="ext_ior" value="1.0"/>
+			<float name="ext_ior" value="{{ .IOR1 }}"/>
+</bsdf>
+				   <bsdf type="twosided">
+						<bsdf type="conductor">
+						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+						</bsdf>
+					</bsdf>
     	</bsdf>
     </shape>
 </shape>
-<shape type="shapegroup" id="sphere2">
-    <shape type="sphere">
-		<bsdf type="dielectric">
-			<float name="int_ior" value="{{ .IOR2 }}"/>
-			<float name="ext_ior" value="1.0"/>
-    	</bsdf>
-    </shape>
-</shape>
-<shape type="shapegroup" id="sphere3">
-    <shape type="sphere">
-		<bsdf type="dielectric">
-			<float name="int_ior" value="{{ .IOR3 }}"/>
-			<float name="ext_ior" value="1.0"/>
-    	</bsdf>
-    </shape>
-</shape>
-<shape type="shapegroup" id="sphere4">
-    <shape type="sphere">
-		<bsdf type="dielectric">
-			<float name="int_ior" value="{{ .IOR4 }}"/>
-			<float name="ext_ior" value="1.0"/>
-    	</bsdf>
-    </shape>
-</shape>
-<shape type="instance">
-	<ref id="sphere1"/>
+<shape type="sphere">
+						<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IOR1 }}"/>
+			<float name="ext_ior" value="2"/>
+</bsdf>
 	<transform name="to_world">
         <scale value="1"/>
 		<translate x="0" y="0" z="0"/>
 	</transform>
 </shape>
 <shape type="instance">
-	<ref id="sphere2"/>
+	<ref id="sphere1"/>
 	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="1.14" y="1.14" z="-2.1"/>
+        <scale value="{{ .Radius1 }}"/>
+		<translate x="0" y="0" z="0"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
 	</transform>
 </shape>
 <shape type="instance">
-	<ref id="sphere2"/>
+	<ref id="sphere1"/>
 	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="-1.14" y="1.14" z="-2.1"/>
+        <scale value="{{ .Radius2 }}"/>
+		<translate x="0" y="0" z="0"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvZ }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvX }}"/>
 	</transform>
 </shape>
 <shape type="instance">
-	<ref id="sphere2"/>
+	<ref id="sphere1"/>
 	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="1.14" y="-1.14" z="-2.1"/>
+        <scale value="{{ .Radius3 }}"/>
+		<translate x="0" y="0" z="0"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvZ }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvY }}"/>
 	</transform>
 </shape>
-<shape type="instance">
-	<ref id="sphere2"/>
+    <shape type="sphere">
+    <emitter type="area">
+            <spectrum name="radiance" value="1.0"/>
+    </emitter>
 	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="-1.14" y="-1.14" z="-2.1"/>
+        <scale value="{{ .Radius4 }}"/>
+		<translate x="0" y="0" z="0"/>
 	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere3"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="3.4" y="3.4" z="-6.3"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere3"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="-3.4" y="3.4" z="-6.3"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere3"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="3.4" y="-3.4" z="-6.3"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere3"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="-3.4" y="-3.4" z="-6.3"/>
-	</transform>
-</shape><shape type="instance">
-	<ref id="sphere4"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="7.91" y="7.91" z="-14.7"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere4"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="-7.91" y="7.91" z="-14.7"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere4"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="7.91" y="-7.91" z="-14.7"/>
-	</transform>
-</shape>
-<shape type="instance">
-	<ref id="sphere4"/>
-	<transform name="to_world">
-        <scale value="1"/>
-		<translate x="-7.91" y="-7.91" z="-14.7"/>
-	</transform>
-</shape>
+    </shape>
+   <shape type="ply">
+        <string name="filename" value="paper.ply"/>
+		   <bsdf type="diffuse">
+                <rgb name="reflectance" value=".9, .9, .9"/>
+			</bsdf>
+        <transform name="to_world">
+            <scale value="10"/>
+            <rotate value="0, 1, 0" angle="90"/>
+            <translate x="0" y="0" z="-1"/>
+        </transform>
+    </shape>
 </scene>
 `)
 	colorDiff := 1 / float64(frameNumber%7+2)
 	red, green, blue := hsb2rgb(sin(29*t)/2+.5, .95, .95)
 	red2, green2, blue2 := hsb2rgb(sin(23*t)/2+.5+colorDiff, .95, .95)
 
+	radius1 := 1.0 - pow(10, -cos(2*t)-2)
+	radius2 := radius1 - pow(10, -cos(3*t)-2)
+	radius3 := radius2 - pow(10, -cos(5*t)-2)
+	radius4 := radius3 - pow(10, -cos(7*t)-2)
+
 	sensor := Sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(t) * 0,
-		sin(t) * 0,
-		sin(t) * 0,
+		sin(2*t) * 175,
+		sin(3*t) * 175,
+		sin(5*t) * 175,
 		-cos(7*t) * .9,
-		pow(4, cos(5*t)+2),
+		pow(10, sin(t)+1),
 		red,
 		green,
 		blue,
 		red2,
 		green2,
 		blue2,
-		60,
-		.0000000000001,
+		radius4*150-100,
+		.0001,
 		height,
 		width,
 		samples,
@@ -696,10 +635,14 @@ end_header
 		spow(sin(2*t), .25)/2 + .5,
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
-		1.2 - cos(t)*.2,
+		2 - sin(t),
 		1 + (.2-cos(t)*.2)*pow(2, -1-cos(t)),
 		1 + (.2-cos(t)*.2)*pow(2, -2-cos(t)*2),
 		1 + (.2-cos(t)*.2)*pow(2, -3-cos(t)*3),
+		radius1,
+		radius2,
+		radius3,
+		radius4,
 	}
 
 	sensorTemplate.Execute(sensorFile, sensor)
@@ -737,7 +680,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1440, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
