@@ -564,7 +564,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -672,8 +672,8 @@ end_header
 	red, green, blue := hsb2rgb(sin(29*t)/2+.5, .95, .95)
 	red2, green2, blue2 := hsb2rgb(sin(23*t)/2+.5+colorDiff, .95, .95)
 	angle := 180 - t/pi*180
-	height := 2400
-	width := 3200
+	height := 600
+	width := 800
 	if maxZ-minZ > max(maxX-minX, maxY-minY) {
 		temp := height
 		height = width
@@ -733,8 +733,12 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 1000, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
+	_ = flag.Float64("aspectratio", 1.0, "Aspect ratio")
+	_ = flag.Int("height", 720, "Height")
+	_ = flag.Int("samples", 25, "Samples")
+	_ = flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
