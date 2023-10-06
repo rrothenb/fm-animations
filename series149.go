@@ -221,7 +221,7 @@ func knot(t float64) geom.Vec {
 }
 
 func texture(u, v, t float64) float64 {
-	a := 2.5 - cos(t)*2
+	a := 1 - cos(t)/2
 	u = u * 10
 	return sin(
 		a*strength(1.7+3*t)*sin(2*u+a*strength(.7+5*t)*sin(3*u+a*strength(.3+13*t)*sin(5*u-7*v))) +
@@ -642,7 +642,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 10, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
