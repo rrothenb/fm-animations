@@ -43,6 +43,10 @@ func spow(x, y float64) float64 {
 	return sign(x) * pow(abs(x), y)
 }
 
+func shaper(x, a, b float64) float64 {
+	return spow(pow(x/2+.5, a)*2-1, b)
+}
+
 func strength(x float64) float64 {
 	return sin(x)*1 + 1
 }
@@ -147,7 +151,7 @@ func cos2(x float64) float64 {
 }
 
 func circle(x float64) geom.Vec {
-	weight := .2 + cos(tGlobal)*.1
+	weight := .1
 	return geom.Vec{sin(x + weight*sin(2*x)), cos(x - weight*sin(2*x)), 0}
 }
 
@@ -198,8 +202,12 @@ func innerKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, p[i], q[i], outerKnot)
 }
 
+func fov(t float64) float64 {
+	return 90 + cos(t)*60
+}
+
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 5.5 - cos(t)*.5}
+	return geom.Vec{0, 0, 7.25+.6/tan(fov(t)/360*pi)}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -212,7 +220,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	weight := .2 + cos(tGlobal)*.1
+	weight := .1
 	return cosVec.Scaled(r * cos(u-weight*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+weight*sin(2*u)))).Plus(center)
 }
 
@@ -221,11 +229,11 @@ func knot(t float64) geom.Vec {
 }
 
 func texture(u, v, t float64) float64 {
-	a := 1 - cos(t)/2
+	a := 2 - cos(2*t)
 	u = u * 10
 	return sin(
-		a*strength(1.7+3*t)*sin(2*u+a*strength(.7+5*t)*sin(3*u+a*strength(.3+13*t)*sin(5*u-7*v))) +
-			a*strength(1.5+2*t)*sin(7*v+a*strength(.5+7*t)*sin(5*v+a*strength(.1+11*t)*sin(7*u-11*v))))
+		a*strength(1.7+4*t)*sin(2*u+a*strength(.7+16*t)*sin(3*u+a*strength(.3+64*t)*sin(5*u-7*v))) +
+			a*strength(1.5+8*t)*sin(7*v+a*strength(.5+32*t)*sin(5*v+a*strength(.1+128*t)*sin(7*u-11*v))))
 }
 
 func and(a, b float64) float64 {
@@ -277,8 +285,8 @@ func uv2xyz(u, v, t float64) geom.Vec {
 	} else {
 		u = (u-2*pi*.975)*22.45 + .45*2*pi*.975
 	}
-
-	return pathWrapper(u+1-cos(t), v, .5, circle).By(geom.Vec{1 + .01*texture(u, v, t), 1 + .01*texture(u, v, t), 10})
+	texture := .1*shaper(texture(u, v, t), pow(2, sin(t)), pow(2, cos(t)-2))
+	return pathWrapper(u, v, .75, circle).By(geom.Vec{2 + texture, 2 + texture, 10})
 }
 
 func index2radians(index float64, n int) float64 {
@@ -304,7 +312,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = 35
 	c.AspectRatio = aspectRatio
-	distance := cameraLoc.Minus(focusPoint).Len()
+	distance := cameraLoc.Minus(focusPoint).Len()-sin(t)*6.75
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -358,7 +366,6 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	fmt.Printf("\nextent: %v\n", extent)
 	center := geom.Vec{midX, midY, midZ}
 	focusPoint = center
-	distance = cameraLoc.Minus(closestPoint).Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
 	fmt.Println(totalWidth, totalHeight, ratio)
@@ -397,14 +404,15 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	numFaces := 0
 	for vIndex := 0; vIndex < nV; vIndex++ {
 		for uIndex := 0; uIndex < nU; uIndex++ {
-			u := float64(uIndex) / float64(envSize) * 2 * pi
+			u := index2radians(float64(uIndex), nU)
+			v := index2radians(float64(vIndex), nV)
 			if u < 2*pi*.975 {
 				u = u * .45
 			} else {
 				u = (u-2*pi*.975)*22.45 + .45*2*pi*.975
 			}
-			red, green, blue := hsb2rgb(float64(uIndex)/float64(nU), 1-(float64(uIndex)/float64(nU)), .95)
-			blendArray = append(blendArray, float32(red), float32(green), float32(blue))
+			texture := float32(shaper(texture(u, v, t), 1, .5)/2+.5)
+			blendArray = append(blendArray, texture, texture, texture)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -490,8 +498,9 @@ end_header
 		Samples   int
 		RowHeight int
 		Blend     float64
-		Weight1   int
-		Weight2   int
+		Weight1   float64
+		Weight2   float64
+		Weight3   float64
 		IOR1      float64
 		IOR2      float64
 		IOR3      float64
@@ -500,6 +509,8 @@ end_header
 		Radius2   float64
 		Radius3   float64
 		Radius4   float64
+		Rough1    float64
+		Rough2    float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -524,7 +535,17 @@ end_header
             <rfilter type="lanczos"/>
         </film>
     </sensor>
-    <integrator type="path" />
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="16"/>
+        </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="{{ .Scale }}"/>
+        <rgb name="albedo" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+        <rgb name="sigma_t" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        <phase type="hg">
+			<float name="g" value="{{ .G }}"/>
+		</phase>
+    </medium>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
@@ -536,23 +557,98 @@ end_header
     </emitter>
 	<bsdf type="dielectric" id="glass">
 		<float name="int_ior" value="{{ .IOR1 }}"/>
-		<float name="ext_ior" value="2"/>
 	</bsdf>
-   <bsdf type="twosided" id="metal">
-		<bsdf type="conductor">
+   <bsdf type="twosided" id="metal1">
+		<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough1 }}"/>
 			<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 			<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
 		</bsdf>
 	</bsdf>
-   <bsdf type="twosided" id="plastic">
+   <bsdf type="twosided" id="metal2">
+		<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Rough1 }}"/>
+			<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+			<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+		</bsdf>
+	</bsdf>
+   <bsdf type="twosided" id="plastic1">
 		<bsdf type="plastic">
+		    <float name="int_ior" value="{{ .IOR1 }}"/>
 			<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 		</bsdf>
 	</bsdf>
-   <bsdf type="twosided" id="diffuse">
+   <bsdf type="twosided" id="plastic2">
+		<bsdf type="plastic">
+		    <float name="int_ior" value="{{ .IOR1 }}"/>
+			<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+		</bsdf>
+	</bsdf>
+   <bsdf type="twosided" id="diffuse1">
 		<bsdf type="diffuse">
 			<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 		</bsdf>
+	</bsdf>
+   <bsdf type="twosided" id="diffuse2">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+		</bsdf>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo1">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="glass"/>
+		<ref id="diffuse2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo2">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="glass"/>
+		<ref id="metal2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo3">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="glass"/>
+		<ref id="plastic2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo4">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="metal1"/>
+		<ref id="diffuse2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo5">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="metal1"/>
+		<ref id="metal2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo6">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="metal1"/>
+		<ref id="plastic2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo7">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="diffuse1"/>
+		<ref id="plastic2"/>
+	</bsdf>
+	<bsdf type="blendbsdf" id="combo8">
+		<texture type="bitmap" name="weight">
+			<string name="filename" value="mitsuba.blend.rgbe"/>
+		</texture>
+		<ref id="glass"/>
+		<ref id="glass"/>
 	</bsdf>
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -560,13 +656,42 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <ref id="metal"/>
+        <ref id="medium1" name="interior"/>
+		<bsdf type="blendbsdf">
+			<float name="weight" value="{{ .Weight1 }}"/>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight2 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight3 }}"/>
+					<ref id="combo1"/>
+					<ref id="combo2"/>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight3 }}"/>
+					<ref id="combo3"/>
+					<ref id="combo4"/>
+				</bsdf>
+			</bsdf>
+			<bsdf type="blendbsdf">
+				<float name="weight" value="{{ .Weight2 }}"/>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight3 }}"/>
+					<ref id="combo5"/>
+					<ref id="combo6"/>
+				</bsdf>
+				<bsdf type="blendbsdf">
+					<float name="weight" value="{{ .Weight3 }}"/>
+					<ref id="combo7"/>
+					<ref id="combo8"/>
+				</bsdf>
+			</bsdf>
+		</bsdf>
     </shape>
 </scene>
 `)
-	colorDiff := 1 / float64(frameNumber%7+2)
-	red, green, blue := hsb2rgb(sin(29*t)/2+.5, .95, .95)
-	red2, green2, blue2 := hsb2rgb(sin(23*t)/2+.5+colorDiff, .95, .95)
+	colorDiff := pow(2, cos(t)-2)
+	red, green, blue := hsb2rgb(sin(2*t)/2+.5, .95, .95)
+	red2, green2, blue2 := hsb2rgb(sin(4*t)/2+.5+colorDiff, .95, .95)
 
 	radius1 := 1.0 - pow(10, -cos(2*t)-2)
 	radius2 := radius1 - pow(10, -cos(3*t)-2)
@@ -580,24 +705,25 @@ end_header
 		0,
 		180,
 		0,
-		-cos(7*t) * .9,
-		pow(10, sin(t)+1),
+		cos(t) * .9,
+		pow(10, sin(8*t)+1),
 		red,
 		green,
 		blue,
 		red2,
 		green2,
 		blue2,
-		90 + cos(t)*60,
-		.00000000000000001,
+		fov(t),
+		pow(10, -cos(2*t)*3-5),
 		height,
 		width,
 		samples,
 		height / numRows,
 		spow(sin(2*t), .25)/2 + .5,
-		frameNumber % 2,
-		(frameNumber / 2) % 2,
-		2 - sin(t),
+		spow(cos(16*t-.6*sin(32*t)), .5),
+		spow(sin(32*t+.6*sin(64*t)), .5),
+		spow(cos(64*t-.6*sin(128*t)), .5),
+		1.5 - sin(16*t)*.3,
 		1 + (.2-cos(t)*.2)*pow(2, -1-cos(t)),
 		1 + (.2-cos(t)*.2)*pow(2, -2-cos(t)*2),
 		1 + (.2-cos(t)*.2)*pow(2, -3-cos(t)*3),
@@ -605,6 +731,8 @@ end_header
 		radius2,
 		radius3,
 		radius4,
+		pow(10, sin(4*t)-2),
+		pow(10, cos(8*t)-2),
 	}
 
 	sensorTemplate.Execute(sensorFile, sensor)
@@ -642,7 +770,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 100, "Max frames")
+	maxFrames := flag.Int("maxframes", 1536, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
