@@ -612,14 +612,14 @@ end_header
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
 		</texture>
-		<ref id="glass"/>
-		<ref id="plastic2"/>
+		<ref id="plastic1"/>
+		<ref id="metal2"/>
 	</bsdf>
 	<bsdf type="blendbsdf" id="combo4">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
 		</texture>
-		<ref id="metal1"/>
+		<ref id="plastic1"/>
 		<ref id="diffuse2"/>
 	</bsdf>
 	<bsdf type="blendbsdf" id="combo5">
@@ -627,7 +627,7 @@ end_header
 			<string name="filename" value="mitsuba.blend.rgbe"/>
 		</texture>
 		<ref id="metal1"/>
-		<ref id="metal2"/>
+		<ref id="diffuse2"/>
 	</bsdf>
 	<bsdf type="blendbsdf" id="combo6">
 		<texture type="bitmap" name="weight">
@@ -647,8 +647,8 @@ end_header
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
 		</texture>
-		<ref id="glass"/>
-		<ref id="glass"/>
+		<ref id="diffuse1"/>
+		<ref id="diffuse2"/>
 	</bsdf>
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -689,14 +689,20 @@ end_header
     </shape>
 </scene>
 `)
-	colorDiff := pow(2, cos(t)-2)
-	red, green, blue := hsb2rgb(sin(2*t)/2+.5, .95, .95)
-	red2, green2, blue2 := hsb2rgb(sin(4*t)/2+.5+colorDiff, .95, .95)
+	colorDiff := .5+sin(t)*.25
+	hue1 := t/2/pi
+	hue2 := hue1+colorDiff
+	red, green, blue := hsb2rgb(hue1, .95, .95)
+	red2, green2, blue2 := hsb2rgb(hue2, .95, .95)
 
 	radius1 := 1.0 - pow(10, -cos(2*t)-2)
 	radius2 := radius1 - pow(10, -cos(3*t)-2)
 	radius3 := radius2 - pow(10, -cos(5*t)-2)
 	radius4 := radius3 - pow(10, -cos(7*t)-2)
+
+	weight1 := float64((frameNumber/4)%2)
+	weight2 := float64((frameNumber/2)%2)
+	weight3 := float64(frameNumber%2)
 
 	sensor := Sensor{
 		cameraLoc,
@@ -720,9 +726,9 @@ end_header
 		samples,
 		height / numRows,
 		spow(sin(2*t), .25)/2 + .5,
-		spow(cos(16*t-.6*sin(32*t)), .5),
-		spow(sin(32*t+.6*sin(64*t)), .5),
-		spow(cos(64*t-.6*sin(128*t)), .5),
+		weight1,
+		weight2,
+		weight3,
 		1.5 - sin(16*t)*.3,
 		1 + (.2-cos(t)*.2)*pow(2, -1-cos(t)),
 		1 + (.2-cos(t)*.2)*pow(2, -2-cos(t)*2),
@@ -734,6 +740,18 @@ end_header
 		pow(10, sin(4*t)-2),
 		pow(10, cos(8*t)-2),
 	}
+
+	fmt.Printf("%v, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f\n",
+		frameNumber,
+		weight1*(1-weight1)+weight2*(1-weight2)+weight3*(1-weight3),
+		4*weight1+2*weight2+weight3,
+		weight1,
+		weight2,
+		weight3,
+		hue1,
+		hue2,
+	)
+
 
 	sensorTemplate.Execute(sensorFile, sensor)
 }
