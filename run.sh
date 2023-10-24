@@ -65,12 +65,12 @@ convert mitsuba.texture.rgbe mitsuba.texture.jpg
 if [ $numrows -eq "1" ]
 then
   time mitsuba -Doffset=0 -m scalar_rgb test.xml
-  convert test.exr -auto-gamma -modulate 100,110,100 -sigmoidal-contrast 1x0% $1-$2.jpg
+  convert test.exr -auto-gamma -sigmoidal-contrast 5x0% $1-$2.jpg
 else
   for row in `seq $firstrow $(($numrows-1))`
   do
     time mitsuba -Doffset=$(($row*$height/$numrows)) -m scalar_rgb test.xml
-    convert test.exr -auto-gamma -modulate 100,125,100 -sigmoidal-contrast 2x0% $1-$2.$row.jpg
+    convert test.exr -auto-gamma -sigmoidal-contrast 5x0% $1-$2.$row.jpg
     convert $1-$2.{?,??}.jpg -append $1-$2.jpg
     mv test.exr $1-$2.$row.exr
   done
