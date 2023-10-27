@@ -127,7 +127,7 @@ func (s *SLR2) transform() {
 func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
-	factor := tan(s.FOV * (1.9 - sin(prime(44)*tGlobal)) / 360 * pi)
+	factor := tan(s.FOV * 1.5 / 360 * pi)
 	if projectedPoint.X < projectedPoint.Z*factor/s.AspectRatio || projectedPoint.X > -projectedPoint.Z*factor/s.AspectRatio {
 		return true
 	}
