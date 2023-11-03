@@ -20,23 +20,15 @@ type MeshType struct {
 	NumFaces    int
 }
 
-var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
-
-func prime(i int) float64 {
-	return pow(float64(primes[i-1]), 1)
-}
-
 var sin = math.Sin
 var cos = math.Cos
 var tan = math.Tan
-var atan = math.Atan
 var pow = math.Pow
 var sqrt = math.Sqrt
 var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
-var yScale = 1.0
 
 func hsb2rgb(hue, sat, bri float64) (rgb geom.Vec) {
 	u := bri
@@ -82,7 +74,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(1.5, sin(float64(n)*(x+float64(n)/10))*2-1)
+	return pow(8, sin(float64(n)*(x+float64(n)/10)))
 }
 
 type SLR2 struct {
@@ -148,7 +140,6 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
-	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -219,20 +210,11 @@ func lastKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, -2 + cos(2*t)*2, 2.1 + sin(3*t)*2}
+	return geom.Vec{sin(t) * .5, 1.5 + cos(t)*.25, cos(t)*.5 - .25}
 }
 
 func focusPath(t float64) geom.Vec {
-	cameraLoc := cameraPath(t)
-	lower := -1/1.7778 - cameraLoc.Y
-	upper := 1/1.7778 - cameraLoc.Y
-	lowerAngle := atan(lower / cameraLoc.Z)
-	upperAngle := atan(upper / cameraLoc.Z)
-	centerAngle := (lowerAngle + upperAngle) / 2
-	centerY := cameraLoc.Z*tan(centerAngle) + cameraLoc.Y
-	fmt.Printf("lower: %v, upper: %v, lowerAngle: %v, upperAngle: %v, centerAngle: %v, centerY: %v\n",
-		lower, upper, lowerAngle, upperAngle, centerAngle, centerY)
-	return geom.Vec{0, centerY, 0}
+	return cameraPath(t + .1).Minus(geom.Vec{0, .1, 0})
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -266,14 +248,6 @@ func cube(u, v, t float64) geom.Vec {
 	}
 }
 
-func rectangle(u, v, t float64) geom.Vec {
-	return geom.Vec{
-		u/pi - 1,
-		(v/pi - 1) / 1.77778,
-		0,
-	}
-}
-
 func metalBlendValue(t float64, loc geom.Vec) float64 {
 	return spow(pow(shapeTexture(2, 1, t, loc)/2+.5, 10)*2-1, .1)/2 + .5
 }
@@ -284,10 +258,10 @@ func blendValue(u, v, t float64) float64 {
 
 func texture(u, v, t float64) float64 {
 	return sin(
-		strength(2, t)*sin(2*u+strength(19, t)*sin(u))*sin(3*v+strength(23, t)*2*v) +
-			strength(3, t)*sin(3*u+strength(17, t)*sin(v)) +
-			strength(5, t)*sin(4*v+strength(13, t)*sin(u)) +
-			strength(7, t)*sin(5*u+4*v+strength(11, t)*sin(u+v+strength(29, t)*sin(u-v))))
+		strength(2, t)*sin(11*u+strength(19, t)*sin(u))*sin(17*v+strength(23, t)*16*v) +
+			strength(3, t)*sin(12*u+strength(17, t)*sin(v)) +
+			strength(5, t)*sin(13*v+strength(13, t)*sin(u)) +
+			strength(7, t)*sin(14*u+15*v+strength(11, t)*sin(u+v+strength(29, t)*sin(u-v))))
 
 }
 
@@ -296,7 +270,7 @@ func shaper(x, a, b float64) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return rectangle(u, v, t).Plus(geom.Vec{0, 0, .05*shaper(texture(u, v, t), pow(2, sin(31*t)), pow(3, sin(37*t)-1)) - .025})
+	return cube(u, v, t).Scaled(1 + .05*shaper(texture(u, v, t), pow(2, sin(31*t)), pow(3, sin(37*t)-1)))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -321,26 +295,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
-	lower := -1/1.7778 - cameraLoc.Y
-	upper := 1/1.7778 - cameraLoc.Y
-	lowerAngle := atan(lower / cameraLoc.Z)
-	upperAngle := atan(upper / (cameraLoc.Z + .1))
-	centerAngle := (lowerAngle + upperAngle) / 2
-	centerY := (cameraLoc.Z+.05)*tan(centerAngle) + cameraLoc.Y
-	fmt.Printf("lower: %v, upper: %v, lowerAngle: %v, upperAngle: %v, centerAngle: %v, centerY: %v\n",
-		lower, upper, lowerAngle, upperAngle, centerAngle, centerY)
-	focusPoint := geom.Vec{0, centerY, 0}
-	fov := (upperAngle - lowerAngle) / 2 / pi * 360 * 1.77778 * .9
+	focusPoint := focusPath(t)
+	fov := 45.0
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
-	somethingUL := c.trans.MultPoint(geom.Vec{-1, 1 / 1.77778, -1})
-	somethingUR := c.trans.MultPoint(geom.Vec{1, 1 / 1.77778, -1})
-	somethingLL := c.trans.MultPoint(geom.Vec{-1, -1 / 1.77778, -1})
-	somethingLR := c.trans.MultPoint(geom.Vec{1, -1 / 1.77778, -1})
-	distance := cameraLoc.Minus(focusPoint).Len()
-	fmt.Printf("\nyScale: %v\nsomethingUL: %v\nsomethingUR: %v\nsomethingLL: %v\nsomethingLR: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n",
-		yScale, somethingUL, somethingUR, somethingLL, somethingLR, cameraLoc, focusPoint, distance, t)
+	distance := .25
+	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -470,17 +431,14 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			numFaces++
 		}
 	}
-	totalLight := 0.0
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(spow(pow(sin(u/2), pow(10, cos(prime(16)*t)+1))*pow(sin(v), pow(10, cos(prime(17)*t)+1))*2-1, pow(3, -1-cos(prime(18)*t)))/2 + .5)
-			totalLight += float64(envmapValue)
+			envmapValue := float32(pow(sin(u/2), pow(2, cos(t)+3)) * pow(sin(v), pow(2, cos(t)+3)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
-	avgLight := totalLight / float64(envSize*envSize)
 
 	fmt.Println("Mitsuba!")
 	PlyDataBuffered.Flush()
@@ -539,10 +497,6 @@ end_header
 		Weight2   int
 		Alpha1    float64
 		Alpha2    float64
-		EnvX      float64
-		EnvY      float64
-		EnvZ      float64
-		EnvScale  float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -569,11 +523,9 @@ end_header
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="{{ .EnvScale }}"/>
+        <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
-            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
-            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
+            <rotate value="1, 0, 0" angle="-90"/>
         </transform>
     </emitter>
     <integrator type="volpathmis">
@@ -674,12 +626,18 @@ end_header
 </scene>
 `)
 
-	s1 := sin(2*t)*.25 + .25
-	b1 := sin(3*t)*.25 + .75
-	s2 := sin(5*t)*.25 + .25
-	b2 := sin(7*t)*.25 + .75
-	h1 := t / 2 / pi
-	h2 := h1 + .5 + sin(t)*.5
+	s1 := cos(41*t)*.4 + .5
+	b1 := .5 - sin(43*t)*.4
+	s2 := s1 + .4
+	if s2 > .9 {
+		s2 = s1 - .4
+	}
+	b2 := b1 + .4
+	if b2 > .9 {
+		b2 = b1 - .4
+	}
+	h1 := 47 * t / 2 / pi
+	h2 := h1 + .5 + sin(t)*.25
 	eta := hsb2rgb(h1, s1, b1)
 	k := hsb2rgb(h2, s2, b2)
 
@@ -691,7 +649,7 @@ end_header
 		0,
 		minZ,
 		fov,
-		.01,
+		.000000000001,
 		height,
 		width,
 		samples,
@@ -705,10 +663,6 @@ end_header
 		(frameNumber / 2) % 2,
 		pow(10, sin(67*t)-2),
 		pow(10, cos(79*t)-2),
-		sin(2*t) * 90,
-		sin(3*t) * 90,
-		sin(5*t) * 90,
-		.1 / avgLight,
 	})
 }
 
@@ -716,7 +670,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
