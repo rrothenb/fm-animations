@@ -20,6 +20,12 @@ type MeshType struct {
 	NumFaces    int
 }
 
+var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
+
+func prime(i int) float64 {
+	return pow(float64(primes[i-1]), 1)
+}
+
 var sin = math.Sin
 var cos = math.Cos
 var tan = math.Tan
@@ -74,7 +80,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(8, sin(float64(n)*(x+float64(n)/10)))
+	return pow(10, sin(prime(n)*(x+prime(n)/10)))
 }
 
 type SLR2 struct {
@@ -234,10 +240,10 @@ func knot(t float64) geom.Vec {
 func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 	loc = loc.Scaled(f * 2 * pi)
 	return sin(loc.Z +
-		a*strength(7, t)*sin(a*strength(23, t)*loc.Z) +
-		a*strength(11, t)*sin(a*strength(19, t)*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*loc.Y)) +
-		a*strength(13, t)*sin(a*strength(17, t)*loc.Z) + a*strength(37, t)*sin(a*strength(41, t)*loc.X-a*strength(43, t)*loc.Y) +
-		a*strength(47, t)*sin(loc.Z+a*strength(53, t)*sin(loc.X*loc.Z+.1*a*strength(59, t)*sin(loc.Z*loc.Y))))
+		a*strength(1, t)*sin(a*strength(8, t)*loc.Z) +
+		a*strength(2, t)*sin(a*strength(7, t)*loc.Z+a*strength(9, t)*sin(a*strength(13, t)*loc.Y)) +
+		a*strength(3, t)*sin(a*strength(6, t)*loc.Z) + a*strength(10, t)*sin(a*strength(12, t)*loc.X-a*strength(14, t)*loc.Y) +
+		a*strength(4, t)*sin(loc.Z+a*strength(5, t)*sin(loc.X*loc.Z+.1*a*strength(11, t)*sin(loc.Z*loc.Y))))
 }
 
 func cube(u, v, t float64) geom.Vec {
@@ -253,15 +259,15 @@ func metalBlendValue(t float64, loc geom.Vec) float64 {
 }
 
 func blendValue(u, v, t float64) float64 {
-	return shaper(texture(u, v, t), pow(4, sin(71*t)), pow(2, cos(73*t))-1)/2 + .5
+	return shaper(texture(u, v, t), pow(4, sin(prime(24)*t)), pow(2, cos(prime(25)*t))-1)/2 + .5
 }
 
 func texture(u, v, t float64) float64 {
 	return sin(
-		strength(2, t)*sin(11*u+strength(19, t)*sin(u))*sin(17*v+strength(23, t)*16*v) +
-			strength(3, t)*sin(12*u+strength(17, t)*sin(v)) +
-			strength(5, t)*sin(13*v+strength(13, t)*sin(u)) +
-			strength(7, t)*sin(14*u+15*v+strength(11, t)*sin(u+v+strength(29, t)*sin(u-v))))
+		strength(14, t)*sin(11*u+strength(21, t)*sin(u))*sin(17*v+strength(22, t)*16*v) +
+			strength(15, t)*sin(12*u+strength(20, t)*sin(v)) +
+			strength(16, t)*sin(13*v+strength(19, t)*sin(u)) +
+			strength(17, t)*sin(14*u+15*v+strength(18, t)*sin(u+v+strength(23, t)*sin(u-v))))
 
 }
 
@@ -270,7 +276,7 @@ func shaper(x, a, b float64) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return cube(u, v, t).Scaled(1 + .05*shaper(texture(u, v, t), pow(2, sin(31*t)), pow(3, sin(37*t)-1)))
+	return cube(u, v, t).Scaled(1 + .05*shaper(texture(u, v, t), pow(2, sin(prime(12)*t)), pow(3, sin(prime(13)*t)-1)))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -296,7 +302,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
-	fov := 45.0
+	fov := 40.0
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -400,18 +406,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	}
 	envmapArray := []float32{}
 	blendArray := []float32{}
-	metalBlendArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
 			u := float64(uIndex) / float64(nU) * 2 * pi
 			v := float64(vIndex) / float64(nV) * 2 * pi
-			loc := shape(u, v, t)
-			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
 			blendValue := float32(blendValue(u, v, t))
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
-			metalBlendValue := float32(metalBlendValue(t, loc))
-			metalBlendArray = append(metalBlendArray, metalBlendValue, metalBlendValue, metalBlendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -435,7 +436,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), pow(2, cos(t)+3)) * pow(sin(v), pow(2, cos(t)+3)))
+			envmapValue := float32(pow(sin(u/2), pow(2, cos(prime(10)*t)+3)) * pow(sin(v), pow(2, cos(prime(11)*t)+3)))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -461,7 +462,6 @@ end_header
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
 	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
-	metalBlendPath := fmt.Sprintf("data/%v.metal.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -471,8 +471,6 @@ end_header
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
 	blend, _ := os.Create(blendPath)
 	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
-	metalBlend, _ := os.Create(metalBlendPath)
-	rgbe.Encode(metalBlend, endUIndex-startUIndex, endVIndex-startVIndex, metalBlendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -548,10 +546,8 @@ end_header
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
                 <bsdf type="twosided">
-                    <bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Alpha2 }}"/>
-                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
                     </bsdf>
                 </bsdf>
                 <bsdf type="roughdielectric">
@@ -570,10 +566,8 @@ end_header
                     <float name="ext_ior" value="{{ .IntIOR }}"/>
                 </bsdf>
                 <bsdf type="twosided">
-                    <bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Alpha2 }}"/>
-                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
                     </bsdf>
                 </bsdf>
             </bsdf>
@@ -590,10 +584,8 @@ end_header
                     </bsdf>
                 </bsdf>
                 <bsdf type="twosided">
-                    <bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Alpha2 }}"/>
-                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
                     </bsdf>
                 </bsdf>
             </bsdf>
@@ -626,18 +618,12 @@ end_header
 </scene>
 `)
 
-	s1 := cos(41*t)*.4 + .5
-	b1 := .5 - sin(43*t)*.4
-	s2 := s1 + .4
-	if s2 > .9 {
-		s2 = s1 - .4
-	}
-	b2 := b1 + .4
-	if b2 > .9 {
-		b2 = b1 - .4
-	}
-	h1 := 47 * t / 2 / pi
-	h2 := h1 + .5 + sin(t)*.25
+	s1 := cos(prime(8)*t)*.1 + .2
+	b1 := .8 - sin(prime(7)*t)*.1
+	s2 := .4 - s1
+	b2 := 1.6 - b1
+	h1 := sin(prime(9)*t)/2 + .5
+	h2 := h1 + .5 + sin(prime(6)*t)*.25
 	eta := hsb2rgb(h1, s1, b1)
 	k := hsb2rgb(h2, s2, b2)
 
@@ -649,20 +635,20 @@ end_header
 		0,
 		minZ,
 		fov,
-		.000000000001,
+		pow(10, sin(prime(27)*t)*4-6),
 		height,
 		width,
 		samples,
 		height / numRows,
-		cos(59*t) + 2.5,
+		sin(prime(4)*t)*.5 + 2.01,
 		eta,
 		k,
-		-cos(61*t) * .9,
-		100,
+		-cos(prime(3)*t) * .99,
+		pow(10, sin(prime(26)*t)*2+1),
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
-		pow(10, sin(67*t)-2),
-		pow(10, cos(79*t)-2),
+		pow(2, sin(prime(1)*t)*2-3),
+		pow(2, cos(prime(2)*t)*2-3),
 	})
 }
 
