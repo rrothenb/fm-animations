@@ -80,7 +80,7 @@ func pushout(x, duty, degree float64) float64 {
 }
 
 func strength(n int, x float64) float64 {
-	return pow(10, sin(prime(n)*(x+prime(n)/10)))
+	return pow(15, sin(prime(n)*(x+prime(n)/10)))
 }
 
 type SLR2 struct {
@@ -267,7 +267,8 @@ func texture(u, v, t float64) float64 {
 		strength(14, t)*sin(11*u+strength(21, t)*sin(u))*sin(17*v+strength(22, t)*16*v) +
 			strength(15, t)*sin(12*u+strength(20, t)*sin(v)) +
 			strength(16, t)*sin(13*v+strength(19, t)*sin(u)) +
-			strength(17, t)*sin(14*u+15*v+strength(18, t)*sin(u+v+strength(23, t)*sin(u-v))))
+			strength(17, t)*sin(14*u+15*v+strength(18, t)*sin(u+v+strength(23, t)*sin(u-v))) +
+			sin(t)*strength(24, t)*sin(u*v))
 
 }
 
@@ -474,27 +475,34 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		MinZ      float64
-		FOV       float64
-		Aperture  float64
-		Height    int
-		Width     int
-		Samples   int
-		RowHeight int
-		IntIOR    float64
-		ETA       geom.Vec
-		K         geom.Vec
-		G         float64
-		Scale     float64
-		Weight1   int
-		Weight2   int
-		Alpha1    float64
-		Alpha2    float64
+		Camera       geom.Vec
+		LookAt       geom.Vec
+		Distance     float64
+		FogRadius    float64
+		Angle        float64
+		MinZ         float64
+		FOV          float64
+		Aperture     float64
+		Height       int
+		Width        int
+		Samples      int
+		RowHeight    int
+		IntIOR       float64
+		G            float64
+		Scale        float64
+		Weight1      int
+		Weight2      int
+		Alpha1       float64
+		Alpha2       float64
+		ETA          geom.Vec
+		K            geom.Vec
+		Reflectance1 geom.Vec
+		Reflectance2 geom.Vec
+		Albedo       geom.Vec
+		SigmaT       geom.Vec
+		EnvX         float64
+		EnvY         float64
+		EnvZ         float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -523,7 +531,9 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="1, 0, 0" angle="-90"/>
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
     <integrator type="volpathmis">
@@ -531,8 +541,8 @@ end_header
     </integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="sigma_t" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-        <rgb name="albedo" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+        <rgb name="sigma_t" value="{{ .SigmaT.X }}, {{ .SigmaT.Y }}, {{ .SigmaT.Z }}"/>
+        <rgb name="albedo" value="{{ .Albedo.X }}, {{ .Albedo.Y }}, {{ .Albedo.Z }}"/>
         <phase type="hg">
             <float name="g" value="{{ .G }}"/>
         </phase>
@@ -546,9 +556,11 @@ end_header
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
                 <bsdf type="twosided">
-                    <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                    </bsdf>
+					<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Alpha2 }}"/>
+						<rgb name="eta" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+						<rgb name="k" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+					</bsdf>
                 </bsdf>
                 <bsdf type="roughdielectric">
 					<float name="alpha" value="{{ .Alpha1 }}"/>
@@ -560,14 +572,16 @@ end_header
                 <texture type="bitmap" name="weight">
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
-                <bsdf type="roughdielectric">
-					<float name="alpha" value="{{ .Alpha1 }}"/>
-                    <float name="int_ior" value="2"/>
-                    <float name="ext_ior" value="{{ .IntIOR }}"/>
+                <bsdf type="twosided">
+					<bsdf type="roughconductor">
+						<float name="alpha" value="{{ .Alpha2 }}"/>
+						<rgb name="eta" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+						<rgb name="k" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+					</bsdf>
                 </bsdf>
                 <bsdf type="twosided">
                     <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+							<rgb name="reflectance" value="{{ .Reflectance2.X }}, {{ .Reflectance2.Y }}, {{ .Reflectance2.Z }}"/>
                     </bsdf>
                 </bsdf>
             </bsdf>
@@ -578,21 +592,6 @@ end_header
                 <texture type="bitmap" name="weight">
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
-                <bsdf type="twosided">
-                    <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
-                    </bsdf>
-                </bsdf>
-                <bsdf type="twosided">
-                    <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                    </bsdf>
-                </bsdf>
-            </bsdf>
-            <bsdf type="blendbsdf">
-                <texture type="bitmap" name="weight">
-                    <string name="filename" value="mitsuba.blend.rgbe"/>
-                </texture>
                 <bsdf type="roughdielectric">
 					<float name="alpha" value="{{ .Alpha1 }}"/>
                     <float name="int_ior" value="2"/>
@@ -600,7 +599,22 @@ end_header
                 </bsdf>
                 <bsdf type="twosided">
                     <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+							<rgb name="reflectance" value="{{ .Reflectance2.X }}, {{ .Reflectance2.Y }}, {{ .Reflectance2.Z }}"/>
+                    </bsdf>
+                </bsdf>
+            </bsdf>
+            <bsdf type="blendbsdf">
+                <texture type="bitmap" name="weight">
+                    <string name="filename" value="mitsuba.blend.rgbe"/>
+                </texture>
+                <bsdf type="twosided">
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .Reflectance1.X }}, {{ .Reflectance1.Y }}, {{ .Reflectance1.Z }}"/>
+                    </bsdf>
+                </bsdf>
+                <bsdf type="twosided">
+                    <bsdf type="diffuse">
+							<rgb name="reflectance" value="{{ .Reflectance2.X }}, {{ .Reflectance2.Y }}, {{ .Reflectance2.Z }}"/>
                     </bsdf>
                 </bsdf>
             </bsdf>
@@ -618,14 +632,18 @@ end_header
 </scene>
 `)
 
-	s1 := cos(prime(8)*t)*.1 + .2
-	b1 := .8 - sin(prime(7)*t)*.1
-	s2 := .4 - s1
-	b2 := 1.6 - b1
-	h1 := sin(prime(9)*t)/2 + .5
-	h2 := h1 + .5 + sin(prime(6)*t)*.25
-	eta := hsb2rgb(h1, s1, b1)
-	k := hsb2rgb(h2, s2, b2)
+	s1 := cos(prime(5)*t)*.5 + .5
+	b1 := cos(prime(6)*t)*.5 + .5
+	s2 := cos(prime(7)*t)*.5 + .5
+	b2 := cos(prime(8)*t)*.5 + .5
+	h1 := sin(prime(9) * t)
+	h2 := cos(prime(10) * t)
+	reflectance1 := hsb2rgb(h1, s1, b1)
+	reflectance2 := hsb2rgb(h2, s2, b2)
+	eta := hsb2rgb(h1+.5, s1, b1)
+	k := reflectance2
+	albedo := hsb2rgb(h1, s1, 1-b1)
+	sigmaT := hsb2rgb(h2, s2, b2)
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -635,20 +653,27 @@ end_header
 		0,
 		minZ,
 		fov,
-		pow(10, sin(prime(27)*t)*4-6),
+		.00000000001,
 		height,
 		width,
 		samples,
 		height / numRows,
-		sin(prime(4)*t)*.5 + 2.01,
-		eta,
-		k,
+		sin(prime(4)*t) + 2.01,
 		-cos(prime(3)*t) * .99,
 		pow(10, sin(prime(26)*t)*2+1),
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
 		pow(2, sin(prime(1)*t)*2-3),
 		pow(2, cos(prime(2)*t)*2-3),
+		eta,
+		k,
+		reflectance1,
+		reflectance2,
+		albedo,
+		sigmaT,
+		sin(2*t)*60 - 90,
+		sin(3*t) * 60,
+		sin(5*t) * 60,
 	})
 }
 
