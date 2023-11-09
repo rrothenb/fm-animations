@@ -37,6 +37,10 @@ var abs = math.Abs
 var min = math.Min
 var max = math.Max
 var yScale = 1.0
+var UL = geom.Vec{0, 0, 0}
+var UR = geom.Vec{0, 0, 0}
+var LL = geom.Vec{0, 0, 0}
+var LR = geom.Vec{0, 0, 0}
 
 func hsb2rgb(hue, sat, bri float64) (rgb geom.Vec) {
 	u := bri
@@ -219,7 +223,7 @@ func lastKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, -2 + cos(2*t)*2, 2.1 + sin(3*t)*2}
+	return geom.Vec{0, -1 + cos(2*t), 2.25 - cos(3*t)*2}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -267,9 +271,19 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func rectangle(u, v, t float64) geom.Vec {
+	u = u / 2 / pi
+	v = v / 2 / pi
+	a0 := LL.X
+	a1 := LR.X - a0
+	a2 := UL.X - a0
+	a3 := UR.X - a0 - a1 - a2
+	b0 := LL.Y
+	b1 := LR.Y - b0
+	b2 := UL.Y - b0
+	b3 := UR.Y - b0 - b1 - b2
 	return geom.Vec{
-		u/pi - 1,
-		(v/pi - 1) / 1.77778,
+		a0 + a1*u + a2*v + a3*u*v,
+		b0 + b1*u + b2*v + b3*u*v,
 		0,
 	}
 }
@@ -296,7 +310,7 @@ func shaper(x, a, b float64) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return rectangle(u, v, t).Plus(geom.Vec{0, 0, .05*shaper(texture(u, v, t), pow(2, sin(31*t)), pow(3, sin(37*t)-1)) - .025})
+	return rectangle(u, v, t).Plus(geom.Vec{0, 0, .05*shaper(texture(u, v, t), pow(2, sin(31*t)), pow(3, sin(37*t)-1)) - .05})
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -329,18 +343,26 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	centerY := (cameraLoc.Z+.05)*tan(centerAngle) + cameraLoc.Y
 	fmt.Printf("lower: %v, upper: %v, lowerAngle: %v, upperAngle: %v, centerAngle: %v, centerY: %v\n",
 		lower, upper, lowerAngle, upperAngle, centerAngle, centerY)
-	focusPoint := geom.Vec{0, centerY, 0}
-	fov := (upperAngle - lowerAngle) / 2 / pi * 360 * 1.77778 * .9
+	focusPoint := geom.Vec{0, 0, 0}
+	fov := 52.0 // (upperAngle - lowerAngle) / 2 / pi * 360 * 1.77778 * .9
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
-	somethingUL := c.trans.MultPoint(geom.Vec{-1, 1 / 1.77778, -1})
-	somethingUR := c.trans.MultPoint(geom.Vec{1, 1 / 1.77778, -1})
-	somethingLL := c.trans.MultPoint(geom.Vec{-1, -1 / 1.77778, -1})
-	somethingLR := c.trans.MultPoint(geom.Vec{1, -1 / 1.77778, -1})
+	UL = c.trans.MultPoint(geom.Vec{-1, 1 / 1.77778, -2.1})
+	UR = c.trans.MultPoint(geom.Vec{1, 1 / 1.77778, -2.1})
+	LL = c.trans.MultPoint(geom.Vec{-1, -1 / 1.77778, -2.1})
+	LR = c.trans.MultPoint(geom.Vec{1, -1 / 1.77778, -2.1})
+	ray := UL.Minus(cameraLoc)
+	UL = ray.Scaled(cameraLoc.Z / (cameraLoc.Z - UL.Z)).Plus(cameraLoc)
+	ray = UR.Minus(cameraLoc)
+	UR = ray.Scaled(cameraLoc.Z / (cameraLoc.Z - UR.Z)).Plus(cameraLoc)
+	ray = LL.Minus(cameraLoc)
+	LL = ray.Scaled(cameraLoc.Z / (cameraLoc.Z - LL.Z)).Plus(cameraLoc)
+	ray = LR.Minus(cameraLoc)
+	LR = ray.Scaled(cameraLoc.Z / (cameraLoc.Z - LR.Z)).Plus(cameraLoc)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fmt.Printf("\nyScale: %v\nsomethingUL: %v\nsomethingUR: %v\nsomethingLL: %v\nsomethingLR: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n",
-		yScale, somethingUL, somethingUR, somethingLL, somethingLR, cameraLoc, focusPoint, distance, t)
+	fmt.Printf("\nyScale: %v\nUL: %v\nUR: %v\nLL: %v\nLR: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n",
+		yScale, UL, UR, LL, LR, cameraLoc, focusPoint, distance, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -360,6 +382,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxV := 0
 	minZ := 1.0
 	closestPoint := geom.Vec{0, 0, 0}
+	farthestPoint := cameraLoc
 	for uIndex := 0; uIndex <= 500; uIndex++ {
 		for vIndex := 0; vIndex <= 500; vIndex++ {
 			vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t)
@@ -391,6 +414,9 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				if cameraLoc.Minus(closestPoint).Len() > cameraLoc.Minus(vertex).Len() {
 					closestPoint = vertex
 				}
+				if cameraLoc.Minus(farthestPoint).Len() < cameraLoc.Minus(vertex).Len() {
+					farthestPoint = vertex
+				}
 			}
 		}
 	}
@@ -398,7 +424,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	distanceWeight := cos(3*t)/2 + .5
+	distance = distanceWeight*cameraLoc.Minus(closestPoint).Len() + (1-distanceWeight)*cameraLoc.Minus(farthestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth / totalHeight
@@ -674,10 +701,10 @@ end_header
 </scene>
 `)
 
-	s1 := sin(2*t)*.25 + .25
-	b1 := sin(3*t)*.25 + .75
-	s2 := sin(5*t)*.25 + .25
-	b2 := sin(7*t)*.25 + .75
+	s1 := .99
+	b1 := sin(3*t)*.49 + .5
+	s2 := .99
+	b2 := sin(7*t)*.49 + .5
 	h1 := t / 2 / pi
 	h2 := h1 + .5 + sin(t)*.5
 	eta := hsb2rgb(h1, s1, b1)
@@ -691,7 +718,7 @@ end_header
 		0,
 		minZ,
 		fov,
-		.01,
+		pow(10, sin(2*t)*2-3),
 		height,
 		width,
 		samples,
