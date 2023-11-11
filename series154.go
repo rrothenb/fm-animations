@@ -282,7 +282,7 @@ func rectangle(u, v, t float64) geom.Vec {
 	b2 := UL.Y - b0
 	b3 := UR.Y - b0 - b1 - b2
 	return geom.Vec{
-		a0 + a1*u + a2*v + a3*u*v,
+		-(a0 + a1*u + a2*v + a3*u*v),
 		b0 + b1*u + b2*v + b3*u*v,
 		0,
 	}
@@ -330,6 +330,24 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
+func writeVertex(PlyDataBuffered *bufio.Writer, vertex geom.Vec, normal geom.Dir, u, v float64) {
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.X))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Y))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Z))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.X))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Y))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Z))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(u/2/pi))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, float32(v/2/pi))
+}
+
+func writeFace(PlyDataBuffered *bufio.Writer, a, b, c int32) {
+	binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+	binary.Write(PlyDataBuffered, binary.LittleEndian, a)
+	binary.Write(PlyDataBuffered, binary.LittleEndian, b)
+	binary.Write(PlyDataBuffered, binary.LittleEndian, c)
+}
+
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
 	width := int(aspectRatio * float64(height))
 	t := float64(frameNumber) * dt
@@ -344,7 +362,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	fmt.Printf("lower: %v, upper: %v, lowerAngle: %v, upperAngle: %v, centerAngle: %v, centerY: %v\n",
 		lower, upper, lowerAngle, upperAngle, centerAngle, centerY)
 	focusPoint := geom.Vec{0, 0, 0}
-	fov := 52.0 // (upperAngle - lowerAngle) / 2 / pi * 360 * 1.77778 * .9
+	fov := 40.0 // (upperAngle - lowerAngle) / 2 / pi * 360 * 1.77778 * .9
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -438,6 +456,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	startVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(minV))
 	endVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(maxV))
 	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
+	// TODO increase the number of verticies by 4
 	vertexIndicies := make([][]int32, nU+1)
 	numVerticies := 0
 	plyDataPath := fmt.Sprintf("data/%v.data.ply", frameNumber)
@@ -454,16 +473,30 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			normal := uvIndexToNormal(uIndex, vIndex, nU, nV, t)
 			vertexIndicies[uIndex][vIndex] = int32(numVerticies)
 			numVerticies++
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.X))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Y))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Z))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.X))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Y))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Z))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex-startUIndex), endUIndex-startUIndex)/pi/2))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex-startVIndex), endVIndex-startVIndex)/pi/2))
+			writeVertex(PlyDataBuffered, vertex, *normal, index2radians(float64(uIndex-startUIndex), endUIndex-startUIndex), index2radians(float64(vIndex-startVIndex), endVIndex-startVIndex))
 		}
 	}
+	// TODO add the 4 verticies to vertexIndicies and write them out to PlyDataBuffered. Do the above
+	BLL := uv2xyz(0, 0, t)
+	BLR := uv2xyz(0, 2*pi, t)
+	BUL := uv2xyz(2*pi, 0, t)
+	BUR := uv2xyz(2*pi, 2*pi, t)
+	BLL.Z = -2.5 * pow(10, -cos(2*t))
+	BLLIndex := numVerticies
+	numVerticies++
+	writeVertex(PlyDataBuffered, BLL, geom.Dir{-1, -1, -1}, 0, 0)
+	BLR.Z = -2.5 * pow(10, -cos(3*t))
+	BLRIndex := numVerticies
+	numVerticies++
+	writeVertex(PlyDataBuffered, BLR, geom.Dir{1, -1, -1}, 0, 2*pi)
+	BUL.Z = -2.5 * pow(10, -cos(5*t))
+	BULIndex := numVerticies
+	numVerticies++
+	writeVertex(PlyDataBuffered, BUL, geom.Dir{-1, 1, -1}, 2*pi, 0)
+	BUR.Z = -2.5 * pow(10, -cos(7*t))
+	BURIndex := numVerticies
+	numVerticies++
+	writeVertex(PlyDataBuffered, BUR, geom.Dir{1, 1, -1}, 2*pi, 2*pi)
 	envmapArray := []float32{}
 	blendArray := []float32{}
 	metalBlendArray := []float32{}
@@ -485,18 +518,50 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
 			numFaces++
-			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+			writeFace(PlyDataBuffered, topRight, botLeft, topLeft)
 			numFaces++
+			writeFace(PlyDataBuffered, topRight, botRight, botLeft)
+			if vIndex == startVIndex {
+				numFaces++
+				writeFace(PlyDataBuffered, topRight, topLeft, int32(BULIndex))
+				if uIndex == startUIndex {
+					numFaces++
+					writeFace(PlyDataBuffered, topRight, int32(BULIndex), int32(BLLIndex))
+				}
+			}
+			if vIndex == endVIndex-1 {
+				numFaces++
+				writeFace(PlyDataBuffered, botRight, botLeft, int32(BLRIndex))
+				if uIndex == endUIndex-1 {
+					numFaces++
+					writeFace(PlyDataBuffered, botRight, int32(BLRIndex), int32(BURIndex))
+				}
+			}
+			if uIndex == startUIndex {
+				numFaces++
+				writeFace(PlyDataBuffered, topLeft, botLeft, int32(BLRIndex))
+				if vIndex == startVIndex {
+					numFaces++
+					writeFace(PlyDataBuffered, botLeft, int32(BLRIndex), int32(BLLIndex))
+				}
+			}
+			if uIndex == endUIndex-1 {
+				numFaces++
+				writeFace(PlyDataBuffered, topRight, botRight, int32(BULIndex))
+				if vIndex == endVIndex-1 {
+					numFaces++
+					writeFace(PlyDataBuffered, topRight, int32(BULIndex), int32(BURIndex))
+				}
+			}
 		}
+		// TODO can probably do the row start and end faces that connect to the bottom 2 faces
 	}
+	// TODO Do the above stuff for the various additional side faces. Maybe just top and bottom.
+	numFaces++
+	writeFace(PlyDataBuffered, int32(BULIndex), int32(BLRIndex), int32(BLLIndex))
+	numFaces++
+	writeFace(PlyDataBuffered, int32(BULIndex), int32(BURIndex), int32(BLRIndex))
 	totalLight := 0.0
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
@@ -718,16 +783,16 @@ end_header
 		0,
 		minZ,
 		fov,
-		pow(10, sin(2*t)*2-3),
+		pow(10, sin(2*t)*2-3.75),
 		height,
 		width,
 		samples,
 		height / numRows,
-		cos(59*t) + 2.5,
+		sin(59*t) + 2.01,
 		eta,
 		k,
-		-cos(61*t) * .9,
-		100,
+		-cos(61*t) * .99,
+		pow(10, sin(3*t)*2+1),
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
 		pow(10, sin(67*t)-2),
@@ -743,7 +808,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
