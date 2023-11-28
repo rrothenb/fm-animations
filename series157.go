@@ -32,6 +32,7 @@ var max = math.Max
 var floor = math.Floor
 
 var frameNumber = 0
+var t2 = 0.0
 
 func sign(x float64) float64 {
 	if x < 0 {
@@ -103,12 +104,11 @@ func pushout(x, n float64) float64 {
 }
 
 type SLR2 struct {
-	Width  float64
-	Height float64
-	Lens   float64
-	FStop  float64
-	Focus  float64
-	FOV    float64
+	AspectRatio float64
+	Lens        float64
+	FStop       float64
+	Focus       float64
+	FOV         float64
 
 	trans    *geom.Mtx
 	position geom.Vec
@@ -120,8 +120,6 @@ var zAxis = geom.Dir{0, 1, 0}
 // NewSLR constructs a new camera with 35mm sensor full-frame / 50mm lens defaults.
 func NewSLR2() *SLR2 {
 	s := &SLR2{
-		Width:    0.10,
-		Height:   0.10,
 		Lens:     0.050, // 50mm focal length
 		FStop:    4,
 		Focus:    1,
@@ -172,9 +170,8 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
-	factor := tan(s.FOV * 1.25 / 360 * pi)
-	aspectRatio := s.Width / s.Height
-	if projectedPoint.X < projectedPoint.Z*factor*aspectRatio || projectedPoint.X > -projectedPoint.Z*factor*aspectRatio {
+	factor := tan(s.FOV * 1.5 / 360 * pi)
+	if projectedPoint.X < projectedPoint.Z*factor*s.AspectRatio || projectedPoint.X > -projectedPoint.Z*factor*s.AspectRatio {
 		return true
 	}
 	if projectedPoint.Y < projectedPoint.Z*factor || projectedPoint.Y > -projectedPoint.Z*factor {
@@ -287,6 +284,7 @@ func shape(x, a, b float64) float64 {
 
 // 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97
 func texture(u, v, t float64) float64 {
+	t = sin(t2) * .01
 	vFreq := floor(14 + sin(101*t)*10)
 	uFreq := floor((sin(97*t)/2+.5)*(vFreq-4) + 4)
 	a := sin(89*t) * .5
@@ -313,7 +311,7 @@ func or(a, b float64) float64 {
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	tuv := texture(pow(10, floor(sin(31*t)+2))*u, pow(10, floor(sin(37*t)+2))*v, t)
 	tvu := texture(pow(10, floor(sin(29*t)+2))*v, pow(10, floor(sin(41*t)+2))*u, t)
-	blend := sin(23*t)/2 + .5
+	blend := sin(31*t2)*.1 + .5
 	microTexture := blend*and(tuv, tvu) + (1-blend)*or(tuv, tvu)
 	return sphere(u, v, t).Scaled(1 - .25*texture(u, v, t) - .0025*microTexture*(1-metalBlendTexture(u, v, t)))
 }
@@ -363,14 +361,17 @@ func hsb2rgb(hue, sat, bri float64) (r, g, b float64) {
 	return
 }
 
-func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
-	t := float64(frameNumber) * dt
+func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
+	width := int(aspectRatio * float64(height))
+	t := float64(60) * dt
+	t2 = float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	fov := 75.0
 	c.FOV = fov
+	c.AspectRatio = aspectRatio
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
 	nU := int(float64(pixels) / distance * 3)
@@ -431,7 +432,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
 	distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
-	fov = 75.0 + 50*(maxDistance-1)
+	fov = 75.0 + 50*(maxDistance-1) + sin(2*t2)*10
 	c.FOV = fov
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ)
 	ratio := totalWidth / totalHeight
@@ -439,11 +440,6 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	fmt.Println(numTriangles)
 	nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 	nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	for nV > 15000 {
-		ratio = ratio * 10
-		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
-		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
-	}
 	startUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(minU))
 	endUIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * float64(maxU))
 	startVIndex := int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * float64(minV))
@@ -581,6 +577,10 @@ end_header
 		Green2    float64
 		Blue2     float64
 		ExtIOR    float64
+		Height    int
+		Width     int
+		Samples   int
+		RowHeight int
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -593,14 +593,16 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
-        <sampler type="independent">
-            <integer name="sample_count" value="256"/>
+        <sampler type="multijitter">
+            <integer name="sample_count" value="{{ .Samples }}"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
-            <rfilter type="box"/>
+            <integer name="width" value="{{ .Width }}"/>
+            <integer name="height" value="{{ .Height }}"/>
+            <integer name="crop_offset_y" value="$offset"/>
+            <integer name="crop_height" value="{{ .RowHeight }}"/>
+            <rfilter type="lanczos"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -651,25 +653,29 @@ end_header
 </scene>
 `)
 
-	red, green, blue := hsb2rgb(sin(17*t)/2+.5, .95, .95)
-	red2, green2, blue2 := hsb2rgb(sin(13*t)/2+.5, .95, .95)
+	red, green, blue := hsb2rgb(sin(3*t2)*.1+.5, .95, .75+cos(7*t2)*.2)
+	red2, green2, blue2 := hsb2rgb(sin(5*t2)*.1+.5, .95, .75+cos(11*t2)*.2)
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
 		fov,
-		sin(11*t) * 175,
-		sin(7*t) * 175,
-		sin(5*t) * 175,
-		pow(10, sin(3*t)-1),
+		sin(2*t2) * 175,
+		sin(3*t2) * 175,
+		sin(5*t2) * 175,
+		pow(10, sin(29*t2)-1),
 		red,
 		green,
 		blue,
 		red2,
 		green2,
 		blue2,
-		1.5 + sin(2*t)*.5,
+		1.5 + sin(7*t2)*.01,
+		height,
+		width,
+		samples,
+		height / numRows,
 	})
 }
 
@@ -677,11 +683,15 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 120, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
+	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
+	height := flag.Int("height", 720, "Height")
+	samples := flag.Int("samples", 25, "Samples")
+	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
 	dt := pi * 2 / float64(*maxFrames)
 	frameNumber = *frame
-	renderSurfaces(*pixels, *maxSubdivisions, dt, *desiredTriangles)
+	renderSurfaces(*pixels, *maxSubdivisions, dt, *desiredTriangles, *aspectRatio, *height, *samples, *numRows)
 }
