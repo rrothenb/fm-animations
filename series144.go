@@ -140,6 +140,7 @@ func (s *SLR2) transform() {
 }
 
 func (s *SLR2) invisible(point geom.Vec) bool {
+	return false
 	cameraSpaceTransform := s.trans.Inverse()
 	projectedPoint := cameraSpaceTransform.MultPoint(point)
 	//fmt.Printf("\npoint: %#v\nprojectedPoint: %#v\ncameraSpaceTransform: %#v\n", point, projectedPoint, cameraSpaceTransform)
@@ -296,7 +297,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
-	fov := 45.0
+	fov := 136.0
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -659,8 +660,8 @@ end_header
 		k,
 		-cos(61*t) * .9,
 		100,
-		frameNumber % 2,
-		(frameNumber / 2) % 2,
+		0,
+		0,
 		pow(10, sin(67*t)-2),
 		pow(10, cos(79*t)-2),
 	})
