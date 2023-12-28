@@ -23,7 +23,7 @@ while getopts 'a:h:s:' opt $fixedargs; do
   esac
 done
 shift "$(($OPTIND -1))"
-for frame in 414 463 465 499
+for frame in `seq 0 127`
 do
     time ./run.sh $options $1 $frame $2
 done
