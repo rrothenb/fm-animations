@@ -165,19 +165,19 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 var factor = .51
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 1), 11, 3, circle)
+	return torusKnot(t, 1, pow(factor, 1), 2, 3, circle)
 }
 
 func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 2), 2, 3, outerKnot)
+	return torusKnot(t, 1, pow(factor, 2), 3, 2, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 3), 3, 2, middleKnot)
+	return torusKnot(t, 1, pow(factor, 3), 2, 3, middleKnot)
 }
 
 func lastKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 4), 2, 3, innerKnot)
+	return torusKnot(t, 1, pow(factor, 5), 3, 2, innerKnot)
 }
 
 func lastKnotForRealz(t float64) geom.Vec {
@@ -190,7 +190,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	a := cos(tGlobal)*.25-.25
+	a := cos(tGlobal)*.25 - .25
 	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
@@ -351,19 +351,29 @@ func knot(t float64) geom.Vec {
 	return torusKnot(t, 1, .5, 3, 2, circle)
 }
 
+func cube(u, v, t float64) geom.Vec {
+	a := .333 * float64((frameGlobal%2)*2-1)
+	b := .333 * float64(((frameGlobal/2)%2)*2-1)
+	return geom.Vec{
+		sin(v/2.0+a*sin(v+b*sin(v))) * cos(u-a*sin(2*u+b*sin(2*u))),
+		sin(v/2.0+a*sin(v+b*sin(v))) * sin(u+a*sin(2*u+b*sin(2*u))),
+		cos(v/2.0 - a*sin(v+b*sin(v))),
+	}
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .45-cos(t)*.0333, knot)
+	return pathWrapper(u, v, .05, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
 	return index / float64(n) * pi * 2
 }
 
-func uvIndexToNormal(uIndex, vIndex, n int, t float64) *geom.Dir {
-	left := uv2xyz(index2radians(float64(uIndex)-.1, n), index2radians(float64(vIndex), n), t, radius)
-	right := uv2xyz(index2radians(float64(uIndex)+.1, n), index2radians(float64(vIndex), n), t, radius)
-	up := uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex)+.1, n), t, radius)
-	down := uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex)-.1, n), t, radius)
+func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
+	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius)
+	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius)
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
@@ -377,38 +387,44 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
-	n := int(float64(pixels) / distance * 3)
-	if n > maxSubdivisions {
-		n = maxSubdivisions
-	}
+	nU := int(float64(pixels) / distance * 3)
+	nV := nU
 	if desiredTriangles > 0 {
 		numTriangles := 0
+		totalWidth := 0.0
+		totalHeight := 0.0
 		for uIndex := 0; uIndex <= 500; uIndex++ {
 			for vIndex := 0; vIndex <= 500; vIndex++ {
 				vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius)
 				if !c.invisible(vertex) {
 					numTriangles++
+					vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius)
+					vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius)
+					totalWidth += vertex.Minus(vertexLeft).Len()
+					totalHeight += vertex.Minus(vertexBelow).Len()
 				}
 			}
 		}
 		fmt.Println(numTriangles)
-		n = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)) * 500)
+		ratio := totalWidth / totalHeight
+		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
+		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
 	}
-	fmt.Printf("distance from center: %v, distance from focal point: %v, n: %v\n", cameraLoc.Len(), distance, n)
-	vertexIndicies := make([][]int32, n+1)
+	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
+	vertexIndicies := make([][]int32, nU+1)
 	numVerticies := 0
 	plyDataPath := fmt.Sprintf("testbed.data.ply")
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
-	for uIndex := 0; uIndex <= n; uIndex++ {
-		vertexIndicies[uIndex] = make([]int32, n+1)
-		for vIndex := 0; vIndex <= n; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), n), index2radians(float64(vIndex), n), t, radius)
+	for uIndex := 0; uIndex <= nU; uIndex++ {
+		vertexIndicies[uIndex] = make([]int32, nV+1)
+		for vIndex := 0; vIndex <= nV; vIndex++ {
+			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius)
 			if c.invisible(vertex) {
 				vertexIndicies[uIndex][vIndex] = -1
 				continue
 			}
-			normal := uvIndexToNormal(uIndex, vIndex, n, t)
+			normal := uvIndexToNormal(uIndex, vIndex, nU, nV, t)
 			vertexIndicies[uIndex][vIndex] = int32(numVerticies)
 			numVerticies++
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.X))
@@ -417,13 +433,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.X))
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Y))
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Z))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex), n)/pi/2))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex), n)/pi/2))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex), nU)/pi/2))
+			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex), nV)/pi/2))
 		}
 	}
 	numFaces := 0
-	for vIndex := 0; vIndex < n; vIndex++ {
-		for uIndex := 0; uIndex < n; uIndex++ {
+	for vIndex := 0; vIndex < nV; vIndex++ {
+		for uIndex := 0; uIndex < nU; uIndex++ {
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]

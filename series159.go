@@ -20,6 +20,12 @@ type MeshType struct {
 	NumFaces    int
 }
 
+var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
+
+func prime(i int) float64 {
+	return pow(float64(primes[i-1]), 1)
+}
+
 var sin = math.Sin
 var cos = math.Cos
 var tan = math.Tan
@@ -172,11 +178,11 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .45+sin(19*globalT)*.25, 2, 3, circle)
+	return torusKnot(t, 1, .45+sin(prime(1)*globalT)*.25, 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .35+sin(17*globalT)*.25, 3, 2, outerKnot)
+	return torusKnot(t, 1, .35+sin(prime(1)*globalT)*.25, 3, 2, outerKnot)
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -212,39 +218,40 @@ func strength(x float64) float64 {
 	return sin(x) + 1
 }
 
-func texture(u, v, t float64) float64 {
-	nU := floor(sin(23*t) + 1.5)
-	nV := floor(sin(29*t) + 1.5)
+func texture(f, a, u, v, t float64) float64 {
+	nU := (sin(prime(1)*t) + 1) * f
+	nV := (sin(prime(2)*t) + 1) * f
 	return sin(
 		nU*u + nV*v +
-			strength(1.7+19*t)*sin(nU*u+strength(.7+7*t)*sin(nV*u+strength(.3+3*t)*sin(u-2*nU*v)*sin(4*nU*u+nU*v))) +
-			strength(1.5+17*t)*sin(nV*v+strength(.5+5*t)*sin(nU*v+strength(.1+2*t)*sin(nV*u-2*nV*v)*sin(4*nU*u+v))) +
-			strength(1.3+13*t)*sin(nU*u+nV*v))
+			a*strength(1.7+prime(3)*t)*sin(nU*u+a*strength(.7+prime(7)*t)*sin(nV*u+a*strength(.3+prime(8)*t)*sin(u-2*nU*v)*sin(4*nU*u+nU*v))) +
+			a*strength(1.5+prime(4)*t)*sin(nV*v+a*strength(.5+prime(6)*t)*sin(nU*v+a*strength(.1+prime(9)*t)*sin(nV*u-2*nV*v)*sin(4*nU*u+v))) +
+			a*strength(1.3+prime(5)*t)*sin(nU*u+nV*v))
 }
 
 func radius(u, v, t float64) float64 {
-	return 1.0 - .1*pow(spow(texture(u, v, t), pow(6, sin(5*t)))/2+.5, pow(6, sin(7*t)))
+	return 1.0 - .1*pow(spow(texture(1, 1, u, v, t), pow(6, sin(prime(1)*t)))/2+.5, pow(6, sin(prime(1)*t)))
 }
 
 func blendTexture(u, v, t float64) float64 {
-	return pow(texture(u, v, t)/2+.5, pow(3, sin(7*t)))
+	return pow(texture(1, 1, u, v, t)/2+.5, pow(3, sin(prime(1)*t)))
 }
 
 func primaryMask(u, v, t float64) float64 {
-	baseTexture := sin(texture(u, v, t))
+	baseTexture := texture(1, 1, u, v, t)
 	texture := 0.0
-	if abs(baseTexture) < sin(2*t)*.25+.35 {
+	if baseTexture < sin(prime(26)*t)*.25-.25 {
 		texture = 1.0
 	}
 	return texture
 }
 
 func secondaryMask(u, v, t float64) float64 {
-	baseTexture := sin(texture(u, v, t))
+	baseTexture := texture(1, 1, u, v, t)
 	texture := 0.0
-	minThreshold := sin(2*t)*.25 + .55
-	maxThreshold := .8
-	if abs(baseTexture) > sin(3*t)*(maxThreshold-minThreshold)/2+(maxThreshold+minThreshold)/2 {
+	minThreshold := max(0, sin(prime(26)*t)*.25)
+	maxThreshold := .5
+	factor := sin(prime(27)*t)/2 + .5
+	if baseTexture > factor*(maxThreshold-minThreshold)+minThreshold {
 		texture = 1.0
 	}
 	return texture
@@ -254,20 +261,14 @@ func squared(a float64) float64 {
 	return a * a
 }
 
-func uv2xyz(u, v, t float64) geom.Vec {
-	blendValue := pow(squared(spow(texture(u, v, t), pow(2, cos(3*t)))), pow(2, cos(7*t)))
-	return geom.Vec{(u - pi) * globalAspectRatio, v - pi, -.5 * blendValue}
+func microTexture(u, v, t float64) float64 {
+	return secondaryMask(u, v, t) * texture(10, 1.6-cos(t)*.5, u, v, t-sin(t))
 }
 
-/*
 func uv2xyz(u, v, t float64) geom.Vec {
-	minV := sin(2*t)*pi/2+pi/2
-	maxV := minV + sin(3*t)*pi/4+pi/2
-	limitedV := minV + v/2/pi*(maxV-minV)
-	a := 1-spow(cos(25*v), .5)*.5
-	return pathWrapper(u, limitedV+pow(a-.5, 2)/15, .25*pow(sin(v/2+.7*sin(v)), .5)*a, outerKnot)
+	blendValue := pow(squared(spow(texture(1, 1, u, v, t), pow(2, cos(prime(10)*t)))), pow(2, cos(prime(11)*t))) + .05*microTexture(u, v, t)
+	return geom.Vec{(u - pi) * globalAspectRatio, v - pi, -.5 * blendValue}
 }
-*/
 
 func index2radians(index float64, n int) float64 {
 	return index / float64(n) * pi * 2
@@ -292,7 +293,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fov := 130.0
+	fov := 120.0
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
@@ -410,8 +411,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			blendValue := 1 - float32(pow(spow(texture(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t), pow(2, cos(3*t)))/2+.5, pow(4, cos(5*t))))
-			blendArray = append(blendArray, blendValue, blendValue, blendValue)
+			u := index2radians(float64(uIndex), nU)
+			v := index2radians(float64(vIndex), nV)
+			blendValue := 1 - pow(spow(texture(1, 1, u, v, t), pow(2, cos(prime(12)*t)))/2+.5, pow(4, cos(prime(13)*t)))
+			blendValue = primaryMask(u, v, t)*blendValue + float64(((frameNumber%2)*2)-1)*microTexture(u, v, t)/2 + .5
+			blendArray = append(blendArray, float32(blendValue), float32(blendValue), float32(blendValue))
 			primaryMaskValue := float32(primaryMask(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
 			primaryMaskArray = append(primaryMaskArray, primaryMaskValue, primaryMaskValue, primaryMaskValue)
 			secondaryMaskValue := float32(secondaryMask(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
@@ -553,189 +557,163 @@ end_header
         </transform>
     </emitter>
     <integrator type="path" />
-   <shape type="ply">
+    <bsdf type="twosided" id="diffuse1">
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+        </bsdf>
+    </bsdf>
+    <bsdf type="twosided" id="diffuse2">
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        </bsdf>
+    </bsdf>
+    <bsdf type="twosided" id="plastic1">
+        <bsdf type="roughplastic">
+            <float name="alpha" value="{{ .Rough1 }}"/>
+            <float name="int_ior" value="{{ .IntIOR }}"/>
+            <rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+        </bsdf>
+    </bsdf>
+    <bsdf type="twosided" id="plastic2">
+        <bsdf type="roughplastic">
+            <float name="alpha" value="{{ .Rough2 }}"/>
+            <float name="int_ior" value="{{ .IntIOR }}"/>
+            <rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        </bsdf>
+    </bsdf>
+    <bsdf type="twosided" id="metal1">
+        <bsdf type="roughconductor">
+            <float name="alpha" value="{{ .Rough1 }}"/>
+            <rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+            <rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        </bsdf>
+    </bsdf>
+    <bsdf type="twosided" id="metal2">
+        <bsdf type="roughconductor">
+            <float name="alpha" value="{{ .Rough2 }}"/>
+            <rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+            <rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        </bsdf>
+    </bsdf>
+    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-    	<bsdf type="blendbsdf">
-			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.primary.mask.rgbe"/>
-			</texture>
-			<bsdf type="null">
-			</bsdf>
-    	<bsdf type="blendbsdf">
-			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.blend.rgbe"/>
-			</texture>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight1 }}"/>
+        <bsdf type="blendbsdf">
+            <texture type="bitmap" name="weight">
+                <string name="filename" value="mitsuba.primary.mask.rgbe"/>
+            </texture>
+            <bsdf type="null">
+            </bsdf>
+            <bsdf type="blendbsdf">
+                <texture type="bitmap" name="weight">
+                    <string name="filename" value="mitsuba.blend.rgbe"/>
+                </texture>
 				<bsdf type="blendbsdf">
 					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough1 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-				     </bsdf>
+					<ref id="metal1"/>
+					<ref id="metal2"/>
 				</bsdf>
 				<bsdf type="blendbsdf">
 					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						<rgb name="eta" value="1, 1, 1"/>
-						</bsdf>
-					</bsdf>
+					<ref id="metal2"/>
+					<ref id="metal1"/>
 				</bsdf>
-			</bsdf>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight3 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough2 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-					</bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						<rgb name="eta" value="1, 1, 1"/>
-						</bsdf>
-					</bsdf>
-				</bsdf>
-			</bsdf>
-		</bsdf>
-			</bsdf>
+            </bsdf>
+        </bsdf>
     </shape>
-   <shape type="ply">
+    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-    	<bsdf type="blendbsdf">
-			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.secondary.mask.rgbe"/>
-			</texture>
-			<bsdf type="null">
-			</bsdf>
-    	<bsdf type="blendbsdf">
-			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.blend.rgbe"/>
-			</texture>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight3 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough1 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						<rgb name="eta" value="1, 1, 1"/>
-						</bsdf>
-					</bsdf>
-				</bsdf>
-			</bsdf>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight1 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough2 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-					</bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						<rgb name="eta" value="1, 1, 1"/>
-						</bsdf>
-					</bsdf>
-				</bsdf>
-			</bsdf>
-		</bsdf>
-			</bsdf>
-        <transform name="to_world">
-            <translate x="0" y="0" z="-.01"/>
-        </transform>
-    </shape>
-<shape type="rectangle">
-        <bsdf type="twosided">
-            <bsdf type="diffuse">
-                <rgb name="reflectance" value="0.8, 0.8, 0.8"/>
+        <bsdf type="blendbsdf">
+            <texture type="bitmap" name="weight">
+                <string name="filename" value="mitsuba.secondary.mask.rgbe"/>
+            </texture>
+            <bsdf type="null">
+            </bsdf>
+            <bsdf type="blendbsdf">
+                <texture type="bitmap" name="weight">
+                    <string name="filename" value="mitsuba.blend.rgbe"/>
+                </texture>
+                <bsdf type="blendbsdf">
+                    <float name="weight" value="{{ .Weight3 }}"/>
+                    <bsdf type="blendbsdf">
+                        <float name="weight" value="{{ .Weight4 }}"/>
+                        <bsdf type="roughdielectric">
+                            <float name="alpha" value="{{ .Rough1 }}"/>
+                            <float name="int_ior" value="{{ .IntIOR }}"/>
+                        </bsdf>
+                        <bsdf type="twosided">
+                            <bsdf type="roughplastic">
+                                <float name="alpha" value="{{ .Rough1 }}"/>
+                                <float name="int_ior" value="{{ .IntIOR }}"/>
+                                <rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+                            </bsdf>
+                        </bsdf>
+                    </bsdf>
+                    <bsdf type="blendbsdf">
+                        <float name="weight" value="{{ .Weight4 }}"/>
+                        <bsdf type="twosided">
+                            <bsdf type="diffuse">
+                                <rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+                            </bsdf>
+                        </bsdf>
+                        <bsdf type="twosided">
+                            <bsdf type="roughplastic">
+                                <float name="alpha" value="{{ .Rough1 }}"/>
+                                <float name="int_ior" value="{{ .IntIOR }}"/>
+                                <rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+                            </bsdf>
+                        </bsdf>
+                    </bsdf>
+                </bsdf>
+                <bsdf type="blendbsdf">
+                    <float name="weight" value="{{ .Weight3 }}"/>
+                    <bsdf type="blendbsdf">
+                        <float name="weight" value="{{ .Weight4 }}"/>
+                        <bsdf type="twosided">
+                            <bsdf type="diffuse">
+                                <rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+                            </bsdf>
+                        </bsdf>
+                        <bsdf type="twosided">
+                            <bsdf type="roughplastic">
+                                <float name="alpha" value="{{ .Rough2 }}"/>
+                                <float name="int_ior" value="{{ .IntIOR }}"/>
+                                <rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+                            </bsdf>
+                        </bsdf>
+                    </bsdf>
+                    <bsdf type="blendbsdf">
+                        <float name="weight" value="{{ .Weight4 }}"/>
+                        <bsdf type="twosided">
+                            <bsdf type="roughconductor">
+                                <float name="alpha" value="{{ .Rough2 }}"/>
+                                <rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+                                <rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+                            </bsdf>
+                        </bsdf>
+                        <bsdf type="twosided">
+                            <bsdf type="roughconductor">
+                                <float name="alpha" value="{{ .Rough2 }}"/>
+                                <rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+                                <rgb name="eta" value="1, 1, 1"/>
+                            </bsdf>
+                        </bsdf>
+                    </bsdf>
+                </bsdf>
             </bsdf>
         </bsdf>
         <transform name="to_world">
-            <scale value="10"/>
-            <rotate value="0, 1, 0" angle="0"/>
-            <translate x="0" y="0" z=".1"/>
+            <translate x="0" y="0" z="-.001"/>
+        </transform>
+    </shape>
+    <shape type="ply">
+        <string name="filename" value="paper.ply"/>
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value=".9, .9, .9"/>
+        </bsdf>
+        <transform name="to_world">
+            <scale value="7.5"/>
+            <rotate value="0, 1, 0" angle="-90"/>
+            <translate x="0" y="0" z=".01"/>
         </transform>
     </shape>
 </scene>
@@ -761,21 +739,21 @@ end_header
 			distance,
 			focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 			0,
-			0, //frameNumber % 2,
-			1, //(frameNumber / 2) % 2,
-			1, //(frameNumber / 4) % 2,
-			0, //(frameNumber / 8) % 2,
-			sin(2*t) * 45,
-			sin(3*t) * 45,
-			sin(5*t) * 45,
+			1,
+			(frameNumber / 2) % 2,
+			(frameNumber / 4) % 2,
+			(frameNumber / 8) % 2,
+			sin(prime(14)*t) * 45,
+			sin(prime(15)*t) * 45,
+			sin(prime(16)*t) * 45,
 			fov,
-			.0001,
+			.00000001,
 			height,
 			width,
 			samples,
 			height / numRows,
-			pow(10, sin(5*t)-2),
-			pow(10, cos(7*t)-2),
+			pow(10, sin(prime(17)*t)-2),
+			pow(10, cos(prime(18)*t)-2),
 			minX,
 			maxX,
 			minY,
@@ -786,13 +764,13 @@ end_header
 			midY,
 			midZ,
 			r,
-			cos(2*t)/2 + .5,
-			cos(3*t)/2 + .5,
-			cos(5*t)/2 + .5,
-			.5 - cos(5*t)/2,
-			.5 - cos(11*t)/2,
-			.5 - cos(7*t)/2,
-			1.5 + sin(7*t)*.25,
+			cos(prime(19)*t)/2 + .5,
+			cos(prime(20)*t)/2 + .5,
+			cos(prime(21)*t)/2 + .5,
+			.5 - cos(prime(22)*t)/2,
+			.5 - cos(prime(23)*t)/2,
+			.5 - cos(prime(24)*t)/2,
+			1.5 + sin(prime(25)*t)*.4,
 		})
 }
 
@@ -800,7 +778,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 128, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")

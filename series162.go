@@ -187,7 +187,7 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{-1, 0, 0}
+	return geom.Vec{-pow(5, cos(prime(2)*t)+1) - 1.1, 0, 0}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -239,7 +239,7 @@ func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 }
 
 func cube(u, v, t float64) geom.Vec {
-	a := -(.25 + cos(prime(7)*t)*.25)
+	a := pow(10, cos(prime(3)*t)/2-.5) - .4
 	return geom.Vec{
 		sin(v/2.0+a*sin(v)) * cos(u-a*sin(2*u)),
 		sin(v/2.0+a*sin(v)) * sin(u+a*sin(2*u)),
@@ -275,7 +275,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
-	fov := 135.0
+	fov := atan(2/(-2-cameraLoc.X)) / pi * 360
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -416,13 +416,13 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * 2 * pi
-			power := 2 * pow(4, -1)
-			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
+			power := 2 * pow(4, sin(prime(4)*t)-1)
+			envmapValue := pow(sin(u/2)*.8+.2, power) * pow(sin(v/2)*.8+.2, power)
 			envmapArray = append(
 				envmapArray,
-				float32(1-pow(envmapValue, .5)),
-				float32(1-envmapValue),
-				float32(1-pow(envmapValue, 2)))
+				float32(pow(envmapValue, pow(2, sin(prime(5)*t)))),
+				float32(pow(envmapValue, pow(2, cos(prime(6)*t)))),
+				float32(pow(envmapValue, pow(2, -sin(prime(7)*t)))))
 		}
 	}
 
@@ -464,21 +464,28 @@ end_header
 		Scale float64
 	}
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		MinZ      float64
-		IntIOR    float64
-		ExtIOR    float64
-		FOV       float64
-		Aperture  float64
-		Height    int
-		Width     int
-		Samples   int
-		RowHeight int
-		Instances []instance
+		Camera     geom.Vec
+		LookAt     geom.Vec
+		Distance   float64
+		FogRadius  float64
+		Angle      float64
+		MinZ       float64
+		IntIOR     float64
+		FOV        float64
+		Aperture   float64
+		Scale      float64
+		Albedo     float64
+		SigmaT     float64
+		G          float64
+		LightScale float64
+		LightX     float64
+		LightY     float64
+		LightZ     float64
+		Height     int
+		Width      int
+		Samples    int
+		RowHeight  int
+		Instances  []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -503,45 +510,81 @@ end_header
             <rfilter type="lanczos"/>
         </film>
     </sensor>
-    <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
-        <transform name="to_world">
-            <rotate value="0, 1, 0" angle="90"/>
-        </transform>
-    </emitter>
         <integrator type="volpathmis">
             <integer name="max_depth" value="32"/>
         </integrator>
     <medium id="medium1" type="homogeneous">
-        <float name="scale" value=".5"/>
-        <rgb name="albedo" value="1,1,1"/>
-        <rgb name="sigma_t" value="1,1,1"/>
+        <float name="scale" value="{{ .Scale }}"/>
+        <rgb name="albedo" value="{{ .Albedo }},{{ .Albedo }},{{ .Albedo }}"/>
+        <rgb name="sigma_t" value="{{ .SigmaT }},{{ .SigmaT }},{{ .SigmaT }}"/>
         <phase type="hg">
-			<float name="g" value="0"/>
+			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
+   <shape type="ply">
+        <string name="filename" value="mitsuba.ply"/>
+		<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IntIOR }}"/>
+			<float name="ext_ior" value="3"/>
+    	</bsdf>
+        <transform name="to_world">
+            <scale value=".49"/>
+        </transform>
+        <ref id="medium1" name="interior"/>
+    </shape>
+
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
 		<bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="{{ .ExtIOR }}"/>
+			<float name="ext_ior" value="3"/>
     	</bsdf>
     </shape>
     </shape>
 
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+    <shape type="ply">
+        <string name="filename" value="162.light.ply"/>
+        <transform name="to_world">
+			<scale value="{{ .LightScale }}"/>
+            <rotate value="0, 1, 0" angle="90"/>
+            <rotate value="1, 0, 0" angle="{{ .LightX }}"/>
+            <rotate value="0, 1, 0" angle="{{ .LightY }}"/>
+            <rotate value="0, 0, 1" angle="{{ .LightZ }}"/>
+        </transform>
+    <emitter type="area">
+			<texture type="bitmap" name="radiance">
+				<string name="filename" value="mitsuba.rgbe"/>
+			</texture>
+    </emitter>
+    </shape>
+   <shape type="ply">
+        <string name="filename" value="paper.ply"/>
+			   <bsdf type="twosided">
+		   <bsdf type="diffuse">
+                <rgb name="reflectance" value=".9, .9, .9"/>
+			</bsdf>
+			</bsdf>
+        <transform name="to_world">
+            <scale value="5"/>
+            <rotate value="1, 0, 0" angle="-90"/>
+            <translate x=".5" y="0" z="0"/>
+        </transform>
+    </shape>
 </scene>
 `)
 	maxDimension := math.Max(maxX, math.Max(maxY, maxZ))
 
 	instances := []instance{}
-	num := 18
+	num := 9
 	for y := -num; y <= num; y++ {
 		for x := -num; x <= num; x++ {
 			for z := -num; z <= num; z++ {
 				if abs(float64(x)) > abs(float64(y)) && abs(float64(x)) > abs(float64(z)) {
+					continue
+				}
+				if x == 0 && y == 0 && z == 0 {
 					continue
 				}
 				loc := geom.Vec{float64(x), float64(y), float64(z)}
@@ -558,10 +601,17 @@ end_header
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		0,
 		minZ,
-		2 + cos(prime(5)*t),
-		2 - sin(prime(6)*t),
+		3 + cos(prime(1)*t)*2,
 		fov,
 		pow(10, -10),
+		pow(10, sin(prime(2)*t)/2+.5),
+		sin(prime(3)*t)/2 + .5,
+		.5 - sin(prime(4)*t)/2,
+		sin(prime(5)*t) * .9,
+		.265 * pow(10, -(.5-cos(prime(3)*t)/2)*.25),
+		sin(prime(3)*t) * 179,
+		sin(prime(4)*t) * 179,
+		sin(prime(5)*t) * 179,
 		height,
 		width,
 		samples,
@@ -574,7 +624,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 384, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")

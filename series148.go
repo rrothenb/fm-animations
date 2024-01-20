@@ -276,7 +276,7 @@ func blend(t float64, loc geom.Vec) float64 {
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	return loc.Plus(geom.Vec{.001*texture(u, v, t) - .001*cos(t)*blend(t, loc), 0, 0})
+	return loc.Plus(geom.Vec{.001 * texture(u, v, t), 0, 0})
 }
 
 func index2radians(index float64, n int) float64 {
