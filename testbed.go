@@ -165,7 +165,7 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 var factor = .51
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 1), 2, 3, circle)
+	return torusKnot(t, 1, .475+tGlobal/2/pi/100, 3, 2, circle)
 }
 
 func middleKnot(t float64) geom.Vec {
@@ -190,7 +190,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	a := cos(tGlobal)*.25 - .25
+	a := -.2
 	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
@@ -348,7 +348,7 @@ func symmetricalUVTexture(a, fU, fV, u, v, t float64) float64 {
 }
 
 func knot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5, 3, 2, circle)
+	return torusKnot(t, 1, .45-.001, 3, 2, circle)
 }
 
 func cube(u, v, t float64) geom.Vec {
@@ -362,7 +362,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .05, innerKnot)
+	return pathWrapper(u, v, .475+t/2/pi/100, outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {

@@ -224,7 +224,7 @@ func lastKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, -3 + cos(prime(1)*t)*3, 2.1 - cos(prime(2)*t)*2}
+	return geom.Vec{0, -3 + cos(prime(37)*t)*3, 2.1 - cos(prime(36)*t)*2}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -277,22 +277,32 @@ func rectangle(u, v, t float64) geom.Vec {
 }
 
 func blendValue(u, v, t float64) float64 {
-	return shaper(texture(u, v, t), pow(4, sin(prime(3)*t)), pow(2, cos(prime(4)*t))-1)/2 + .5
+	return shaper(texture1(u, v, t), pow(4, sin(prime(35)*t)), pow(2, cos(prime(34)*t))-1)/2 + .5
 }
 
-func texture(u, v, t float64) float64 {
-	uPortion := sin(prime(5)*t)*.2 + .3
-	vPortion := sin(prime(6)*t)*.2 + .3
-	uOffset := (sin(prime(7)*t)/2 + .5) * (1 - uPortion)
-	vOffset := (sin(prime(8)*t)/2 + .5) * (1 - vPortion)
+func texture(a, u, v, t float64) float64 {
+	uPortion := sin(prime(33)*t)*.2 + .3
+	vPortion := sin(prime(32)*t)*.2 + .3
+	uOffset := (sin(prime(31)*t)/2 + .5) * (1 - uPortion)
+	vOffset := (sin(prime(30)*t)/2 + .5) * (1 - vPortion)
 	u = u*uPortion + 2*pi*uOffset
 	v = v*vPortion + 2*pi*vOffset
 	return sin(
-		strength(9, t)*sin(11*u+strength(16, t)*sin(u))*sin(17*v+strength(17, t)*16*v) +
-			strength(10, t)*sin(12*u+strength(15, t)*sin(v)) +
-			strength(11, t)*sin(13*v+strength(14, t)*sin(u)) +
-			strength(12, t)*sin(14*u+15*v+strength(13, t)*sin(u+v+strength(18, t)*sin(u-v))))
+		a*strength(9, t)*sin(11*u+a*strength(16, t)*sin(u))*sin(17*v+a*strength(17, t)*16*v) +
+			a*strength(10, t)*sin(12*u+a*strength(15, t)*sin(v)) +
+			a*strength(11, t)*sin(13*v+a*strength(14, t)*sin(u)) +
+			a*strength(12, t)*sin(14*u+15*v+a*strength(13, t)*sin(u+v+a*strength(18, t)*sin(u-v))))
 
+}
+
+func texture1(u, v, t float64) float64 {
+	a := pow(10, sin(prime(29)*t))
+	return texture(a, u, v, t)
+}
+
+func texture2(u, v, t float64) float64 {
+	a := pow(10, cos(prime(28)*t))
+	return texture(a, u, v, t)
 }
 
 func shaper(x, a, b float64) float64 {
@@ -301,7 +311,12 @@ func shaper(x, a, b float64) float64 {
 
 func shape(u, v, t float64) geom.Vec {
 	a := spow(u/2/pi*(1-u/2/pi)*v/2/pi*(1-v/2/pi), .1)
-	return rectangle(u, v, t).Plus(geom.Vec{0, 0, a * scale * .25 * (shaper(texture(u, v, t), pow(2, sin(prime(19)*t)), pow(3, sin(prime(20)*t)-1)) - 1)})
+	return rectangle(u, v, t).Plus(geom.Vec{
+		0,
+		0,
+		a*scale*.1*cos(prime(25)*t)*(shaper(texture1(u, v, t), pow(2, sin(prime(26)*t)), pow(3, sin(prime(27)*t)-1))-1) +
+			a*scale*.1*sin(prime(24)*t)*(shaper(texture2(u, v, t), pow(2, cos(prime(23)*t)), pow(3, cos(prime(22)*t)-1))-1),
+	})
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -463,19 +478,19 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	BLR := uv2xyz(0, 2*pi, t)
 	BUL := uv2xyz(2*pi, 0, t)
 	BUR := uv2xyz(2*pi, 2*pi, t)
-	BLL.Z = -2.5 * pow(4, -cos(prime(22)*t)) * scale
+	BLL.Z = -2.5 * pow(4, -cos(prime(20)*t)) * scale
 	BLLIndex := numVerticies
 	numVerticies++
 	writeVertex(PlyDataBuffered, BLL, geom.Dir{-1, -1, -1}, 0, 0)
-	BLR.Z = -2.5 * pow(4, -cos(prime(23)*t)) * scale
+	BLR.Z = -2.5 * pow(4, -cos(prime(19)*t)) * scale
 	BLRIndex := numVerticies
 	numVerticies++
 	writeVertex(PlyDataBuffered, BLR, geom.Dir{1, -1, -1}, 0, 2*pi)
-	BUL.Z = -2.5 * pow(4, -cos(prime(24)*t)) * scale
+	BUL.Z = -2.5 * pow(4, -cos(prime(18)*t)) * scale
 	BULIndex := numVerticies
 	numVerticies++
 	writeVertex(PlyDataBuffered, BUL, geom.Dir{-1, 1, -1}, 2*pi, 0)
-	BUR.Z = -2.5 * pow(4, -cos(prime(25)*t)) * scale
+	BUR.Z = -2.5 * pow(4, -cos(prime(17)*t)) * scale
 	BURIndex := numVerticies
 	numVerticies++
 	writeVertex(PlyDataBuffered, BUR, geom.Dir{1, 1, -1}, 2*pi, 2*pi)
@@ -539,12 +554,12 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	numFaces++
 	writeFace(PlyDataBuffered, int32(BULIndex), int32(BURIndex), int32(BLRIndex))
 	totalLight := 0.0
-	globalIllumination := sin(prime(40)*t)*.1 + .1
+	globalIllumination := sin(prime(16)*t)*.1 + .1
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(globalIllumination + (1-globalIllumination)*spow(pow(sin(u/2), pow(10, cos(prime(26)*t)+1))*pow(sin(v), pow(10, cos(prime(27)*t)+1))*2-1, pow(3, -1-cos(prime(28)*t)))/2 + .5)
+			envmapValue := float32(globalIllumination + (1-globalIllumination)*spow(pow(sin(u/2), pow(10, cos(prime(15)*t)+1))*pow(sin(v), pow(10, cos(prime(14)*t)+1))*2-1, pow(3, -1-cos(prime(13)*t)))/2 + .5)
 			totalLight += float64(envmapValue)
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -882,8 +897,8 @@ end_header
 </scene>
 `)
 
-	s1 := cos(prime(29)*t)*.4 + .5
-	b1 := .5 - sin(prime(30)*t)*.4
+	s1 := cos(prime(12)*t)*.4 + .5
+	b1 := .5 - sin(prime(11)*t)*.4
 	s2 := s1 + .4
 	if s2 > .9 {
 		s2 = s1 - .4
@@ -892,8 +907,8 @@ end_header
 	if b2 > .9 {
 		b2 = b1 - .4
 	}
-	h1 := prime(31) * t / 2 / pi
-	h2 := h1 + .5 + sin(prime(32)*t)*.25
+	h1 := prime(10) * t / 2 / pi
+	h2 := h1 + .5 + sin(prime(9)*t)*.25
 	eta := hsb2rgb(h1, s1, b1)
 	k := hsb2rgb(h2, s2, b2)
 
@@ -910,20 +925,20 @@ end_header
 		width,
 		samples,
 		height / numRows,
-		cos(59*t) + 2.5,
+		cos(prime(8)*t) + 2.5,
 		eta,
 		k,
-		-cos(prime(6)*t) * .99,
-		pow(10, sin(prime(34)*t)*2+1),
+		-cos(prime(7)*t) * .99,
+		pow(10, sin(prime(6)*t)*2+1),
 		frameNumber % 2,
 		(frameNumber / 2) % 2,
 		(frameNumber / 4) % 2,
 		(frameNumber / 8) % 2,
-		pow(10, sin(prime(35)*t)-2),
-		pow(10, cos(prime(36)*t)-2),
-		sin(prime(37)*t) * 90,
-		sin(prime(38)*t) * 90,
-		sin(prime(39)*t) * 90,
+		pow(10, sin(prime(5)*t)-2),
+		pow(10, cos(prime(4)*t)-2),
+		sin(prime(3)*t) * 90,
+		sin(prime(2)*t) * 90,
+		sin(prime(1)*t) * 90,
 		.5 / pow(avgLight, .5),
 	})
 }
@@ -932,7 +947,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
