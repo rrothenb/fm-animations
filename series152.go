@@ -833,7 +833,7 @@ end_header
 		green2,
 		blue2,
 		fov,
-		pow(10, -cos(prime(4)*t)*3-5),
+		pow(10, -cos(prime(4)*t)*3-5.75),
 		height,
 		width,
 		samples,
