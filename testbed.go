@@ -300,6 +300,16 @@ func lissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 		cos(float64(zN) * t)}
 }
 
+func irrationalLissajousKnot(t float64) geom.Vec {
+	xF := -cos(2*tGlobal)*5 + 16
+	yF := -cos(3*tGlobal)*5 + 18
+	zF := xF*yF - 2
+	return geom.Vec{
+		cos(xF * t),
+		sin(yF * t),
+		sin(zF*t) * .1}
+}
+
 func irrationalXYZTexture(a, f, x, y, z, t float64) float64 {
 	a1 := f*sin(2*t)*.5 + .5
 	a2 := f*sin(3*t)*.5 + .5
@@ -362,7 +372,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .475+t/2/pi/100, outerKnot)
+	return pathWrapper(u, v, .05, irrationalLissajousKnot)
 }
 
 func index2radians(index float64, n int) float64 {
