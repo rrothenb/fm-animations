@@ -532,6 +532,14 @@ end_header
 		RowHeight int
 		FogRadius float64
 		Angle     float64
+		G         float64
+		Scale     float64
+		Red       float64
+		Green     float64
+		Blue      float64
+		Red2      float64
+		Green2    float64
+		Blue2     float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -564,28 +572,37 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .Angle }}"/>
         </transform>
     </emitter>
-    <integrator type="path" />
-    <bsdf type="blendbsdf" id="object_bsdf">
-        <texture type="bitmap" name="weight">
-            <string name="filename" value="mitsuba.blend.rgbe"/>
-        </texture>
-       <bsdf type="twosided">
-            <bsdf type="diffuse">
-            </bsdf>
-        </bsdf>
-         <bsdf type="twosided">
-            <bsdf type="conductor">
-                <string name="material" value="CuO"/>
-            </bsdf>
-        </bsdf>
-    </bsdf>
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="16"/>
+        </integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="{{ .Scale }}"/>
+        <rgb name="sigma_t" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+        <rgb name="albedo" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        <phase type="hg">
+			<float name="g" value="{{ .G }}"/>
+		</phase>
+    </medium>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
         <transform name="to_world">
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <ref id="object_bsdf"/>
+    <bsdf type="blendbsdf" id="object_bsdf">
+        <texture type="bitmap" name="weight">
+            <string name="filename" value="mitsuba.blend.rgbe"/>
+        </texture>
+		<bsdf type="roughdielectric">
+		</bsdf>
+         <bsdf type="twosided">
+            <bsdf type="roughconductor">
+					<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+					<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
+            </bsdf>
+        </bsdf>
+    </bsdf>
+        <ref id="medium1" name="interior"/>
     </shape>
 	<shape type="ply">
         <string name="filename" value="paper.ply"/>
@@ -597,6 +614,8 @@ end_header
 	</shape>
 </scene>
 `)
+	red, green, blue := hsb2rgb(sin(2*t)/2+.5, sin(7*t)/2+.5, sin(11*t)/2+.5)
+	red2, green2, blue2 := hsb2rgb(sin(3*t)/2+.5, sin(5*t)/2+.5, sin(13*t)/2+.5)
 	angle := 180 - t/pi*180
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -610,14 +629,50 @@ end_header
 		height / numRows,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
+		-cos(7*t) * .99,
+		1000,
+		red,
+		green,
+		blue,
+		red2,
+		green2,
+		blue2,
 	})
+}
+
+func hsb2rgb(hue, sat, bri float64) (r, g, b float64) {
+	u := bri
+	if sat == 0 {
+		r, g, b = u, u, u
+	} else {
+		h := (hue - math.Floor(hue)) * 6
+		f := h - math.Floor(h)
+		p := bri * (1 - sat)
+		q := bri * (1 - sat*f)
+		t := bri * (1 - sat*(1-f))
+		switch int(h) {
+		case 0:
+			r, g, b = u, t, p
+		case 1:
+			r, g, b = q, u, p
+		case 2:
+			r, g, b = p, u, t
+		case 3:
+			r, g, b = p, q, u
+		case 4:
+			r, g, b = t, p, u
+		case 5:
+			r, g, b = u, p, q
+		}
+	}
+	return
 }
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 100, "Max frames")
+	maxFrames := flag.Int("maxframes", 1000, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")

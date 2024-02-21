@@ -60,7 +60,7 @@ convert mitsuba.primary.mask.rgbe mitsuba.primary.mask.jpg
 mv data/$2.secondary.mask.rgbe mitsuba.secondary.mask.rgbe
 convert mitsuba.secondary.mask.rgbe mitsuba.secondary.mask.jpg
 mv data/$2.texture.rgbe mitsuba.texture.rgbe
-convert mitsuba.texture.rgbe mitsuba.texture.jpg
+#convert mitsuba.texture.rgbe mitsuba.texture.jpg
 #exit
 if [ $numrows -eq "1" ]
 then
