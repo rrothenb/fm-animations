@@ -165,7 +165,7 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 var factor = .51
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .475+tGlobal/2/pi/100, 3, 2, circle)
+	return torusKnot(t, 1, 0.48125, 3, 2, circle)
 }
 
 func middleKnot(t float64) geom.Vec {
@@ -372,7 +372,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, .05, irrationalLissajousKnot)
+	return pathWrapper(u, v, 0.48125, outerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -390,6 +390,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	fmt.Println("radius", .475+t/2/pi/100)
+	fmt.Println("frame", frameNumber)
 	tGlobal = t
 	frameGlobal = frameNumber
 	cameraLoc := geom.Vec{0, 0, 9}
