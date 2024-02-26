@@ -182,8 +182,13 @@ func bowl(thickness, insideTexture, outsideTexture, u, v, t float64) geom.Vec {
 func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) geom.Vec {
 	p := float64(pInt)
 	q := float64(qInt)
-	pathPoint := path(q * t)
-	return geom.Vec{(R + r*cos(p*t)) * pathPoint.X, (R + r*cos(p*t)) * pathPoint.Y, r*sin(p*t) + pathPoint.Z}
+	center := path(q * t).Scaled(R)
+	delta := .01
+	normal, _ := path(q*t + delta).Scaled(R).Minus(path(q*t - delta).Scaled(R)).Unit()
+	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
+	cosVec, _ := normal.Cross(sinVec)
+	a := -.2
+	return cosVec.Scaled(r * cos(p*t-a*sin(2*p*t))).Plus(sinVec.Scaled(r * sin(p*t+a*sin(2*p*t))).Plus(center))
 }
 
 func lissajousKnot(t float64, xN, yN, zN int) geom.Vec {
@@ -196,20 +201,23 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5, 3, 2, circle)
+	return torusKnot(t, 1, 0.48125, 3, 2, circle)
+}
+
+func middleKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, 0.48125/3, 5, 3, outerKnot)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .333, 2, 3, outerKnot)
+	return torusKnot(t, 1, 0.48125/4, 7, 5, middleKnot)
 }
 
 func lastKnot(t float64) geom.Vec {
-	scale := innerKnot(t).Len()
-	return torusKnot(t, 1, .05*scale, 100, 3, innerKnot)
+	return torusKnot(t, 1, 0.48125/8, 11, 7, innerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t, 3, 4, 5).Scaled(2.5)
+	return unitLissajousKnot(t, 3, 4, 5).Scaled(4)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -219,11 +227,11 @@ func focusPath(t float64) geom.Vec {
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	delta := .01
 	center := path(v)
-	r = r * center.Len()
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	return cosVec.Scaled(r * cos(u)).Plus(sinVec.Scaled(r * sin(u))).Plus(center)
+	a := -.2
+	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
 func knot(t float64) geom.Vec {
@@ -257,6 +265,7 @@ func blendValue(u, v, t float64) float64 {
 }
 
 func texture(u, v, t float64) float64 {
+	v = v * 1000
 	return sin(
 		strength(37, t)*sin(4*u+strength(53, t)*sin(u))*sin(400*v+strength(61, t)*100*v) +
 			strength(31, t)*sin(3*u+strength(43, t)*sin(v)) +
@@ -270,8 +279,8 @@ func shaper(x, a, b float64) float64 {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	loc := knot(v)
-	return pathWrapper(u, v, .1*(.95-.05*texture(u, v, t))*shaper(shapeTexture(pow(2, sin(2*t)-1), pow(2, sin(2*t)-1), t, loc), pow(10, sin(23*t)), pow(10, sin(19*t))), knot)
+	loc := innerKnot(v)
+	return pathWrapper(u, v, .05*(.95-.05*texture(u, v, t))*shaper(shapeTexture(pow(10, sin(2*t)+1), pow(10, sin(3*t)), t, loc), pow(10, sin(5*t)), pow(10, sin(7*t))), innerKnot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -558,8 +567,8 @@ end_header
                     </bsdf>
                 </bsdf>
                 <bsdf type="dielectric">
-                    <float name="int_ior" value="2"/>
-                    <float name="ext_ior" value="{{ .IntIOR }}"/>
+                    <string name="int_ior" value="air"/>
+                    <string name="ext_ior" value="bk7"/>
                 </bsdf>
             </bsdf>
             <bsdf type="blendbsdf">
@@ -567,13 +576,13 @@ end_header
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
                 <bsdf type="dielectric">
-                    <float name="int_ior" value="2"/>
-                    <float name="ext_ior" value="{{ .IntIOR }}"/>
+                    <string name="int_ior" value="air"/>
+                    <string name="ext_ior" value="bk7"/>
                 </bsdf>
                 <bsdf type="twosided">
                     <bsdf type="conductor">
-                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                        <rgb name="eta" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+                        <rgb name="k" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
                     </bsdf>
                 </bsdf>
             </bsdf>
@@ -585,15 +594,14 @@ end_header
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
                 <bsdf type="twosided">
-                    <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
+                    <bsdf type="conductor">
+                        <rgb name="eta" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+                        <rgb name="k" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
                     </bsdf>
                 </bsdf>
-                <bsdf type="twosided">
-                    <bsdf type="conductor">
-                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
-                    </bsdf>
+                <bsdf type="dielectric">
+                    <string name="int_ior" value="air"/>
+                    <string name="ext_ior" value="bk7"/>
                 </bsdf>
             </bsdf>
             <bsdf type="blendbsdf">
@@ -601,12 +609,13 @@ end_header
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
                 <bsdf type="dielectric">
-                    <float name="int_ior" value="2"/>
-                    <float name="ext_ior" value="{{ .IntIOR }}"/>
+                    <string name="int_ior" value="air"/>
+                    <string name="ext_ior" value="bk7"/>
                 </bsdf>
                 <bsdf type="twosided">
-                    <bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+                    <bsdf type="conductor">
+                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
+                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
                     </bsdf>
                 </bsdf>
             </bsdf>
@@ -619,27 +628,6 @@ end_header
             <translate x="0" y="0" z="0"/>
         </transform>
         <ref id="object_bsdf"/>
-        <ref id="medium1" name="interior"/>
-    </shape>
-    <shape type="rectangle">
-        <bsdf type="twosided">
-            <bsdf type="conductor">
-            </bsdf>
-        </bsdf>
-        <transform name="to_world">
-            <scale value="50"/>
-            <lookat origin="{{ .MirrorLoc.X }}, {{ .MirrorLoc.Y }}, {{ .MirrorLoc.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
-        </transform>
-    </shape>
-    <shape type="rectangle">
-        <bsdf type="twosided">
-            <bsdf type="conductor">
-            </bsdf>
-        </bsdf>
-        <transform name="to_world">
-            <scale value="50"/>
-            <lookat origin="{{ .MirrorLoc2.X }}, {{ .MirrorLoc2.Y }}, {{ .MirrorLoc2.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
-        </transform>
     </shape>
 </scene>
 `)
@@ -665,7 +653,7 @@ end_header
 		0,
 		minZ,
 		fov,
-		pow(10, cos(2*t)-2.5),
+		.00000000000001,
 		height,
 		width,
 		samples,
@@ -686,7 +674,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
