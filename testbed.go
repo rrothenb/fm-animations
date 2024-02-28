@@ -401,6 +401,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	nU := int(float64(pixels) / distance * 3)
 	nV := nU
+	minZ := 0.0
 	if desiredTriangles > 0 {
 		numTriangles := 0
 		totalWidth := 0.0
@@ -414,10 +415,11 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 					vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius)
 					totalWidth += vertex.Minus(vertexLeft).Len()
 					totalHeight += vertex.Minus(vertexBelow).Len()
+					minZ = math.Min(minZ, vertex.Z)
 				}
 			}
 		}
-		fmt.Println(numTriangles)
+		fmt.Println(numTriangles, minZ)
 		ratio := totalWidth / totalHeight
 		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
 		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)

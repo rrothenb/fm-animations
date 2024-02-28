@@ -217,7 +217,8 @@ func lastKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return unitLissajousKnot(t, 3, 4, 5).Scaled(4)
+	loc, _ := circle(t).Plus(geom.Vec{0, 0, sin(53*t)*1.5 + .5}).Unit()
+	return loc.Scaled(4)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -260,12 +261,8 @@ func metalBlendValue(t float64, loc geom.Vec) float64 {
 	return spow(pow(shapeTexture(2, 1, t, loc)/2+.5, 10)*2-1, .1)/2 + .5
 }
 
-func blendValue(u, v, t float64) float64 {
-	return shaper(texture(u, v, t), pow(4, sin(29*t)), pow(2, sin(31*t))-2)/2 + .5
-}
-
 func texture(u, v, t float64) float64 {
-	v = v * 1000
+	v = v * pow(10, sin(47*t)+3)
 	return sin(
 		strength(37, t)*sin(4*u+strength(53, t)*sin(u))*sin(400*v+strength(61, t)*100*v) +
 			strength(31, t)*sin(3*u+strength(43, t)*sin(v)) +
@@ -278,9 +275,18 @@ func shaper(x, a, b float64) float64 {
 	return spow(pow(x/2+.5, a)*2-1, b)
 }
 
-func shape(u, v, t float64) geom.Vec {
+func theTexture(u, v, t float64) float64 {
 	loc := innerKnot(v)
-	return pathWrapper(u, v, .05*(.95-.05*texture(u, v, t))*shaper(shapeTexture(pow(10, sin(2*t)+1), pow(10, sin(3*t)), t, loc), pow(10, sin(5*t)), pow(10, sin(7*t))), innerKnot)
+	a := sin(43*t)*.1 + .1
+	return (1 - a - a*texture(u, v, t)) * shaper(shapeTexture(1*pow(4, sin(41*t)), .1*pow(4, sin(37*t)), t, loc), 1*pow(4, sin(31*t)), 100*pow(4, sin(29*t)))
+}
+
+func blendValue(u, v, t float64) float64 {
+	return pow(theTexture(u, v, t)/2+.5, pow(2, sin(23*t)+2))
+}
+
+func shape(u, v, t float64) geom.Vec {
+	return pathWrapper(u, v, .05*pow(2, sin(19*t))*theTexture(u, v, t), innerKnot)
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -309,7 +315,7 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	focusPoint := focusPath(t)
 	mirrorLoc := focusPoint.Minus(cameraLoc).Scaled(.5)
 	mirrorLoc2 := cameraLoc.Scaled(1.5)
-	fov := 60.0
+	fov := 38.0+sin(17*t)*5
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = fov
 	c.AspectRatio = aspectRatio
@@ -507,7 +513,6 @@ end_header
 		G          float64
 		Scale      float64
 		Weight1    int
-		Weight2    int
 		MirrorLoc  geom.Vec
 		MirrorLoc2 geom.Vec
 	}
@@ -519,7 +524,7 @@ end_header
         <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
@@ -554,21 +559,19 @@ end_header
     </medium>
     <bsdf type="blendbsdf" id="object_bsdf">
         <float name="weight" value="{{ .Weight1 }}"/>
-        <bsdf type="blendbsdf">
-            <float name="weight" value="{{ .Weight2 }}"/>
             <bsdf type="blendbsdf">
                 <texture type="bitmap" name="weight">
                     <string name="filename" value="mitsuba.blend.rgbe"/>
                 </texture>
+                <bsdf type="dielectric">
+                    <string name="int_ior" value="air"/>
+                    <string name="ext_ior" value="bk7"/>
+                </bsdf>
                 <bsdf type="twosided">
                     <bsdf type="conductor">
                         <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
                         <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
                     </bsdf>
-                </bsdf>
-                <bsdf type="dielectric">
-                    <string name="int_ior" value="air"/>
-                    <string name="ext_ior" value="bk7"/>
                 </bsdf>
             </bsdf>
             <bsdf type="blendbsdf">
@@ -586,40 +589,6 @@ end_header
                     </bsdf>
                 </bsdf>
             </bsdf>
-        </bsdf>
-        <bsdf type="blendbsdf">
-            <float name="weight" value="{{ .Weight2 }}"/>
-            <bsdf type="blendbsdf">
-                <texture type="bitmap" name="weight">
-                    <string name="filename" value="mitsuba.blend.rgbe"/>
-                </texture>
-                <bsdf type="twosided">
-                    <bsdf type="conductor">
-                        <rgb name="eta" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="k" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
-                    </bsdf>
-                </bsdf>
-                <bsdf type="dielectric">
-                    <string name="int_ior" value="air"/>
-                    <string name="ext_ior" value="bk7"/>
-                </bsdf>
-            </bsdf>
-            <bsdf type="blendbsdf">
-                <texture type="bitmap" name="weight">
-                    <string name="filename" value="mitsuba.blend.rgbe"/>
-                </texture>
-                <bsdf type="dielectric">
-                    <string name="int_ior" value="air"/>
-                    <string name="ext_ior" value="bk7"/>
-                </bsdf>
-                <bsdf type="twosided">
-                    <bsdf type="conductor">
-                        <rgb name="k" value="{{ .ETA.X }}, {{ .ETA.Y }}, {{ .ETA.Z }}"/>
-                        <rgb name="eta" value="{{ .K.X }}, {{ .K.Y }}, {{ .K.Z }}"/>
-                    </bsdf>
-                </bsdf>
-            </bsdf>
-        </bsdf>
     </bsdf>
     <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
@@ -629,21 +598,30 @@ end_header
         </transform>
         <ref id="object_bsdf"/>
     </shape>
+    <shape type="ply">
+        <string name="filename" value="trefoil.large.ply"/>
+        <transform name="to_world">
+            <scale value="1"/>
+            <translate x="0" y="0" z="0"/>
+        </transform>
+		<bsdf type="dielectric">
+			<string name="ext_ior" value="air"/>
+			<string name="int_ior" value="bk7"/>
+		</bsdf>
+   </shape>
+	<shape type="ply">
+        <string name="filename" value="paper.ply"/>
+        <transform name="to_world">
+            <scale value="2.5,25,25"/>
+            <rotate value="0, 1, 0" angle="90"/>
+            <translate x="0" y="0" z="-0.9625"/>
+        </transform>
+	</shape>
 </scene>
 `)
 
-	s1 := cos(17*t)*.4 + .5
-	b1 := .5 - sin(13*t)*.4
-	s2 := s1 + .4
-	if s2 > .9 {
-		s2 = s1 - .4
-	}
-	b2 := b1 + .4
-	if b2 > .9 {
-		b2 = b1 - .4
-	}
-	eta := hsb2rgb(11*t/2/pi+.25, s1, b1)
-	k := hsb2rgb(7*t/2/pi, s2, b2)
+	eta := hsb2rgb(sin(2*t)/2+.5, sin(7*t)/2+.5, sin(11*t)/2+.5)
+	k := hsb2rgb(cos(3*t)/2+.5, cos(5*t)/2+.5, cos(13*t)/2+.5)
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -658,13 +636,12 @@ end_header
 		width,
 		samples,
 		height / numRows,
-		cos(5*t) + 2.5,
+		cos(t) + 2.5,
 		eta,
 		k,
-		-cos(3*t) * .9,
+		-cos(t) * .9,
 		1000,
 		frameNumber % 2,
-		(frameNumber / 2) % 2,
 		mirrorLoc,
 		mirrorLoc2,
 	})
@@ -674,7 +651,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 100, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
 	height := flag.Int("height", 720, "Height")
