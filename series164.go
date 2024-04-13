@@ -32,6 +32,8 @@ var floor = math.Floor
 var tGlobal = 0.0
 var frameNumber = 0
 
+var baseframe = 577
+
 var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
 
 func prime(i int) float64 {
@@ -166,10 +168,11 @@ func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
 	a := radius(u, v, t)
 	R := .6
 	r := (.4 + cos(prime(11)*t)*.1) * a
-	n := float64(frameNumber%4) + 1
-	a1 := sin(prime(10)*t) * .5
-	a2 := sin(prime(9)*t) * .5
-	a3 := sin(prime(8)*t) * .5
+	n := float64(baseframe%4) + 1
+	t2 := float64(frameNumber) / 192 * 2 * pi
+	a1 := sin(prime(10)*t+t2) * .5
+	a2 := sin(prime(9)*t+t2) * .5
+	a3 := sin(prime(8)*t+t2) * .5
 	loc := geom.Vec{
 		(R + r*cos(u-a1*sin(2*u))) * cos(v-a2*sin(2*v)),
 		(R + r*cos(u-a1*sin(2*u))) * sin(v+a2*sin(2*v)),
@@ -197,16 +200,16 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 
 func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
 	width := int(aspectRatio * float64(height))
-	t := float64(frameNumber) * dt
+	t := float64(baseframe) * dt
 	tGlobal = t
 	envSize := int(pow(float64(desiredTriangles), .5))
-	length := (float64(frameNumber%4)+1)/2 + 1
+	length := (float64(baseframe%4)+1)/2 + 1
 	cameraDir, _ := geom.Vec{sin(t), cos(t), sin(prime(7)*t)*.25 + 2}.Unit()
-	cameraLoc := cameraDir.Scaled(.5 + sin(prime(17)*t)*.5).By(geom.Vec{1, length, 1})
+	cameraLoc := cameraDir.Scaled(.5 + sin(prime(17)*t)*.5).By(geom.Vec{1, length, 1}).Scaled(2)
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
-	c.FOV = 60 + sin(prime(18)*t)*30
+	c.FOV = (60 + sin(prime(18)*t)*30) / 2
 	c.AspectRatio = aspectRatio
 	// distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	distance := focusPoint.Minus(geom.Vec{0, 0, .035}).Len()
@@ -438,17 +441,17 @@ end_header
 	green2 := green1
 	blue2 := blue1
 
-	if frameNumber%4 == 0 {
+	if baseframe%4 == 0 {
 		red2 = 1 - red2
 		green2 = 1 - green2
 		blue2 = 1 - blue2
-	} else if frameNumber%4 == 1 {
+	} else if baseframe%4 == 1 {
 		red2 = 1 - red2
 		green2 = 1 - green2
-	} else if frameNumber%4 == 2 {
+	} else if baseframe%4 == 2 {
 		green2 = 1 - green2
 		blue2 = 1 - blue2
-	} else if frameNumber%4 == 3 {
+	} else if baseframe%4 == 3 {
 		blue2 = 1 - blue2
 		red2 = 1 - red2
 	}

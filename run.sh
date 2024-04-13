@@ -66,6 +66,7 @@ if [ $numrows -eq "1" ]
 then
   time mitsuba -Doffset=0 -m scalar_rgb test.xml
   convert test.exr -auto-gamma -modulate 100,125,100 -sigmoidal-contrast 4x0% $1-$2.jpg
+  touch test.exr
 else
   for row in `seq $firstrow $(($numrows-1))`
   do
