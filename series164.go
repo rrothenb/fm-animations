@@ -32,7 +32,7 @@ var floor = math.Floor
 var tGlobal = 0.0
 var frameNumber = 0
 
-var baseframe = 577
+var baseframe = 396
 
 var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
 
@@ -205,11 +205,11 @@ func renderSurfaces(pixels int, maxSubdivisions int, dt float64, desiredTriangle
 	envSize := int(pow(float64(desiredTriangles), .5))
 	length := (float64(baseframe%4)+1)/2 + 1
 	cameraDir, _ := geom.Vec{sin(t), cos(t), sin(prime(7)*t)*.25 + 2}.Unit()
-	cameraLoc := cameraDir.Scaled(.5 + sin(prime(17)*t)*.5).By(geom.Vec{1, length, 1}).Scaled(2)
+	cameraLoc := cameraDir.Scaled(.5 + sin(prime(17)*t)*.5).By(geom.Vec{1, length, 1})
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
-	c.FOV = (60 + sin(prime(18)*t)*30) / 2
+	c.FOV = 60 + sin(prime(18)*t)*30 - 10
 	c.AspectRatio = aspectRatio
 	// distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
 	distance := focusPoint.Minus(geom.Vec{0, 0, .035}).Len()
