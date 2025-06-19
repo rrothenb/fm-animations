@@ -202,10 +202,6 @@ func focusPath(t float64) geom.Vec {
 	//return innerKnot(midV).Plus(innerKnot(minV).Scaled(.5)).Plus(innerKnot(maxV).Scaled(.5)).Scaled(.5)
 }
 
-func strength(x float64) float64 {
-	return sin(x)*1.25 + 1.25
-}
-
 func textureOriginal(u, v, t float64) float64 {
 	v = v * 5
 	return sin(
@@ -222,6 +218,10 @@ func subtexture3(u, v, t float64) float64 {
 
 func subtexture2(u, v, t float64) float64 {
 	return sin(7*u+strength(17*t)*subtexture3(u, v, t)) + sin(5*v+strength(19*t)*subtexture3(u, v, t))
+}
+
+func strength(x float64) float64 {
+	return sin(x)*1.25 + 1.25
 }
 
 func texture(u, v, t float64) float64 {
