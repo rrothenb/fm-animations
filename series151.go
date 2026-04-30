@@ -90,10 +90,10 @@ func pushout(x, n float64) float64 {
 
 type SLR2 struct {
 	AspectRatio float64
-	Lens   float64
-	FStop  float64
-	Focus  float64
-	FOV    float64
+	Lens        float64
+	FStop       float64
+	Focus       float64
+	FOV         float64
 
 	trans    *geom.Mtx
 	position geom.Vec
@@ -237,7 +237,7 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
 	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
 	cosVec, _ := normal.Cross(sinVec)
-	a := cos(17*tGlobal)*.25-.25
+	a := cos(17*tGlobal)*.25 - .25
 	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
 }
 
@@ -449,11 +449,11 @@ end_header
 		Angle     float64
 		G         float64
 		Scale     float64
-		Aperture      float64
-		Height        int
-		Width         int
-		Samples       int
-		RowHeight     int
+		Aperture  float64
+		Height    int
+		Width     int
+		Samples   int
+		RowHeight int
 		Red       float64
 		Green     float64
 		Blue      float64
@@ -502,10 +502,10 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-        <bsdf type="roughdielectric">
-			<float name="alpha" value="{{ .Roughness }}"/>
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="{{ .ExtIOR }}"/>
+        <bsdf type="dielectric">
+			<string name="int_ior" value="bk7"/>
+			<string name="ext_ior" value="air"/>
+			<float name="abbe" value="10"/>
         </bsdf>
         <ref id="medium1" name="interior"/>
     </shape>
@@ -596,8 +596,8 @@ func main() {
 	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
-	height := flag.Int("height", 720, "Height")
-	samples := flag.Int("samples", 25, "Samples")
+	height := flag.Int("height", 2400, "Height")
+	samples := flag.Int("samples", 420, "Samples")
 	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

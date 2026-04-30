@@ -32,6 +32,8 @@ var max = math.Max
 
 var tGlobal = 0.0
 
+var tBase = 0.0
+
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -213,11 +215,11 @@ func unitLissajousKnot(t float64, xN, yN, zN int) geom.Vec {
 }
 
 func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+sin(2*tGlobal)*.49, 2, 3, circle)
+	return torusKnot(t, 1, .5+sin(2*tBase)*.49+.05*sin(19*tGlobal), 2, 3, circle)
 }
 
 func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, .5+cos(3*tGlobal)*.49, 3, 2, outerKnot)
+	return torusKnot(t, 1, .5+cos(3*tBase)*.49+.05*sin(17*tGlobal), 3, 2, outerKnot)
 }
 
 func cameraPath(t float64) geom.Vec {
@@ -265,8 +267,9 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	tGlobal = t
+	tBase = 190 * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
-	cameraLoc := cameraPath(t).Scaled(.075)
+	cameraLoc := cameraPath(tBase).Scaled(.075)
 	focusPoint := geom.Vec{0, 0, 0}
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FOV = 35
@@ -382,7 +385,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			power := 2 * pow(10, sin(5*t)/2+.5)
+			power := 2 * pow(10, sin(5*tBase)/2+.5)
 			envmapValue := float32(pow(sin(u/2), power) * pow(sin(v), power))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
@@ -458,8 +461,8 @@ end_header
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="24000"/>
-            <integer name="height" value="18000"/>
+            <integer name="width" value="21000"/>
+            <integer name="height" value="15000"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -499,20 +502,31 @@ end_header
 		cameraLoc,
 		focusPoint,
 		distance,
-		sin(2*t) * 180,
-		sin(5*t) * .9,
-		pow(10, sin(5*t)+2),
-		1 - (.9 + sin(7*t)*.1),
-		1 - (.75 + sin(7*t)*.2),
-		1 - (.7 + sin(7*t)*.25),
-		.9 + sin(11*t)*.1,
-		.75 + sin(11*t)*.2,
-		.7 + sin(11*t)*.25,
-		sin(13*t) + 2,
-		cos(17*t) + 2,
+		sin(2*tBase)*180 + sin(13*t)*30,
+		sin(11*t) * .99,
+		pow(10, sin(5*tBase)+2+.5*sin(23*t)),
+		1 - (.9 + sin(7*tBase)*.1) + 0.0058*sin(29*t),
+		1 - (.75 + sin(7*tBase)*.2) + 0.06*sin(31*t),
+		1 - (.7 + sin(7*tBase)*.25) + 0.0646*sin(37*t),
+		.9 + sin(11*tBase)*.1 + .014227*sin(41*t),
+		.75 + sin(11*tBase)*.2 + .078454*sin(43*t),
+		.7 + sin(11*tBase)*.25 + .0855678*sin(47*t),
+		sin(13*tBase) + 2 + .05*sin(53*t),
+		cos(17*tBase) + 2 + .05*sin(59*t),
 	})
-	fmt.Printf("ior diff: %v\n", abs(sin(13*t)-cos(17*t)))
+	fmt.Println(tBase)
+	fmt.Println(sin(11 * tBase))
+	fmt.Println(sin(7 * tBase))
+	fmt.Println(1 - (.9 + sin(7*tBase)*.1))
+	fmt.Println(1 - (.75 + sin(7*tBase)*.2))
+	fmt.Println(1 - (.7 + sin(7*tBase)*.25))
+	fmt.Println(.9 + sin(11*tBase)*.1)
+	fmt.Println(.75 + sin(11*tBase)*.2)
+	fmt.Println(.7 + sin(11*tBase)*.25)
+
 }
+
+// 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97
 
 func main() {
 	frame := flag.Int("frame", 0, "Specify frame")

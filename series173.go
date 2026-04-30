@@ -529,12 +529,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="42"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="2400"/>
+            <integer name="width" value="1024"/>
+            <integer name="height" value="1024"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -564,26 +564,21 @@ end_header
     	<bsdf type="blendbsdf">
 			<texture type="bitmap" name="weight">
 				<string name="filename" value="mitsuba.blend.rgbe"/>
+				<boolean name="raw" value="true"/>
 			</texture>
+			<bsdf type="roughdielectric">
+			<float name="alpha" value="{{ .Rough2 }}"/>
+				<float name="int_ior" value="{{ .IntIOR }}"/>
+			</bsdf>
 			<bsdf type="blendbsdf">
 				<float name="weight" value="{{ .Weight1 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
+				  <bsdf type="twosided">
+					<bsdf type="roughplastic">
+						<float name="alpha" value="{{ .Rough1 }}"/>
+						<float name="int_ior" value="{{ .IntIOR }}"/>
+						<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
 					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough1 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight2 }}"/>
+				 </bsdf>
 				   <bsdf type="twosided">
 						<bsdf type="roughconductor">
 						<float name="alpha" value="{{ .Rough1 }}"/>
@@ -591,46 +586,9 @@ end_header
 						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
 						</bsdf>
 					</bsdf>
-						<bsdf type="roughdielectric">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-						</bsdf>
-				</bsdf>
 			</bsdf>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight3 }}"/>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="diffuse">
-							<rgb name="reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
-				      <bsdf type="twosided">
-						<bsdf type="roughplastic">
-                			<float name="alpha" value="{{ .Rough2 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-							<rgb name="diffuse_reflectance" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-				     </bsdf>
-				</bsdf>
-				<bsdf type="blendbsdf">
-					<float name="weight" value="{{ .Weight4 }}"/>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-						<rgb name="k" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						<rgb name="eta" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						</bsdf>
-					</bsdf>
-						<bsdf type="roughdielectric">
-						<float name="alpha" value="{{ .Rough2 }}"/>
-            				<float name="int_ior" value="{{ .IntIOR }}"/>
-						</bsdf>
-				</bsdf>
-			</bsdf>
-		</bsdf>
-    </shape>
+ 			</bsdf>
+   </shape>
 	<shape type="rectangle">
         <transform name="to_world">
             <scale value="10"/>
@@ -699,7 +657,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 8, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

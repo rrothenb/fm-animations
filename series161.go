@@ -498,8 +498,6 @@ end_header
         <film type="hdrfilm" id="film">
             <integer name="width" value="{{ .Width }}"/>
             <integer name="height" value="{{ .Height }}"/>
-            <integer name="crop_offset_y" value="$offset"/>
-            <integer name="crop_height" value="{{ .RowHeight }}"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -527,6 +525,7 @@ end_header
 		<bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IntIOR }}"/>
 			<float name="ext_ior" value="{{ .ExtIOR }}"/>
+			<float name="abbe" value="10"/>
     	</bsdf>
     </shape>
     </shape>
@@ -537,7 +536,7 @@ end_header
 	maxDimension := math.Max(maxX, math.Max(maxY, maxZ))
 
 	instances := []instance{}
-	num := 18
+	num := 7
 	for y := -num; y <= num; y++ {
 		for x := -num; x <= num; x++ {
 			for z := -num; z <= num; z++ {
@@ -558,8 +557,8 @@ end_header
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		0,
 		minZ,
-		2 + cos(prime(5)*t),
-		2 - sin(prime(6)*t),
+		1.45 + .15*sin(prime(5)*t),
+		1.00028,
 		fov,
 		pow(10, -10),
 		height,
@@ -577,8 +576,8 @@ func main() {
 	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
-	height := flag.Int("height", 720, "Height")
-	samples := flag.Int("samples", 25, "Samples")
+	height := flag.Int("height", 800, "Height")
+	samples := flag.Int("samples", 121, "Samples")
 	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
