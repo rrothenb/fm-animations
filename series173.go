@@ -34,6 +34,12 @@ var floor = math.Floor
 var globalT = 0.0
 var nV = 0
 
+var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
+
+func prime(i int) float64 {
+	return float64(primes[i-1])
+}
+
 func sign(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -188,7 +194,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := geom.Vec{cos(3 * t), cos(2 * t), 1}.Unit()
+	loc, _ := geom.Vec{sin(2*t) * .01, cos(2*t) * .01, 1}.Unit()
 	return loc.Scaled(5)
 }
 
@@ -270,8 +276,8 @@ func thingy(a, u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphereish(u, v, spow(sin(2*t), .5)*.5, spow(sin(3*t), .5)*.5, spow(sin(5*t), .5)*.5)
-	return loc.Scaled(displacement(loc, t).Len()*.1 + 1.1)
+	loc := sphereish(u, v, spow(sin(2*t), 1)*.4, spow(sin(3*t), 1)*.4, spow(sin(5*t), 1)*.4)
+	return loc.Scaled(displacement(loc, t).Len()*.1*sin(t) + .9)
 }
 
 /*
@@ -444,7 +450,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * pi
-			envmapValue := float32(pow(sin(u/2), 4) * pow(sin(v), 4))
+			envmapValue := float32(pow(sin(u/2), 10) * pow(sin(v), 10))
 			envmapArray = append(envmapArray, envmapValue, envmapValue, envmapValue)
 		}
 	}
@@ -516,6 +522,11 @@ end_header
 		IntIOR               float64
 		Scale                float64
 		G                    float64
+		Abbe                 float64
+		FilmThickness        float64
+		FilmIOR              float64
+		Albedo               float64
+		SigmaT               float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -529,7 +540,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="42"/>
+            <integer name="sample_count" value="420"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -540,7 +551,7 @@ end_header
     </sensor>
     <emitter type="envmap" id="Area_002-light">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="1"/>
+        <float name="scale" value="3"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
             <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
@@ -552,50 +563,27 @@ end_header
         </integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
-        <rgb name="albedo" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-        <rgb name="sigma_t" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
+        <float name="albedo" value="{{ .Albedo }}"/>
+        <float name="sigma_t" value="{{ .SigmaT }}"/>
         <phase type="hg">
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-        <ref id="medium1" name="interior"/>
-    	<bsdf type="blendbsdf">
-			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.blend.rgbe"/>
-				<boolean name="raw" value="true"/>
-			</texture>
-			<bsdf type="roughdielectric">
-			<float name="alpha" value="{{ .Rough2 }}"/>
-				<float name="int_ior" value="{{ .IntIOR }}"/>
-			</bsdf>
-			<bsdf type="blendbsdf">
-				<float name="weight" value="{{ .Weight1 }}"/>
-				  <bsdf type="twosided">
-					<bsdf type="roughplastic">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-						<float name="int_ior" value="{{ .IntIOR }}"/>
-						<rgb name="diffuse_reflectance" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-					</bsdf>
-				 </bsdf>
-				   <bsdf type="twosided">
-						<bsdf type="roughconductor">
-						<float name="alpha" value="{{ .Rough1 }}"/>
-						<rgb name="k" value="{{ .Red }}, {{ .Green }}, {{ .Blue }}"/>
-						<rgb name="eta" value="{{ .Red2 }}, {{ .Green2 }}, {{ .Blue2 }}"/>
-						</bsdf>
-					</bsdf>
-			</bsdf>
- 			</bsdf>
+		<bsdf type="dielectric">
+			<float name="int_ior" value="{{ .IntIOR }}"/>
+			<float name="abbe" value="{{ .Abbe }}"/>
+			<float name="film_thickness" value="{{ .FilmThickness }}"/>
+			<float name="film_ior" value="{{ .FilmIOR }}"/>
+		</bsdf>
    </shape>
 	<shape type="rectangle">
         <transform name="to_world">
             <scale value="10"/>
             <translate x="0" y="0" z="{{ .MinZ }}"/>
         </transform>
-				<bsdf type="roughplastic">
-				<float name="alpha" value=".01"/>
+				<bsdf type="diffuse">
 				</bsdf>
 	</shape>
 </scene>
@@ -625,9 +613,9 @@ end_header
 			(frameNumber / 2) % 2,
 			(frameNumber / 4) % 2,
 			(frameNumber / 8) % 2,
-			sin(19*t) * 45,
-			sin(23*t) * 45,
-			sin(29*t) * 45,
+			sin(19*t) * 90,
+			sin(23*t) * 90,
+			sin(29*t) * 90,
 			fov,
 			pow(10, sin(5*t)-2),
 			pow(10, cos(7*t)-2),
@@ -650,6 +638,11 @@ end_header
 			1.5 + sin(17*t)*.4,
 			pow(10, sin(19*t)+2),
 			cos(23*t) * .9,
+			pow(10, sin(prime(4)*t)/2+1.5),
+			pow(10, sin(prime(5)*t)/2+2.5),
+			1.8 + sin(prime(6)*t)/2,
+			sin(prime(7)*t)/2 + .5,
+			pow(10, 3*sin(prime(8)*t)),
 		})
 }
 
@@ -657,7 +650,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 8, "Max frames")
+	maxFrames := flag.Int("maxframes", 32, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
