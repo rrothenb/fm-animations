@@ -194,8 +194,7 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc, _ := geom.Vec{sin(2*t) * .01, cos(2*t) * .01, 1}.Unit()
-	return loc.Scaled(5)
+	return geom.Vec{0, 0, 5}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -536,7 +535,7 @@ end_header
         <float name="aperture_radius" value=".000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
@@ -549,7 +548,16 @@ end_header
             <rfilter type="lanczos"/>
         </film>
     </sensor>
-    <emitter type="envmap" id="Area_002-light">
+	<shape type="sphere">
+        <transform name="to_world">
+            <scale value="2"/>
+            <translate x="10" y="10" z="2"/>
+        </transform>
+		<emitter type="area">
+			<rgb name="radiance" value="3"/>
+		</emitter>
+	</shape>
+    <emitter type="envmap">
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="3"/>
         <transform name="to_world">
@@ -583,7 +591,10 @@ end_header
             <scale value="10"/>
             <translate x="0" y="0" z="{{ .MinZ }}"/>
         </transform>
+				   <bsdf type="twosided">
 				<bsdf type="diffuse">
+					<rgb name="reflectance" value="1, 1, 1"/>
+				</bsdf>
 				</bsdf>
 	</shape>
 </scene>
@@ -650,7 +661,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 32, "Max frames")
+	maxFrames := flag.Int("maxframes", 64, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
