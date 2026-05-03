@@ -33,6 +33,7 @@ var floor = math.Floor
 
 var globalT = 0.0
 var nV = 0
+var maxDimension = 1.0
 
 var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
 
@@ -194,11 +195,12 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 5}
+	unitLoc, _ := geom.Vec{sin(3*t) * 5, -5, 5 + sin(2*t)*4}.Unit()
+	return unitLoc.Scaled(6 * maxDimension)
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return geom.Vec{0, -1, 0}
 }
 
 func strength(x float64) float64 {
@@ -256,9 +258,9 @@ func shape(x, a, b float64) float64 {
 
 func displacement(loc geom.Vec, t float64) geom.Vec {
 	a := 1.25 + sin(7*t)*.25
-	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t), sin(7*t), sin(11*t)) * spow(loc.X, 4)
-	yTexture := shape(yzTexture(a, loc.X, loc.Z, t), sin(7*t), sin(11*t)) * spow(loc.Y, 4)
-	zTexture := shape(yzTexture(a, loc.Y, loc.X, t), sin(7*t), sin(11*t)) * spow(loc.Z, 4)
+	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t)*spow(loc.X, 4), sin(7*t)*3, sin(11*t)*3)
+	yTexture := shape(yzTexture(a, loc.X, loc.Z, t)*spow(loc.Y, 4), sin(7*t)*3, sin(11*t)*3)
+	zTexture := shape(yzTexture(a, loc.Y, loc.X, t)*spow(loc.Z, 4), sin(7*t)*3, sin(11*t)*3)
 	return geom.Vec{xTexture, yTexture, zTexture}
 }
 
@@ -275,8 +277,9 @@ func thingy(a, u, v, t float64) float64 {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphereish(u, v, spow(sin(2*t), 1)*.4, spow(sin(3*t), 1)*.4, spow(sin(5*t), 1)*.4)
-	return loc.Scaled(displacement(loc, t).Len()*.1*sin(t) + .9)
+	loc := sphereish(u, v, spow(sin(2*t), 1)*.5, spow(sin(3*t), 1)*.5, spow(sin(5*t), 1)*.5)
+	amount := pow(10, -cos(2*t)-1)
+	return loc.Scaled(displacement(loc, t).Len()*amount + 1 - amount)
 }
 
 /*
@@ -373,6 +376,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	midX := (minX + maxX) / 2
 	midY := (minY + maxY) / 2
 	midZ := (minZ + maxZ) / 2
+	maxDimension = max(maxX-minX, max(maxY-minY, maxZ-minZ))
 	center := geom.Vec{midX, midY, midZ}
 	focusPoint = focusPath(t)
 	//focusPoint = geom.Vec{(minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2}
@@ -398,16 +402,41 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	plyDataPath := fmt.Sprintf("data/%v.data.ply", frameNumber)
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
+	northPoleIdx := int32(-1)
+	southPoleIdx := int32(-1)
 	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
 		vertexIndicies[uIndex] = make([]int32, nV+1)
 		for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
+			isNorthPole := vIndex == 0
+			isSouthPole := vIndex == endVIndex
+			if isNorthPole && northPoleIdx != -1 {
+				vertexIndicies[uIndex][vIndex] = northPoleIdx
+				continue
+			}
+			if isSouthPole && southPoleIdx != -1 {
+				vertexIndicies[uIndex][vIndex] = southPoleIdx
+				continue
+			}
 			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)
 			if c.invisible(vertex) {
 				vertexIndicies[uIndex][vIndex] = -1
 				continue
 			}
-			normal := uvIndexToNormal(uIndex, vIndex, nU, nV, t)
+			var normal *geom.Dir
+			if isNorthPole || isSouthPole {
+				n, _ := vertex.Unit()
+				dir := geom.Dir(n)
+				normal = &dir
+			} else {
+				normal = uvIndexToNormal(uIndex, vIndex, nU, nV, t)
+			}
 			vertexIndicies[uIndex][vIndex] = int32(numVerticies)
+			if isNorthPole {
+				northPoleIdx = int32(numVerticies)
+			}
+			if isSouthPole {
+				southPoleIdx = int32(numVerticies)
+			}
 			numVerticies++
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.X))
 			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Y))
@@ -433,16 +462,20 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
 				continue
 			}
-			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
-			numFaces++
-			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-			numFaces++
+			if topRight != topLeft {
+				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
+				numFaces++
+			}
+			if botRight != botLeft {
+				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+				numFaces++
+			}
 		}
 	}
 	for vIndex := 0; vIndex < envSize; vIndex++ {
@@ -526,6 +559,8 @@ end_header
 		FilmIOR              float64
 		Albedo               float64
 		SigmaT               float64
+		Light1               float64
+		Light2               float64
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
@@ -535,31 +570,37 @@ end_header
         <float name="aperture_radius" value=".000000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="420"/>
+            <integer name="sample_count" value="240"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1024"/>
-            <integer name="height" value="1024"/>
+            <integer name="width" value="800"/>
+            <integer name="height" value="800"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
 	<shape type="sphere">
         <transform name="to_world">
-            <scale value="2"/>
-            <translate x="10" y="10" z="2"/>
+            <scale value=".5"/>
+            <translate x="10" y="10" z="-.25"/>
         </transform>
 		<emitter type="area">
-			<rgb name="radiance" value="3"/>
+			<rgb name="radiance" value="{{ .Light1 }}"/>
 		</emitter>
 	</shape>
-    <emitter type="envmap">
+<!-- emitter type="spot">
+    <transform name="to_world">
+        <lookat origin="0, 0, 0" target="10, -10, 0" up="0, 0, 1"/>
+    </transform>
+        <float name="cutoff_angle" value="5"/>
+</emitter -->
+<emitter type="envmap">
         <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="3"/>
+        <float name="scale" value="{{ .Light2 }}"/>
         <transform name="to_world">
             <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
             <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
@@ -588,7 +629,7 @@ end_header
    </shape>
 	<shape type="rectangle">
         <transform name="to_world">
-            <scale value="10"/>
+            <scale value="100"/>
             <translate x="0" y="0" z="{{ .MinZ }}"/>
         </transform>
 				   <bsdf type="twosided">
@@ -611,6 +652,13 @@ end_header
 
 	fmt.Println("bounding sphere radius", r)
 	fmt.Printf("frame: %v, weights: %v, %v, %v, %v\n", frameNumber, frameNumber%2, (frameNumber/2)%2, (frameNumber/4)%2, (frameNumber/8)%2)
+
+	intIor := 1.55 + sin(17*t)*.3
+	abbe := pow(10, sin(prime(4)*t)/2+1.5)
+	filmThickness := pow(10, sin(prime(5)*t)/2+2.5)
+	filmIor := 1.8 + sin(prime(6)*t)/2
+
+	fmt.Printf("frame: %v, intIor: %v, abbe: %v, filmThickness: %v, filmIor: %v\n", frameNumber, intIor, abbe, filmThickness, filmIor)
 
 	sensorTemplate.Execute(
 		sensorFile,
@@ -646,14 +694,16 @@ end_header
 			.5 - cos(13*t)/2,
 			.5 - cos(11*t)/2,
 			.5 - cos(7*t)/2,
-			1.5 + sin(17*t)*.4,
+			intIor,
 			pow(10, sin(19*t)+2),
 			cos(23*t) * .9,
-			pow(10, sin(prime(4)*t)/2+1.5),
-			pow(10, sin(prime(5)*t)/2+2.5),
-			1.8 + sin(prime(6)*t)/2,
+			abbe,
+			filmThickness,
+			filmIor,
 			sin(prime(7)*t)/2 + .5,
 			pow(10, 3*sin(prime(8)*t)),
+			sin(t) + 1.01,
+			1.01 - sin(t),
 		})
 }
 
@@ -661,7 +711,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 64, "Max frames")
+	maxFrames := flag.Int("maxframes", 16, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
