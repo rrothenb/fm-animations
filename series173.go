@@ -234,7 +234,7 @@ func texture(a, u, v, t float64) float64 {
 }
 
 func blendTexture(u, v, t float64) float64 {
-	loc := sphereish(u, v, sin(2*t)*.5, sin(3*t)*.5, sin(5*t)*.5)
+	loc := sphereishGeneral(u, v, defaultModulators(t))
 	return displacement(loc, t).Len()
 }
 
@@ -272,12 +272,142 @@ func sphereish(u, v, a, b, c float64) geom.Vec {
 	}
 }
 
+// Modulators carries the Fourier coefficient arrays for the generalized
+// sphereish surface. A[k-1] is the coefficient of sin(k·v) in the radial
+// modulator, B[k-1] is the coefficient of sin(2k·u) in the angular modulator,
+// C[k-1] is the coefficient of sin(k·v) in the vertical modulator.
+type Modulators struct {
+	A []float64
+	B []float64
+	C []float64
+}
+
+// LipschitzNorm returns Σ kMul·k·|coeffs[k-1]|.
+func LipschitzNorm(coeffs []float64, kMul float64) float64 {
+	s := 0.0
+	for i, c := range coeffs {
+		k := float64(i + 1)
+		s += kMul * k * abs(c)
+	}
+	return s
+}
+
+// ScaleToFit reduces coeffs in place so that LipschitzNorm(coeffs, kMul) <= maxNorm.
+// Returns the scale factor applied (1.0 if no scaling was needed).
+func ScaleToFit(coeffs []float64, kMul, maxNorm float64) float64 {
+	n := LipschitzNorm(coeffs, kMul)
+	if n <= maxNorm {
+		return 1.0
+	}
+	s := maxNorm / n
+	for i := range coeffs {
+		coeffs[i] *= s
+	}
+	return s
+}
+
+// sphereishGeneral evaluates S(u,v) for the generalized sphereish surface
+// with arbitrary-length Fourier coefficient arrays. The trivial case
+// (all arrays empty) reduces to the unit sphere.
+func sphereishGeneral(u, v float64, m Modulators) geom.Vec {
+	alpha, gamma := v/2, v/2
+	for i, ak := range m.A {
+		k := float64(i + 1)
+		alpha += ak * sin(k*v)
+	}
+	for i, ck := range m.C {
+		k := float64(i + 1)
+		gamma -= ck * sin(k*v)
+	}
+	beta := 0.0
+	for i, bk := range m.B {
+		k := float64(i + 1)
+		beta += bk * sin(2*k*u)
+	}
+	rho := sin(alpha)
+	zeta := cos(gamma)
+	return geom.Vec{
+		rho * cos(u-beta),
+		rho * sin(u+beta),
+		zeta,
+	}
+}
+
+// sphereishGeneralNormal returns the unit outward normal at (u,v) for the
+// generalized sphereish surface. At the parametric poles (v ≈ 0 and v ≈ 2π)
+// the analytic limits (0,0,+1) and (0,0,-1) are substituted to avoid the
+// degeneracy in the cross product.
+func sphereishGeneralNormal(u, v float64, m Modulators) geom.Dir {
+	const epsilon = 1e-6
+	if v < epsilon {
+		return geom.Dir{0, 0, 1}
+	}
+	if 2*pi-v < epsilon {
+		return geom.Dir{0, 0, -1}
+	}
+	alpha, alphaP := v/2, 0.5
+	gamma, gammaP := v/2, 0.5
+	for i, ak := range m.A {
+		k := float64(i + 1)
+		alpha += ak * sin(k*v)
+		alphaP += k * ak * cos(k*v)
+	}
+	for i, ck := range m.C {
+		k := float64(i + 1)
+		gamma -= ck * sin(k*v)
+		gammaP -= k * ck * cos(k*v)
+	}
+	rho := sin(alpha)
+	rhoP := cos(alpha) * alphaP
+	zetaP := -sin(gamma) * gammaP
+	beta, betaP := 0.0, 0.0
+	for i, bk := range m.B {
+		k := float64(i + 1)
+		beta += bk * sin(2*k*u)
+		betaP += 2 * k * bk * cos(2*k*u)
+	}
+	phi := u - beta
+	psi := u + beta
+	phiP := 1 - betaP
+	psiP := 1 + betaP
+	suX := -rho * sin(phi) * phiP
+	suY := rho * cos(psi) * psiP
+	// suZ = 0
+	svX := rhoP * cos(phi)
+	svY := rhoP * sin(psi)
+	svZ := zetaP
+	// n = sv × su (outward), with suZ = 0
+	nX := -svZ * suY
+	nY := svZ * suX
+	nZ := svX*suY - svY*suX
+	mag := sqrt(nX*nX + nY*nY + nZ*nZ)
+	if mag < 1e-12 {
+		return geom.Dir{0, 0, 1}
+	}
+	return geom.Dir{nX / mag, nY / mag, nZ / mag}
+}
+
+// defaultModulators returns the per-frame Modulators for series173, with
+// the conservative self-intersection bounds enforced via ScaleToFit so the
+// downstream surface and normal evaluations stay fold-free.
+func defaultModulators(t float64) Modulators {
+	m := Modulators{
+		A: []float64{sin(2*t) * .5},
+		B: []float64{sin(3*t) * .5},
+		C: []float64{sin(5*t) * .5},
+	}
+	ScaleToFit(m.A, 1, 0.49)
+	ScaleToFit(m.B, 2, 0.99)
+	ScaleToFit(m.C, 1, 0.49)
+	return m
+}
+
 func thingy(a, u, v, t float64) float64 {
 	return sin(pow(texture(a, u, v, t), 2) + pow(texture(a, v, u, t), 2))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphereish(u, v, spow(sin(2*t), 1)*.5, spow(sin(3*t), 1)*.5, spow(sin(5*t), 1)*.5)
+	loc := sphereishGeneral(u, v, defaultModulators(t))
 	amount := pow(10, -cos(2*t)-1)
 	return loc.Scaled(displacement(loc, t).Len()*amount + 1 - amount)
 }
