@@ -273,29 +273,44 @@ func sphereish(u, v, a, b, c float64) geom.Vec {
 }
 
 // Modulators carries the Fourier coefficient arrays for the generalized
-// sphereish surface. A[k-1] is the coefficient of sin(k·v) in the radial
-// modulator, B[k-1] is the coefficient of sin(2k·u) in the angular modulator,
-// C[k-1] is the coefficient of sin(k·v) in the vertical modulator.
+// sphereish surface. All three modulators use frequencies 1, 2, 3, ...
+//
+//	A[k-1] is the coefficient of sin(k·v) in the radial modulator.
+//	B[k-1] is the coefficient of sin(k·u) in the angular modulator.
+//	C[k-1] is the coefficient of sin(k·v) in the vertical modulator.
+//
+// Migration note: the original sphereish(u, v, a, b, c) used b·sin(2u),
+// which corresponds to B = []float64{0, b} here (coefficient at index 1,
+// not index 0).
 type Modulators struct {
 	A []float64
 	B []float64
 	C []float64
 }
 
-// LipschitzNorm returns Σ kMul·k·|coeffs[k-1]|.
-func LipschitzNorm(coeffs []float64, kMul float64) float64 {
+// LipschitzNorm returns Σ k·|coeffs[k-1]|.
+func LipschitzNorm(coeffs []float64) float64 {
 	s := 0.0
 	for i, c := range coeffs {
 		k := float64(i + 1)
-		s += kMul * k * abs(c)
+		s += k * abs(c)
 	}
 	return s
 }
 
-// ScaleToFit reduces coeffs in place so that LipschitzNorm(coeffs, kMul) <= maxNorm.
+// SafeBounds reports whether the modulators satisfy the sufficient
+// non-self-intersection conditions (i.e., are well-formed).
+func (m Modulators) SafeBounds() bool {
+	return LipschitzNorm(m.A) < 0.5 &&
+		LipschitzNorm(m.B) < 1.0 &&
+		LipschitzNorm(m.C) < 0.5
+}
+
+// ScaleToFit reduces coeffs in place so that LipschitzNorm(coeffs) <= maxNorm.
 // Returns the scale factor applied (1.0 if no scaling was needed).
-func ScaleToFit(coeffs []float64, kMul, maxNorm float64) float64 {
-	n := LipschitzNorm(coeffs, kMul)
+// Use maxNorm = 0.49 for A and C arrays, maxNorm = 0.99 for B arrays.
+func ScaleToFit(coeffs []float64, maxNorm float64) float64 {
+	n := LipschitzNorm(coeffs)
 	if n <= maxNorm {
 		return 1.0
 	}
@@ -322,7 +337,7 @@ func sphereishGeneral(u, v float64, m Modulators) geom.Vec {
 	beta := 0.0
 	for i, bk := range m.B {
 		k := float64(i + 1)
-		beta += bk * sin(2*k*u)
+		beta += bk * sin(k*u)
 	}
 	rho := sin(alpha)
 	zeta := cos(gamma)
@@ -336,7 +351,11 @@ func sphereishGeneral(u, v float64, m Modulators) geom.Vec {
 // sphereishGeneralNormal returns the unit outward normal at (u,v) for the
 // generalized sphereish surface. At the parametric poles (v ≈ 0 and v ≈ 2π)
 // the analytic limits (0,0,+1) and (0,0,-1) are substituted to avoid the
-// degeneracy in the cross product.
+// degeneracy in the cross product. This function gives the normal of the
+// bare generalized sphereish only; it does NOT account for any radial
+// displacement texture applied on top, so it is unsuitable for shading the
+// displaced render mesh — keep using numerical differentiation through the
+// full uv2xyz for that.
 func sphereishGeneralNormal(u, v float64, m Modulators) geom.Dir {
 	const epsilon = 1e-6
 	if v < epsilon {
@@ -363,8 +382,8 @@ func sphereishGeneralNormal(u, v float64, m Modulators) geom.Dir {
 	beta, betaP := 0.0, 0.0
 	for i, bk := range m.B {
 		k := float64(i + 1)
-		beta += bk * sin(2*k*u)
-		betaP += 2 * k * bk * cos(2*k*u)
+		beta += bk * sin(k*u)
+		betaP += k * bk * cos(k*u)
 	}
 	phi := u - beta
 	psi := u + beta
@@ -387,18 +406,19 @@ func sphereishGeneralNormal(u, v float64, m Modulators) geom.Dir {
 	return geom.Dir{nX / mag, nY / mag, nZ / mag}
 }
 
-// defaultModulators returns the per-frame Modulators for series173, with
-// the conservative self-intersection bounds enforced via ScaleToFit so the
-// downstream surface and normal evaluations stay fold-free.
+// defaultModulators returns the per-frame Modulators for series173,
+// matching the original sphereish(u, v, a, b, c) shape. The original
+// b·sin(2u) term migrates to B = []float64{0, b}, with B[0] left at zero.
+// The well-formedness bounds are enforced via ScaleToFit.
 func defaultModulators(t float64) Modulators {
 	m := Modulators{
 		A: []float64{sin(2*t) * .5},
-		B: []float64{sin(3*t) * .5},
+		B: []float64{0, sin(3*t) * .5},
 		C: []float64{sin(5*t) * .5},
 	}
-	ScaleToFit(m.A, 1, 0.49)
-	ScaleToFit(m.B, 2, 0.99)
-	ScaleToFit(m.C, 1, 0.49)
+	ScaleToFit(m.A, 0.49)
+	ScaleToFit(m.B, 0.99)
+	ScaleToFit(m.C, 0.49)
 	return m
 }
 
