@@ -34,6 +34,8 @@ var floor = math.Floor
 var globalT = 0.0
 var nV = 0
 var maxDimension = 1.0
+var maxZ = -100.0
+var frame = 0
 
 var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
 
@@ -195,12 +197,11 @@ func cube(u, v, t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	unitLoc, _ := geom.Vec{sin(3*t) * 5, -5, 5 + sin(2*t)*4}.Unit()
-	return unitLoc.Scaled(6 * maxDimension)
+	return geom.Vec{0, 0, 4 * maxZ}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, -1, 0}
+	return geom.Vec{0, 0, maxZ}
 }
 
 func strength(x float64) float64 {
@@ -234,7 +235,7 @@ func texture(a, u, v, t float64) float64 {
 }
 
 func blendTexture(u, v, t float64) float64 {
-	loc := sphereishGeneral(u, v, defaultModulators(t))
+	loc := sphereishGeneral(u, v, newModulators(t))
 	return displacement(loc, t).Len()
 }
 
@@ -422,14 +423,33 @@ func defaultModulators(t float64) Modulators {
 	return m
 }
 
+func newModulators(t float64) Modulators {
+	a1 := sin(2*t) * .45
+	a2 := sin(7*t) * (.45 - abs(a1)) / 2
+	a3 := sin(13*t) * (.45 - abs(a1) - 2*abs(a2)) / 3
+	b1 := 0.0
+	b2 := sin(3*t) * .45
+	b4 := sin(17*t) * (.95 - 2*abs(b2)) / 4
+	b3 := sin(23*t) * (.95 - 2*abs(b2) - 4*abs(b4)) / 3
+	c1 := sin(5*t) * .45
+	c2 := sin(11*t) * (.45 - abs(c1)) / 2
+	c3 := sin(19*t) * (.45 - abs(c1) - 2*abs(c2)) / 3
+	return Modulators{
+		A: []float64{a1, a2, a3},
+		B: []float64{b1, b2, b3, b4},
+		C: []float64{c1, c2, c3},
+	}
+}
+
 func thingy(a, u, v, t float64) float64 {
 	return sin(pow(texture(a, u, v, t), 2) + pow(texture(a, v, u, t), 2))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	loc := sphereishGeneral(u, v, defaultModulators(t))
-	amount := pow(10, -cos(2*t)-1)
-	return loc.Scaled(displacement(loc, t).Len()*amount + 1 - amount)
+	loc := sphereishGeneral(u, v, newModulators(t))
+	// amount := pow(10, -cos(2*t)-1)
+	// normal := sphereishGeneralNormal(u, v, newModulators(t))
+	return loc // .Scaled(1 - amount).Plus(normal.Scaled(displacement(loc, t).Len() * amount * maxDimension))
 }
 
 /*
@@ -455,8 +475,18 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 	return &normal
 }
 
+func spherishNormal(u float64, v float64, t float64) *geom.Dir {
+	left := uv2xyz(u-.01, v, t)
+	right := uv2xyz(u+.01, v, t)
+	up := uv2xyz(u, v+.01, t)
+	down := uv2xyz(u, v-.01, t)
+	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
+	return &normal
+}
+
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
+	frame = frameNumber
 	globalT = t
 	envSize := int(pow(float64(desiredTriangles), .5))
 	cameraLoc := cameraPath(t)
@@ -478,7 +508,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxDistance := 0.0
 	maxX := -100.0
 	maxY := -100.0
-	maxZ := -100.0
 	minX := 100.0
 	minY := 100.0
 	minZ := 100.0
@@ -528,13 +557,15 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	midZ := (minZ + maxZ) / 2
 	maxDimension = max(maxX-minX, max(maxY-minY, maxZ-minZ))
 	center := geom.Vec{midX, midY, midZ}
+	cameraLoc = cameraPath(t)
 	focusPoint = focusPath(t)
+	distance = cameraLoc.Minus(focusPoint).Len()
 	//focusPoint = geom.Vec{(minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2}
 	//cameraLoc = cameraLoc.Scaled(math.Max(maxX, math.Max(maxY, maxZ))*8)
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distance = cameraLoc.Minus(closestPoint).Len()
+	// distance = cameraLoc.Minus(closestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
 	ratio := totalWidth / totalHeight
@@ -716,20 +747,20 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".000000001"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="aperture_radius" value=".0000001"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
-            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 0, 1"/>
+            <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="240"/>
+            <integer name="sample_count" value="42"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="800"/>
-            <integer name="height" value="800"/>
+            <integer name="width" value="1024"/>
+            <integer name="height" value="1024"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -768,15 +799,22 @@ end_header
 			<float name="g" value="{{ .G }}"/>
 		</phase>
     </medium>
-   <shape type="ply">
-        <string name="filename" value="mitsuba.ply"/>
-		<bsdf type="dielectric">
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="abbe" value="{{ .Abbe }}"/>
-			<float name="film_thickness" value="{{ .FilmThickness }}"/>
-			<float name="film_ior" value="{{ .FilmIOR }}"/>
-		</bsdf>
-   </shape>
+	<shape type="shapegroup" id="shape">
+	   <shape type="ply">
+			<string name="filename" value="mitsuba.ply"/>
+			<bsdf type="roughdielectric">
+				<float name="alpha" value="{{ .Rough1 }}"/>
+				<float name="int_ior" value="{{ .IntIOR }}"/>
+				<float name="abbe" value="{{ .Abbe }}"/>
+				<float name="film_thickness" value="{{ .FilmThickness }}"/>
+				<float name="film_ior" value="{{ .FilmIOR }}"/>
+			</bsdf>
+			<ref id="medium1" name="interior"/>
+	   </shape>
+	</shape>
+	<shape type="instance">
+		<ref id="shape"/>
+	</shape>
 	<shape type="rectangle">
         <transform name="to_world">
             <scale value="100"/>
@@ -808,7 +846,7 @@ end_header
 	filmThickness := pow(10, sin(prime(5)*t)/2+2.5)
 	filmIor := 1.8 + sin(prime(6)*t)/2
 
-	fmt.Printf("frame: %v, intIor: %v, abbe: %v, filmThickness: %v, filmIor: %v\n", frameNumber, intIor, abbe, filmThickness, filmIor)
+	fmt.Printf("frame: %v, intIor: %v, abbe: %v, filmThickness: %v, filmIor: %v, shape coefficients: %v\n", frameNumber, intIor, abbe, filmThickness, filmIor, newModulators(t))
 
 	sensorTemplate.Execute(
 		sensorFile,
@@ -846,14 +884,14 @@ end_header
 			.5 - cos(7*t)/2,
 			intIor,
 			pow(10, sin(19*t)+2),
-			cos(23*t) * .9,
+			cos(23*t) * .99,
 			abbe,
 			filmThickness,
 			filmIor,
 			sin(prime(7)*t)/2 + .5,
 			pow(10, 3*sin(prime(8)*t)),
-			sin(t) + 1.01,
-			1.01 - sin(t),
+			sin(t)*2 + 2.001,
+			2.001 - 2*sin(t),
 		})
 }
 
@@ -861,7 +899,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
