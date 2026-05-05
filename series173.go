@@ -448,8 +448,8 @@ func thingy(a, u, v, t float64) float64 {
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := sphereishGeneral(u, v, newModulators(t))
 	// amount := pow(10, -cos(2*t)-1)
-	// normal := sphereishGeneralNormal(u, v, newModulators(t))
-	return loc // .Scaled(1 - amount).Plus(normal.Scaled(displacement(loc, t).Len() * amount * maxDimension))
+	normal := spherishNormal(u, v, t)
+	return loc.Plus(normal.Scaled(displacement(loc, t).Len() * .01 * maxDimension))
 }
 
 /*
@@ -476,10 +476,10 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 }
 
 func spherishNormal(u float64, v float64, t float64) *geom.Dir {
-	left := uv2xyz(u-.01, v, t)
-	right := uv2xyz(u+.01, v, t)
-	up := uv2xyz(u, v+.01, t)
-	down := uv2xyz(u, v-.01, t)
+	left := sphereishGeneral(u-.01, v, newModulators(t))
+	right := sphereishGeneral(u+.01, v, newModulators(t))
+	up := sphereishGeneral(u, v+.01, newModulators(t))
+	down := sphereishGeneral(u, v-.01, newModulators(t))
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
