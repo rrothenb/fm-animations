@@ -1,4 +1,4 @@
-for frame in $(seq 0 127)
+for frame in $(seq 1008 1043)
 do
-  time ./run.sh "$1" "$frame" 5000000
+  time ./run.sh "$1" "$frame" 2500000
 done

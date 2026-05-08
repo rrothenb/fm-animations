@@ -33,7 +33,7 @@ var floor = math.Floor
 
 var globalT = 0.0
 var nV = 0
-var maxDimension = 1.0
+var maxDimension = 0.0
 var maxZ = -100.0
 var frame = 0
 
@@ -219,11 +219,11 @@ func textureOriginal(u, v, t float64) float64 {
 }
 
 func subtexture3(u, v, t float64) float64 {
-	return sin(2*u + 3*v)
+	return sin(2*u + 3*v + strength(2*t)*sin(u-v+2*strength(3*t)*sin(5*u-7*v)))
 }
 
 func subtexture2(u, v, t float64) float64 {
-	return sin(7*u+strength(17*t)*subtexture3(u, v, t)) + sin(5*v+strength(19*t)*subtexture3(u, v, t))
+	return sin(7*u+strength(5*t)*subtexture3(u, v, t)) + sin(5*v+2*strength(7*t)*subtexture3(u, v, t))
 }
 
 func texture(a, u, v, t float64) float64 {
@@ -231,7 +231,7 @@ func texture(a, u, v, t float64) float64 {
 		u + v + a*strength(.1+2*t)*sin(
 			u+a*strength(.2+3*t)*sin(u)) + a*strength(.3+5*t)*sin(
 			2*v+a*strength(.4+7*t)*sin(v)) + a*strength(.5+11*t)*sin(
-			u+2*v) + a*strength(.6+13*t)*sin(3*u-v) + a*strength(.7+17*t)*sin(5*v-3*u))
+			u+2*v) + a*strength(.6+2*t)*sin(3*u-v) + a*strength(.7+3*t)*sin(5*v-3*u))
 }
 
 func blendTexture(u, v, t float64) float64 {
@@ -258,10 +258,10 @@ func shape(x, a, b float64) float64 {
 }
 
 func displacement(loc geom.Vec, t float64) geom.Vec {
-	a := 1.25 + sin(7*t)*.25
-	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t)*spow(loc.X, 4), sin(7*t)*3, sin(11*t)*3)
-	yTexture := shape(yzTexture(a, loc.X, loc.Z, t)*spow(loc.Y, 4), sin(7*t)*3, sin(11*t)*3)
-	zTexture := shape(yzTexture(a, loc.Y, loc.X, t)*spow(loc.Z, 4), sin(7*t)*3, sin(11*t)*3)
+	a := 1.0 + sin(2*t)
+	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t)*spow(loc.X, 4), sin(3*t)*3, sin(5*t)*3)
+	yTexture := shape(yzTexture(a, loc.X, loc.Z, t)*spow(loc.Y, 4), sin(3*t)*3, sin(5*t)*3)
+	zTexture := shape(yzTexture(a, loc.Y, loc.X, t)*spow(loc.Z, 4), sin(3*t)*3, sin(5*t)*3)
 	return geom.Vec{xTexture, yTexture, zTexture}
 }
 
@@ -425,15 +425,15 @@ func defaultModulators(t float64) Modulators {
 
 func newModulators(t float64) Modulators {
 	a1 := sin(2*t) * .45
-	a2 := sin(7*t) * (.45 - abs(a1)) / 2
-	a3 := sin(13*t) * (.45 - abs(a1) - 2*abs(a2)) / 3
+	a2 := sin(3*t) * (.45 - abs(a1)) / 2
+	a3 := sin(5*t) * (.45 - abs(a1) - 2*abs(a2)) / 3
 	b1 := 0.0
 	b2 := sin(3*t) * .45
-	b4 := sin(17*t) * (.95 - 2*abs(b2)) / 4
-	b3 := sin(23*t) * (.95 - 2*abs(b2) - 4*abs(b4)) / 3
+	b4 := sin(5*t) * (.95 - 2*abs(b2)) / 4
+	b3 := sin(2*t) * (.95 - 2*abs(b2) - 4*abs(b4)) / 3
 	c1 := sin(5*t) * .45
-	c2 := sin(11*t) * (.45 - abs(c1)) / 2
-	c3 := sin(19*t) * (.45 - abs(c1) - 2*abs(c2)) / 3
+	c2 := sin(2*t) * (.45 - abs(c1)) / 2
+	c3 := sin(3*t) * (.45 - abs(c1) - 2*abs(c2)) / 3
 	return Modulators{
 		A: []float64{a1, a2, a3},
 		B: []float64{b1, b2, b3, b4},
@@ -448,8 +448,9 @@ func thingy(a, u, v, t float64) float64 {
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := sphereishGeneral(u, v, newModulators(t))
 	// amount := pow(10, -cos(2*t)-1)
-	normal := spherishNormal(u, v, t)
-	return loc.Plus(normal.Scaled(displacement(loc, t).Len() * .01 * maxDimension))
+	// 	xTexture := shape(yzTexture(a, loc.Y, loc.Z, t)*spow(loc.X, 4), sin(7*t)*3, sin(11*t)*3)
+	normal := sphereishGeneralNormal(u, v, newModulators(t))
+	return loc.Plus(normal.Scaled(.05 * maxDimension * displacement(loc, t).Len() / geom.Vec{1.0, 1.0, 1.0}.Len()))
 }
 
 /*
@@ -755,13 +756,13 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="42"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1024"/>
-            <integer name="height" value="1024"/>
-            <rfilter type="lanczos"/>
+            <integer name="width" value="512"/>
+            <integer name="height" value="512"/>
+            <rfilter type="gaussian"/>
         </film>
     </sensor>
 	<shape type="sphere">
@@ -788,9 +789,12 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
-        <integrator type="volpathmis">
+  	<integrator type="nanscrub">
+		<integrator type="volpathmis">
             <integer name="max_depth" value="16"/>
-        </integrator>
+      		<integer name="rr_depth" value="10"/>
+		</integrator>
+	</integrator>
     <medium id="medium1" type="homogeneous">
         <float name="scale" value="{{ .Scale }}"/>
         <float name="albedo" value="{{ .Albedo }}"/>
@@ -841,10 +845,10 @@ end_header
 	fmt.Println("bounding sphere radius", r)
 	fmt.Printf("frame: %v, weights: %v, %v, %v, %v\n", frameNumber, frameNumber%2, (frameNumber/2)%2, (frameNumber/4)%2, (frameNumber/8)%2)
 
-	intIor := 1.55 + sin(17*t)*.3
-	abbe := pow(10, sin(prime(4)*t)/2+1.5)
-	filmThickness := pow(10, sin(prime(5)*t)/2+2.5)
-	filmIor := 1.8 + sin(prime(6)*t)/2
+	intIor := 1.55 + sin(11*t)*.3
+	abbe := pow(10, sin(prime(1)*t)/2+1.5)
+	filmThickness := pow(10, sin(prime(2)*t)/2+2.5)
+	filmIor := 1.8 + sin(prime(3)*t)/2
 
 	fmt.Printf("frame: %v, intIor: %v, abbe: %v, filmThickness: %v, filmIor: %v, shape coefficients: %v\n", frameNumber, intIor, abbe, filmThickness, filmIor, newModulators(t))
 
@@ -860,9 +864,9 @@ end_header
 			(frameNumber / 2) % 2,
 			(frameNumber / 4) % 2,
 			(frameNumber / 8) % 2,
-			sin(19*t) * 90,
-			sin(23*t) * 90,
-			sin(29*t) * 90,
+			sin(2*t) * 90,
+			sin(3*t) * 90,
+			sin(5*t) * 90,
 			fov,
 			pow(10, sin(5*t)-2),
 			pow(10, cos(7*t)-2),
@@ -883,15 +887,15 @@ end_header
 			.5 - cos(11*t)/2,
 			.5 - cos(7*t)/2,
 			intIor,
-			pow(10, sin(19*t)+2),
-			cos(23*t) * .99,
+			pow(10, sin(7*t)+2),
+			cos(11*t) * .95,
 			abbe,
 			filmThickness,
 			filmIor,
 			sin(prime(7)*t)/2 + .5,
 			pow(10, 3*sin(prime(8)*t)),
-			sin(t)*2 + 2.001,
-			2.001 - 2*sin(t),
+			sin(t)*2 + 3.001,
+			3.001 - 2*sin(t),
 		})
 }
 
@@ -899,7 +903,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 500, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 128, "Max frames")
+	maxFrames := flag.Int("maxframes", 1536, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
