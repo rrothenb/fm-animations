@@ -15,6 +15,12 @@ import (
 	// "github.com/hunterloftis/pbr/pkg/material"
 )
 
+var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
+
+func prime(i int) float64 {
+	return float64(primes[i-1])
+}
+
 type MeshType struct {
 	NumVertices int
 	NumFaces    int
@@ -183,13 +189,13 @@ func innerKnot(t float64) geom.Vec {
 
 func cameraPath(t float64) geom.Vec {
 	cameraLocs := [4]geom.Vec{
-		{1, 0, 0},
-		{1, 1, 0},
-		{1, 0, 1},
-		{1, 1, 1},
+		{2, 0, 0},
+		{2, 2, 0},
+		{2, 0, 2},
+		{2, 2, 2},
 	}
 	index := globalFrameNumber % len(cameraLocs)
-	return cameraLocs[index].Scaled(.5)
+	return cameraLocs[index].Scaled(1 + sin(prime(1)*t)*.25)
 }
 
 func focusPath(t float64) geom.Vec {
@@ -249,8 +255,176 @@ func cube(u, v, t float64) geom.Vec {
 	}
 }
 
+// Modulators carries the Fourier coefficient arrays for the generalized
+// sphereish surface. All three modulators use frequencies 1, 2, 3, ...
+//
+//	A[k-1] is the coefficient of sin(k·v) in the radial modulator.
+//	B[k-1] is the coefficient of sin(k·u) in the angular modulator.
+//	C[k-1] is the coefficient of sin(k·v) in the vertical modulator.
+//
+// Migration note: the original sphereish(u, v, a, b, c) used b·sin(2u),
+// which corresponds to B = []float64{0, b} here (coefficient at index 1,
+// not index 0).
+type Modulators struct {
+	A []float64
+	B []float64
+	C []float64
+}
+
+// LipschitzNorm returns Σ k·|coeffs[k-1]|.
+func LipschitzNorm(coeffs []float64) float64 {
+	s := 0.0
+	for i, c := range coeffs {
+		k := float64(i + 1)
+		s += k * abs(c)
+	}
+	return s
+}
+
+// SafeBounds reports whether the modulators satisfy the sufficient
+// non-self-intersection conditions (i.e., are well-formed).
+func (m Modulators) SafeBounds() bool {
+	return LipschitzNorm(m.A) < 0.5 &&
+		LipschitzNorm(m.B) < 1.0 &&
+		LipschitzNorm(m.C) < 0.5
+}
+
+// ScaleToFit reduces coeffs in place so that LipschitzNorm(coeffs) <= maxNorm.
+// Returns the scale factor applied (1.0 if no scaling was needed).
+// Use maxNorm = 0.49 for A and C arrays, maxNorm = 0.99 for B arrays.
+func ScaleToFit(coeffs []float64, maxNorm float64) float64 {
+	n := LipschitzNorm(coeffs)
+	if n <= maxNorm {
+		return 1.0
+	}
+	s := maxNorm / n
+	for i := range coeffs {
+		coeffs[i] *= s
+	}
+	return s
+}
+
+// sphereishGeneral evaluates S(u,v) for the generalized sphereish surface
+// with arbitrary-length Fourier coefficient arrays. The trivial case
+// (all arrays empty) reduces to the unit sphere.
+func sphereishGeneral(u, v float64, m Modulators) geom.Vec {
+	alpha, gamma := v/2, v/2
+	for i, ak := range m.A {
+		k := float64(i + 1)
+		alpha += ak * sin(k*v)
+	}
+	for i, ck := range m.C {
+		k := float64(i + 1)
+		gamma -= ck * sin(k*v)
+	}
+	beta := 0.0
+	for i, bk := range m.B {
+		k := float64(i + 1)
+		beta += bk * sin(k*u)
+	}
+	rho := sin(alpha)
+	zeta := cos(gamma)
+	return geom.Vec{
+		rho * cos(u-beta),
+		rho * sin(u+beta),
+		zeta,
+	}
+}
+
+// sphereishGeneralNormal returns the unit outward normal at (u,v) for the
+// generalized sphereish surface. At the parametric poles (v ≈ 0 and v ≈ 2π)
+// the analytic limits (0,0,+1) and (0,0,-1) are substituted to avoid the
+// degeneracy in the cross product. This function gives the normal of the
+// bare generalized sphereish only; it does NOT account for any radial
+// displacement texture applied on top, so it is unsuitable for shading the
+// displaced render mesh — keep using numerical differentiation through the
+// full uv2xyz for that.
+func sphereishGeneralNormal(u, v float64, m Modulators) geom.Dir {
+	const epsilon = 1e-6
+	if v < epsilon {
+		return geom.Dir{0, 0, 1}
+	}
+	if 2*pi-v < epsilon {
+		return geom.Dir{0, 0, -1}
+	}
+	alpha, alphaP := v/2, 0.5
+	gamma, gammaP := v/2, 0.5
+	for i, ak := range m.A {
+		k := float64(i + 1)
+		alpha += ak * sin(k*v)
+		alphaP += k * ak * cos(k*v)
+	}
+	for i, ck := range m.C {
+		k := float64(i + 1)
+		gamma -= ck * sin(k*v)
+		gammaP -= k * ck * cos(k*v)
+	}
+	rho := sin(alpha)
+	rhoP := cos(alpha) * alphaP
+	zetaP := -sin(gamma) * gammaP
+	beta, betaP := 0.0, 0.0
+	for i, bk := range m.B {
+		k := float64(i + 1)
+		beta += bk * sin(k*u)
+		betaP += k * bk * cos(k*u)
+	}
+	phi := u - beta
+	psi := u + beta
+	phiP := 1 - betaP
+	psiP := 1 + betaP
+	suX := -rho * sin(phi) * phiP
+	suY := rho * cos(psi) * psiP
+	// suZ = 0
+	svX := rhoP * cos(phi)
+	svY := rhoP * sin(psi)
+	svZ := zetaP
+	// n = sv × su (outward), with suZ = 0
+	nX := -svZ * suY
+	nY := svZ * suX
+	nZ := svX*suY - svY*suX
+	mag := sqrt(nX*nX + nY*nY + nZ*nZ)
+	if mag < 1e-12 {
+		return geom.Dir{0, 0, 1}
+	}
+	return geom.Dir{nX / mag, nY / mag, nZ / mag}
+}
+
+// defaultModulators returns the per-frame Modulators for series173,
+// matching the original sphereish(u, v, a, b, c) shape. The original
+// b·sin(2u) term migrates to B = []float64{0, b}, with B[0] left at zero.
+// The well-formedness bounds are enforced via ScaleToFit.
+func defaultModulators(t float64) Modulators {
+	m := Modulators{
+		A: []float64{sin(3*t) * .5},
+		B: []float64{0, sin(5*t) * .5},
+		C: []float64{sin(7*t) * .5},
+	}
+	ScaleToFit(m.A, 0.49)
+	ScaleToFit(m.B, 0.99)
+	ScaleToFit(m.C, 0.49)
+	return m
+}
+
+func newModulators(t float64) Modulators {
+	a1 := sin(prime(2)*t) * .45
+	a2 := sin(prime(3)*t) * (.45 - abs(a1)) / 2
+	a3 := sin(prime(4)*t) * (.45 - abs(a1) - 2*abs(a2)) / 3
+	b2 := sin(prime(5)*t) * .45
+	b4 := sin(prime(6)*t) * (.95 - 2*abs(b2)) / 4
+	b3 := sin(prime(7)*t) * (.95 - 2*abs(b2) - 4*abs(b4)) / 3
+	b1 := sin(prime(8)*t) * (.95 - 2*abs(b2) - 3*abs(b3) - 4*abs(b4))
+	c1 := sin(prime(9)*t) * .45
+	c2 := sin(prime(10)*t) * (.45 - abs(c1)) / 2
+	c3 := sin(prime(11)*t) * (.45 - abs(c1) - 2*abs(c2)) / 3
+	return Modulators{
+		A: []float64{a1, a2, a3},
+		B: []float64{b1, b2, b3, b4},
+		C: []float64{c1, c2, c3},
+	}
+}
+
 func shape(u, v, t float64) geom.Vec {
-	return cube(u, v, t)
+	return sphereishGeneral(u, v, newModulators(t))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
@@ -297,6 +471,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxU := 0
 	maxV := 0
 	minZ := 1.0
+	radius := 0.0
 	closestPoint := geom.Vec{0, 0, 0}
 	for uIndex := 0; uIndex <= 500; uIndex++ {
 		for vIndex := 0; vIndex <= 500; vIndex++ {
@@ -310,6 +485,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				totalHeight += vertex.Minus(vertexBelow).Len()
 				minDistance = math.Min(minDistance, vertex.Len())
 				maxDistance = math.Max(maxDistance, vertex.Len())
+				radius = math.Max(radius, vertex.Len())
 				maxX = math.Max(maxX, math.Abs(vertex.X))
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
 				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
@@ -414,16 +590,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
 			v := float64(vIndex) / float64(envSize) * 2 * pi
-			power := 2 * pow(10, sin(23*t)/2+.5)
+			power := 2 * pow(10, sin(prime(12)*t)/2+.5)
 			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
 			if (frameNumber/4)%2 == 1 {
 				envmapValue = 1 - envmapValue
 			}
 			envmapArray = append(
 				envmapArray,
-				float32(pow(envmapValue, pow(2, sin(29*t)))),
-				float32(pow(envmapValue, pow(2, cos(31*t)))),
-				float32(pow(envmapValue, pow(2, -sin(37*t)))))
+				float32(envmapValue),
+				float32(envmapValue),
+				float32(envmapValue))
 		}
 	}
 
@@ -465,40 +641,43 @@ end_header
 		Scale float64
 	}
 	type sensor struct {
-		Camera    geom.Vec
-		LookAt    geom.Vec
-		Distance  float64
-		FogRadius float64
-		Angle     float64
-		MinZ      float64
-		IntIOR    float64
-		ExtIOR    float64
-		FOV       float64
-		EnvX      float64
-		EnvY      float64
-		EnvZ      float64
-		Scale     float64
-		Instances []instance
+		Camera        geom.Vec
+		LookAt        geom.Vec
+		Distance      float64
+		Aperture      float64
+		FogRadius     float64
+		Angle         float64
+		MinZ          float64
+		IntIOR        float64
+		ExtIOR        float64
+		FOV           float64
+		EnvX          float64
+		EnvY          float64
+		EnvZ          float64
+		Abbe          float64
+		FilmThickness float64
+		FilmIOR       float64
+		Instances     []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
-        <float name="aperture_radius" value=".00000000001"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
+        <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="256"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3840"/>
-            <integer name="height" value="3840"/>
-            <rfilter type="lanczos"/>
+            <integer name="width" value="1024"/>
+            <integer name="height" value="1024"/>
+            <rfilter type="gaussian"/>
         </film>
     </sensor>
     <emitter type="envmap" id="Area_002-light">
@@ -511,17 +690,20 @@ end_header
             <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
+  	<integrator type="nanscrub">
         <integrator type="path">
         </integrator>
+	</integrator>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
 		<bsdf type="dielectric">
 			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="{{ .ExtIOR }}"/>
+			<float name="abbe" value="{{ .Abbe }}"/>
+			<float name="film_thickness" value="{{ .FilmThickness }}"/>
+			<float name="film_ior" value="{{ .FilmIOR }}"/>
     	</bsdf>
         <transform name="to_world">
-			<scale value="{{ .Scale }}"/>
             <rotate value="1, 0, 0" angle="45"/>
             <rotate value="0, 1, 0" angle="45"/>
             <rotate value="0, 0, 1" angle="45"/>
@@ -534,13 +716,14 @@ end_header
 `)
 	angle := 90.0
 	instances := []instance{}
-	num := 6 - int(math.Round(sin(2*t)*4))
-	for x := -num; x <= num; x++ {
+	num := 6 - int(math.Round(sin(prime(13)*t)*2))
+
+	for x := -num; x <= 0; x++ {
 		for y := -num; y <= num; y++ {
 			for z := -num; z <= num; z++ {
-				loc := geom.Vec{float64(x), float64(y), float64(z)}
+				loc := geom.Vec{float64(x), float64(y) + .5*float64(x%2), float64(z) + .5*float64(x%2)}
 				angle := float64((x+y+z)%4) * 90
-				instances = append(instances, instance{angle, loc, .47 + sin(19*t)*.02})
+				instances = append(instances, instance{angle, loc, 1 / radius * .499})
 			}
 		}
 	}
@@ -557,20 +740,28 @@ end_header
 		envRot.Y = -45
 	}
 
+	intIor := 1.55 + sin(prime(14)*t)*.3
+	abbe := pow(10, sin(prime(15)*t)/2+1.5)
+	filmThickness := pow(10, sin(prime(16)*t)/2+2.5)
+	filmIor := 1.8 + sin(prime(17)*t)/2
+
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
-		distance,
+		distance - .5,
+		pow(10, cos(prime(18)*t)*3-4),
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
-		cos(2*t) + 2,
+		intIor,
 		sin(3*t) + 2,
-		120 + cos(5*t)*30,
+		45,
 		envRot.X,
 		envRot.Y,
 		envRot.Z,
-		pow(1.5, -cos(t)),
+		abbe,
+		filmThickness,
+		filmIor,
 		instances})
 }
 
