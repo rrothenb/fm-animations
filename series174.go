@@ -671,12 +671,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1024"/>
-            <integer name="height" value="1024"/>
+            <integer name="width" value="2560"/>
+            <integer name="height" value="2560"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
