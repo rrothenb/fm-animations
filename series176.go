@@ -189,18 +189,6 @@ func innerKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, .15, 3, 2, outerKnot)
 }
 
-func cameraPath(t float64) geom.Vec {
-	/*
-		loc := geom.Vec{3.0, cos(t+pi*3/4) + .666, sin(t+pi*3/4) + .666}
-		return loc.Scaled((2.5 - cos(t)*.5) / loc.Len())
-	*/
-	return geom.Vec{50, 25, 0}
-}
-
-func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
-}
-
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	delta := .01
 	center := path(v)
@@ -447,19 +435,46 @@ func newModulators(t float64) Modulators {
 	}
 }
 
+func structureAlgorithm(a float64, b float64, c float64, d float64, e float64, x float64, y float64) float64 {
+	return sin(b*x + c*y + sin(c*x-b*y+(a+d)*sin(x+(b+e)*sin(y))))
+}
+
 func slabHeight(yIndex int, zIndex int, t float64) float64 {
 	a := pow(10, -cos(2*t)-1)
 	b := pow(10, -cos(3*t)-1)
 	c := pow(10, -cos(5*t)-1)
 	d := pow(10, -cos(7*t)-1)
 	e := pow(10, -cos(11*t)-1)
-	y := float64(yIndex) / 7 * 2 * pi
-	z := float64(zIndex) / 7 * 2 * pi
-	return 2 + 1.5*sin(b*y+c*z+sin(c*y-b*z+(a+d)*sin(y+(b+e)*sin(z))))
+	y := float64(yIndex) / 10 * 2 * pi
+	z := float64(zIndex) / 60 * 2 * pi
+	return 2 + 1.5*structureAlgorithm(a, b, c, d, e, y, z)
+}
+
+func slabOffset(yIndex int, zIndex int, t float64) float64 {
+	a := pow(10, -cos(2*t)-1)
+	b := pow(10, -cos(3*t)-1)
+	c := pow(10, -cos(5*t)-1)
+	d := pow(10, -cos(7*t)-1)
+	e := pow(10, -cos(11*t)-1)
+	y := float64(yIndex) / 10 * 2 * pi
+	z := float64(zIndex) / 60 * 2 * pi
+	return 5 + 5*structureAlgorithm(e, d, c, b, a, z, y)
 }
 
 func avgSlabHeight(t float64) float64 {
 	return 2
+}
+
+func cameraPath(t float64) geom.Vec {
+	/*
+		loc := geom.Vec{3.0, cos(t+pi*3/4) + .666, sin(t+pi*3/4) + .666}
+		return loc.Scaled((2.5 - cos(t)*.5) / loc.Len())
+	*/
+	return geom.Vec{50, 25, 0}
+}
+
+func focusPath(t float64) geom.Vec {
+	return geom.Vec{0, 0, slabOffset(0, 0, t)}
 }
 
 func shape(u, v, t float64) geom.Vec {
@@ -497,7 +512,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxCornerFOV := 180 - 2*math.Asin(thingy)*180/pi
 	maxFOV := 2 * atan(tan(maxCornerFOV*pi/180/2)/sqrt(2)) * 180 / pi * .99
 	// maxFOV = min(maxFOV, 120)
-	maxFOV = 75
+	maxFOV = 60
 	fmt.Printf("\nthingy: %v\nmaxCornerFOV: %v\nmaxFOV: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", thingy, maxCornerFOV, maxFOV, cameraLoc, focusPoint, distance, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -716,12 +731,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="25"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1600"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="1280"/>
+            <integer name="height" value="720"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -753,7 +768,7 @@ end_header
 	gap := .1
 	avgHeight := avgSlabHeight(t)
 
-	for z := -3 * num; z <= 3*num; z++ {
+	for z := -6 * num; z <= 6*num; z++ {
 		totalHeight := 0.0
 		for y := -num; y <= num; y++ {
 			totalHeight += slabHeight(y, z, t)
@@ -763,7 +778,7 @@ end_header
 		for y := -num; y <= num; y++ {
 			height := slabHeight(y, z, t) * correctionFactor
 			accumulatedHeight += height / 2
-			loc := geom.Vec{-5, accumulatedHeight, float64(z)}
+			loc := geom.Vec{-5 + slabOffset(y, z, t), accumulatedHeight, float64(z)}
 			angle := 0.0
 			instances = append(instances, instance{angle, loc, .25, height / 2, 10})
 			accumulatedHeight += height/2 + gap
@@ -800,7 +815,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 768, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
