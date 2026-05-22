@@ -190,12 +190,15 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	loc := geom.Vec{1.0, sin(2*t) * .5, sin(3*t) * .5}
-	return loc.Scaled((4 - cos(t)*1.5) / loc.Len())
+	/*
+		loc := geom.Vec{3.0, cos(t+pi*3/4) + .666, sin(t+pi*3/4) + .666}
+		return loc.Scaled((2.5 - cos(t)*.5) / loc.Len())
+	*/
+	return geom.Vec{50, 25, 0}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{1.24, 0, 0}
+	return geom.Vec{0, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -444,14 +447,29 @@ func newModulators(t float64) Modulators {
 	}
 }
 
+func slabHeight(yIndex int, zIndex int, t float64) float64 {
+	a := pow(10, -cos(2*t)-1)
+	b := pow(10, -cos(3*t)-1)
+	c := pow(10, -cos(5*t)-1)
+	d := pow(10, -cos(7*t)-1)
+	e := pow(10, -cos(11*t)-1)
+	y := float64(yIndex) / 7 * 2 * pi
+	z := float64(zIndex) / 7 * 2 * pi
+	return 2 + 1.5*sin(b*y+c*z+sin(c*y-b*z+(a+d)*sin(y+(b+e)*sin(z))))
+}
+
+func avgSlabHeight(t float64) float64 {
+	return 2
+}
+
 func shape(u, v, t float64) geom.Vec {
 	return sphereishGeneral(u, v, newModulators(t))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	point := shape(u, v, t)
-	blendValue := 1 - shapeTexture(2, 1, t, point)/2 + .5
-	return point.Scaled(1 - .01*blendValue)
+	// blendValue := 1 - shapeTexture(2, 1, t, point)/2 + .5
+	return point
 }
 
 func index2radians(index float64, n int) float64 {
@@ -478,6 +496,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	thingy := abs(sqrt(pow(cameraLoc.Y, 2)+pow(cameraLoc.Z, 2))) / distance
 	maxCornerFOV := 180 - 2*math.Asin(thingy)*180/pi
 	maxFOV := 2 * atan(tan(maxCornerFOV*pi/180/2)/sqrt(2)) * 180 / pi * .99
+	// maxFOV = min(maxFOV, 120)
+	maxFOV = 75
 	fmt.Printf("\nthingy: %v\nmaxCornerFOV: %v\nmaxFOV: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", thingy, maxCornerFOV, maxFOV, cameraLoc, focusPoint, distance, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -583,16 +603,16 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		}
 	}
 	envmapArray := []float32{}
-	blendArray := []float32{}
+	//	blendArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			u := float64(uIndex) / float64(nU) * 2 * pi
-			v := float64(vIndex) / float64(nV) * 2 * pi
-			loc := shape(u, v, t)
+			//u := float64(uIndex) / float64(nU) * 2 * pi
+			//v := float64(vIndex) / float64(nV) * 2 * pi
+			//loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(shapeTexture(2, 1, t, loc)/2 + .5)
-			blendArray = append(blendArray, blendValue, blendValue, blendValue)
+			//blendValue := float32(shapeTexture(2, 1, t, loc)/2 + .5)
+			//blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -646,7 +666,7 @@ end_header
 `)
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
-	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
+	//	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -654,14 +674,16 @@ end_header
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
-	blend, _ := os.Create(blendPath)
-	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
+	//	blend, _ := os.Create(blendPath)
+	//	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
-		Angle float64
-		Loc   geom.Vec
-		Scale float64
+		Angle  float64
+		Loc    geom.Vec
+		Width  float64
+		Height float64
+		Depth  float64
 	}
 	type sensor struct {
 		Camera        geom.Vec
@@ -694,12 +716,12 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="600"/>
+            <integer name="sample_count" value="25"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2560"/>
-            <integer name="height" value="2560"/>
+            <integer name="width" value="1600"/>
+            <integer name="height" value="900"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -717,31 +739,34 @@ end_header
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-		<bsdf type="plastic">
-			<float name="film_thickness" value="{{ .FilmThickness }}"/>
-			<float name="film_ior" value="{{ .FilmIOR }}"/>
-                <texture type="bitmap" name="diffuse_reflectance">
-                    <string name="filename" value="mitsuba.blend.rgbe"/>
-                </texture>
+		<bsdf type="diffuse">
 		</bsdf>
     </shape>
 </shape>
 
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="1, 0, 0" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale x="{{ .Depth }}" y="{{ .Height }}" z="{{ .Width }}"/><rotate value="1, 0, 0" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
 	instances := []instance{}
-	num := 249
+	num := 9
+	gap := .1
+	avgHeight := avgSlabHeight(t)
 
-	for y := -num; y <= num; y++ {
-		for z := -num; z <= num; z++ {
-			loc := geom.Vec{0, float64(y), float64(z)}
-			if y == 0 && z == 0 {
-				loc.X = .75
-			}
+	for z := -3 * num; z <= 3*num; z++ {
+		totalHeight := 0.0
+		for y := -num; y <= num; y++ {
+			totalHeight += slabHeight(y, z, t)
+		}
+		correctionFactor := (float64(num)*2 + 1) * avgHeight / totalHeight
+		accumulatedHeight := -float64(num) * (avgHeight + gap)
+		for y := -num; y <= num; y++ {
+			height := slabHeight(y, z, t) * correctionFactor
+			accumulatedHeight += height / 2
+			loc := geom.Vec{-5, accumulatedHeight, float64(z)}
 			angle := 0.0
-			instances = append(instances, instance{angle, loc, .49})
+			instances = append(instances, instance{angle, loc, .25, height / 2, 10})
+			accumulatedHeight += height/2 + gap
 		}
 	}
 	fmt.Println(len(instances))
@@ -775,7 +800,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 128, "Max frames")
+	maxFrames := flag.Int("maxframes", 16, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

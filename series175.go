@@ -36,6 +36,8 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+var atan = math.Atan
+var tan = math.Tan
 
 func sign(x float64) float64 {
 	if x < 0 {
@@ -188,18 +190,12 @@ func innerKnot(t float64) geom.Vec {
 }
 
 func cameraPath(t float64) geom.Vec {
-	cameraLocs := [4]geom.Vec{
-		{2, 0, 0},
-		{2, 2, 0},
-		{2, 0, 2},
-		{2, 2, 2},
-	}
-	index := globalFrameNumber % len(cameraLocs)
-	return cameraLocs[index].Scaled(1 + sin(prime(1)*t)*.25)
+	loc := geom.Vec{1.0, sin(2*t) * .5, sin(3*t) * .5}
+	return loc.Scaled((4 - cos(t)*1.5) / loc.Len())
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 0}
+	return geom.Vec{1.24, 0, 0}
 }
 
 func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
@@ -389,6 +385,41 @@ func sphereishGeneralNormal(u, v float64, m Modulators) geom.Dir {
 	return geom.Dir{nX / mag, nY / mag, nZ / mag}
 }
 
+// Cube approximation reference.
+//
+// To push sphereishGeneral toward an axis-aligned cube centered at the origin,
+// use the arc-length-uniform parameterization (top face on v ∈ [0, π/2], sides
+// on [π/2, 3π/2], bottom on [3π/2, 2π]). beta(u) becomes a triangle wave of
+// period π and amplitude π/4; alpha(v) − v/2 and v/2 − gamma(v) are the same
+// triangle wave of period 2π and amplitude π/4, so A and C coincide.
+//
+// Fourier expansions (only the listed indices are nonzero):
+//
+//	B (sin(k·u), k = 4n+2):
+//	  B[1]  =  2/π     ≈  0.6366
+//	  B[5]  = −2/(9π)  ≈ −0.0707
+//	  B[9]  =  2/(25π) ≈  0.0255
+//	  B[13] = −2/(49π) ≈ −0.0130
+//
+//	A and C (sin(k·v), odd k), with A[k−1] = C[k−1]:
+//	  A[0]/C[0] =  2/π     ≈  0.6366
+//	  A[2]/C[2] = −2/(9π)  ≈ −0.0707
+//	  A[4]/C[4] =  2/(25π) ≈  0.0255
+//	  A[6]/C[6] = −2/(49π) ≈ −0.0130
+//
+// Leading-order "rounded cube": A[0] = C[0] = 2/π and B = {0, 2/π}; everything
+// else zero. Reads as a cube with softened edges.
+//
+// Caveats:
+//   - A true cube is Lipschitz-divergent (Σ k·|coef| ~ harmonic), so SafeBounds
+//     rejects it. Even the leading terms exceed the limits: L1(A) = 2/π ≈ 0.637
+//     vs the 0.5 cap, and L1(B) = 2·(2/π) ≈ 1.273 vs the 1.0 cap. Running each
+//     array through ScaleToFit (0.49 / 0.99 / 0.49) yields a cube-ish shape
+//     with visibly rounded edges.
+//   - v = 0 and v = 2π are degenerate poles, so the top/bottom face centers
+//     always collapse to a point; those faces are only flat in the limit of
+//     infinitely many A/C terms.
+
 // defaultModulators returns the per-frame Modulators for series173,
 // matching the original sphereish(u, v, a, b, c) shape. The original
 // b·sin(2u) term migrates to B = []float64{0, b}, with B[0] left at zero.
@@ -406,20 +437,10 @@ func defaultModulators(t float64) Modulators {
 }
 
 func newModulators(t float64) Modulators {
-	a1 := sin(prime(2)*t) * .45
-	a2 := sin(prime(3)*t) * (.45 - abs(a1)) / 2
-	a3 := sin(prime(4)*t) * (.45 - abs(a1) - 2*abs(a2)) / 3
-	b2 := sin(prime(5)*t) * .45
-	b4 := sin(prime(6)*t) * (.95 - 2*abs(b2)) / 4
-	b3 := sin(prime(7)*t) * (.95 - 2*abs(b2) - 4*abs(b4)) / 3
-	b1 := sin(prime(8)*t) * (.95 - 2*abs(b2) - 3*abs(b3) - 4*abs(b4))
-	c1 := sin(prime(9)*t) * .45
-	c2 := sin(prime(10)*t) * (.45 - abs(c1)) / 2
-	c3 := sin(prime(11)*t) * (.45 - abs(c1) - 2*abs(c2)) / 3
 	return Modulators{
-		A: []float64{a1, a2, a3},
-		B: []float64{b1, b2, b3, b4},
-		C: []float64{c1, c2, c3},
+		A: []float64{2 / pi},
+		B: []float64{0, 2 / pi},
+		C: []float64{2 / pi},
 	}
 }
 
@@ -428,7 +449,9 @@ func shape(u, v, t float64) geom.Vec {
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	return shape(u, v, t)
+	point := shape(u, v, t)
+	blendValue := 1 - shapeTexture(2, 1, t, point)/2 + .5
+	return point.Scaled(1 - .01*blendValue)
 }
 
 func index2radians(index float64, n int) float64 {
@@ -452,7 +475,10 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
+	thingy := abs(sqrt(pow(cameraLoc.Y, 2)+pow(cameraLoc.Z, 2))) / distance
+	maxCornerFOV := 180 - 2*math.Asin(thingy)*180/pi
+	maxFOV := 2 * atan(tan(maxCornerFOV*pi/180/2)/sqrt(2)) * 180 / pi * .99
+	fmt.Printf("\nthingy: %v\nmaxCornerFOV: %v\nmaxFOV: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", thingy, maxCornerFOV, maxFOV, cameraLoc, focusPoint, distance, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -565,7 +591,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(nV) * 2 * pi
 			loc := shape(u, v, t)
 			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			blendValue := float32(pow(spow(shapeTexture(2, 1, t, loc), 10)/2+.5, 10))
+			blendValue := float32(shapeTexture(2, 1, t, loc)/2 + .5)
 			blendArray = append(blendArray, blendValue, blendValue, blendValue)
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
@@ -592,9 +618,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(envSize) * 2 * pi
 			power := 2 * pow(10, sin(prime(12)*t)/2+.5)
 			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
-			if (frameNumber/4)%2 == 1 {
-				envmapValue = 1 - envmapValue
-			}
 			envmapArray = append(
 				envmapArray,
 				float32(envmapValue),
@@ -671,7 +694,7 @@ end_header
         </transform>
 
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="600"/>
         </sampler>
 
         <film type="hdrfilm" id="film">
@@ -684,10 +707,7 @@ end_header
         <string name="filename" value="mitsuba.rgbe"/>
         <float name="scale" value="1"/>
         <transform name="to_world">
-            <rotate value="0, 1, 0" angle="-90"/>
             <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
-            <rotate value="0, 1, 0" angle="{{ .EnvY }}"/>
-            <rotate value="0, 0, 1" angle="{{ .EnvZ }}"/>
         </transform>
     </emitter>
   	<integrator type="nanscrub">
@@ -697,48 +717,34 @@ end_header
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-		<bsdf type="dielectric">
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="abbe" value="{{ .Abbe }}"/>
+		<bsdf type="plastic">
 			<float name="film_thickness" value="{{ .FilmThickness }}"/>
 			<float name="film_ior" value="{{ .FilmIOR }}"/>
-    	</bsdf>
-        <transform name="to_world">
-            <rotate value="1, 0, 0" angle="45"/>
-            <rotate value="0, 1, 0" angle="45"/>
-            <rotate value="0, 0, 1" angle="45"/>
-        </transform>
+                <texture type="bitmap" name="diffuse_reflectance">
+                    <string name="filename" value="mitsuba.blend.rgbe"/>
+                </texture>
+		</bsdf>
     </shape>
 </shape>
 
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="1, 0, 0" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
 	angle := 90.0
 	instances := []instance{}
-	num := 6 - int(math.Round(sin(prime(13)*t)*2))
+	num := 249
 
-	for x := -num; x <= 0; x++ {
-		for y := -num; y <= num; y++ {
-			for z := -num; z <= num; z++ {
-				loc := geom.Vec{float64(x), float64(y) + .5*float64(x%2), float64(z) + .5*float64(x%2)}
-				angle := float64((x+y+z)%4) * 90
-				instances = append(instances, instance{angle, loc, 1 / radius * .499})
+	for y := -num; y <= num; y++ {
+		for z := -num; z <= num; z++ {
+			loc := geom.Vec{0, float64(y), float64(z)}
+			if y == 0 && z == 0 {
+				loc.X = .75
 			}
+			angle := 0.0
+			instances = append(instances, instance{angle, loc, .49})
 		}
 	}
 	fmt.Println(len(instances))
-
-	envRot := geom.Vec{0, 0, 0}
-
-	if frameNumber%4 == 1 {
-		envRot.Z = 45
-	} else if frameNumber%4 == 2 {
-		envRot.Y = -45
-	} else if frameNumber%4 == 3 {
-		envRot.Z = 45
-		envRot.Y = -45
-	}
 
 	intIor := 1.55 + sin(prime(14)*t)*.3
 	abbe := pow(10, sin(prime(15)*t)/2+1.5)
@@ -748,17 +754,17 @@ end_header
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
-		distance - .5,
+		distance,
 		pow(10, cos(prime(18)*t)*3-4),
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
 		intIor,
 		sin(3*t) + 2,
-		45,
-		envRot.X,
-		envRot.Y,
-		envRot.Z,
+		maxFOV,
+		t / 2 / pi * 360,
+		0,
+		0,
 		abbe,
 		filmThickness,
 		filmIor,
@@ -769,7 +775,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
