@@ -458,7 +458,7 @@ func slabOffset(yIndex int, zIndex int, t float64) float64 {
 	e := pow(10, -cos(11*t)-1)
 	y := float64(yIndex) / 10 * 2 * pi
 	z := float64(zIndex) / 60 * 2 * pi
-	return 5 + 5*structureAlgorithm(e, d, c, b, a, z, y)
+	return 5 + 5*structureAlgorithm(e, d, c, b, a, z, y) + (9-y)*(sin(2*t)/2+.5)
 }
 
 func avgSlabHeight(t float64) float64 {
@@ -470,7 +470,7 @@ func cameraPath(t float64) geom.Vec {
 		loc := geom.Vec{3.0, cos(t+pi*3/4) + .666, sin(t+pi*3/4) + .666}
 		return loc.Scaled((2.5 - cos(t)*.5) / loc.Len())
 	*/
-	return geom.Vec{50, 25, 0}
+	return geom.Vec{40 + cos(2*t)*10, 25, sin(3*t) * 10}
 }
 
 func focusPath(t float64) geom.Vec {
@@ -815,7 +815,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 768, "Max frames")
+	maxFrames := flag.Int("maxframes", 16, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
