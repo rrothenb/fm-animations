@@ -212,7 +212,7 @@ func sphere(u, v, t float64) geom.Vec {
 
 func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
 	loc = loc.Scaled(f * 2 * pi)
-	loc.X = abs(loc.X)
+	loc.X = abs(loc.X) * 10
 	loc.Y = abs(loc.Y)
 	loc.Z = abs(loc.Z)
 	return sin(
@@ -429,9 +429,9 @@ func defaultModulators(t float64) Modulators {
 
 func newModulators(t float64) Modulators {
 	return Modulators{
-		A: []float64{2 / pi},
-		B: []float64{0, 2 / pi},
-		C: []float64{2 / pi},
+		A: []float64{2/pi - cos(2*t)*.1 - .1, .1 * sin(7*t)},
+		B: []float64{0, 2/pi - cos(3*t)*.1 - .1, .1 * sin(11*t)},
+		C: []float64{2/pi - cos(5*t)*.1 - .1, .1 * sin(13*t)},
 	}
 }
 
@@ -478,13 +478,22 @@ func focusPath(t float64) geom.Vec {
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return sphereishGeneral(u, v, newModulators(t))
+	return sphereishGeneral(u, v, newModulators(t)).By(geom.Vec{10, 1, 1})
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
-	point := shape(u, v, t)
-	// blendValue := 1 - shapeTexture(2, 1, t, point)/2 + .5
-	return point
+	loc := shape(u, v, t)
+	textureValue := 0.0
+	if (u > pi/4+.001 && u < 3*pi/4-.001 || u > 5*pi/4+.001 && u < 7*pi/4-.001) && (v > pi/2+.01 && v < 3*pi/2-.01) {
+		textureValue = pow(spow(shapeTexture(.1, .75-cos(41*t)*.5, t, loc), .1)/2+.5, pow(10, sin(29*t)))
+		if loc.Y > 0 {
+			return loc.Plus(geom.Vec{0, .1*textureValue - .1, 0})
+		} else {
+			return loc.Minus(geom.Vec{0, .1*textureValue - .1, 0})
+		}
+	} else {
+		return loc
+	}
 }
 
 func index2radians(index float64, n int) float64 {
@@ -618,16 +627,28 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 		}
 	}
 	envmapArray := []float32{}
-	//	blendArray := []float32{}
+	blendArray := []float32{}
+	textureArray := []float32{}
 	numFaces := 0
 	for vIndex := startVIndex; vIndex < endVIndex; vIndex++ {
 		for uIndex := startUIndex; uIndex < endUIndex; uIndex++ {
-			//u := float64(uIndex) / float64(nU) * 2 * pi
-			//v := float64(vIndex) / float64(nV) * 2 * pi
-			//loc := shape(u, v, t)
-			// blendValue := float32((.5-cos(v/2-.7*sin(v))/2)*(.01*pow(spow(shapeTexture(3, 2, t, loc), pow(strength(5, t), 4))/2+.5, pow(strength(7, t), 4))))
-			//blendValue := float32(shapeTexture(2, 1, t, loc)/2 + .5)
-			//blendArray = append(blendArray, blendValue, blendValue, blendValue)
+			u := float64(uIndex) / float64(nU) * 2 * pi
+			v := float64(vIndex) / float64(nV) * 2 * pi
+			loc := uv2xyz(u, v, t).Scaled(2 * pi)
+			blendValue := float32(0)
+			if (u > pi/4 && u < 3*pi/4 || u > 5*pi/4 && u < 7*pi/4) && (v > pi/2 && v < 3*pi/2) {
+				blendValue = float32(1)
+			}
+			blendArray = append(blendArray, blendValue, blendValue, blendValue)
+			textureValue := pow(spow(shapeTexture(.1, .75-cos(41*t)*.5, t, loc), .1)/2+.5, pow(10, sin(29*t)))
+			if frameNumber%2 == 1 {
+				textureValue = 1 - textureValue
+			}
+			textureArray = append(
+				textureArray,
+				float32(textureValue),
+				float32(textureValue),
+				float32(textureValue))
 			topRight := vertexIndicies[uIndex][vIndex]
 			topLeft := vertexIndicies[uIndex+1][vIndex]
 			botRight := vertexIndicies[uIndex][vIndex+1]
@@ -681,7 +702,8 @@ end_header
 `)
 	plyHeaderPath := fmt.Sprintf("data/%v.header.ply", frameNumber)
 	envPath := fmt.Sprintf("data/%v.rgbe", frameNumber)
-	//	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
+	blendPath := fmt.Sprintf("data/%v.blend.rgbe", frameNumber)
+	texturePath := fmt.Sprintf("data/%v.texture.rgbe", frameNumber)
 	plyHeader, _ := os.Create(plyHeaderPath)
 	mesh := MeshType{}
 	mesh.NumVertices = numVerticies
@@ -689,8 +711,10 @@ end_header
 	tmpl.Execute(plyHeader, mesh)
 	envmap, _ := os.Create(envPath)
 	rgbe.Encode(envmap, envSize, envSize, envmapArray)
-	//	blend, _ := os.Create(blendPath)
-	//	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
+	blend, _ := os.Create(blendPath)
+	rgbe.Encode(blend, endUIndex-startUIndex, endVIndex-startVIndex, blendArray)
+	texture, _ := os.Create(texturePath)
+	rgbe.Encode(texture, endUIndex-startUIndex, endVIndex-startVIndex, textureArray)
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
@@ -717,6 +741,11 @@ end_header
 		Abbe          float64
 		FilmThickness float64
 		FilmIOR       float64
+		Roughness     float64
+		Scale         float64
+		G             float64
+		Albedo        float64
+		SigmaT        float64
 		Instances     []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
@@ -729,14 +758,12 @@ end_header
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
-
         <sampler type="multijitter">
             <integer name="sample_count" value="100"/>
         </sampler>
-
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1280"/>
-            <integer name="height" value="720"/>
+            <integer name="width" value="1536"/>
+            <integer name="height" value="864"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -748,13 +775,41 @@ end_header
         </transform>
     </emitter>
   	<integrator type="nanscrub">
-        <integrator type="path">
+        <integrator type="volpathmis">
+            <integer name="max_depth" value="16"/>
         </integrator>
 	</integrator>
+    <medium id="medium1" type="homogeneous">
+        <float name="scale" value="{{ .Scale }}"/>
+        <float name="albedo" value="{{ .Albedo }}"/>
+        <float name="sigma_t" value="{{ .SigmaT }}"/>
+        <phase type="hg">
+			<float name="g" value="{{ .G }}"/>
+		</phase>
+    </medium>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-		<bsdf type="diffuse">
+        <ref id="medium1" name="interior"/>
+		<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.blend.rgbe"/>
+				<boolean name="raw" value="true"/>
+			</texture>
+			<bsdf type="roughdielectric">
+				<float name="alpha" value="{{ .Roughness }}"/>
+				<float name="film_thickness" value="{{ .FilmThickness }}"/>
+				<float name="film_ior" value="{{ .FilmIOR }}"/>
+				<float name="int_ior" value="{{ .IntIOR }}"/>
+				<float name="abbe" value="{{ .Abbe }}"/>
+			</bsdf>
+		   <bsdf type="twosided">
+				<bsdf type="diffuse">
+					<texture type="bitmap" name="reflectance">
+						<string name="filename" value="mitsuba.texture.rgbe"/>
+					</texture>
+				</bsdf>
+			</bsdf>
 		</bsdf>
     </shape>
 </shape>
@@ -780,22 +835,22 @@ end_header
 			accumulatedHeight += height / 2
 			loc := geom.Vec{-5 + slabOffset(y, z, t), accumulatedHeight, float64(z)}
 			angle := 0.0
-			instances = append(instances, instance{angle, loc, .25, height / 2, 10})
+			instances = append(instances, instance{angle, loc, .25, height / 2, 1})
 			accumulatedHeight += height/2 + gap
 		}
 	}
 	fmt.Println(len(instances))
 
-	intIor := 1.55 + sin(prime(14)*t)*.3
+	intIor := 1.5 + sin(prime(14)*t)*.3
 	abbe := pow(10, sin(prime(15)*t)/2+1.5)
 	filmThickness := pow(10, sin(prime(16)*t)/2+2.5)
-	filmIor := 1.8 + sin(prime(17)*t)/2
+	filmIor := 1.7 + sin(prime(17)*t)/2
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		pow(10, cos(prime(18)*t)*3-4),
+		.000000000001,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
@@ -808,6 +863,11 @@ end_header
 		abbe,
 		filmThickness,
 		filmIor,
+		pow(10, cos(17*t)*2-3),
+		pow(10, sin(7*t)),
+		cos(11*t) * .95,
+		sin(prime(7)*t)*.25 + .25,
+		pow(10, 3*sin(prime(8)*t)-1),
 		instances})
 }
 
@@ -815,7 +875,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 16, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)

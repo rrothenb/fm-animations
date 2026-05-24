@@ -4,7 +4,9 @@ rm data/$2.data.ply
 #mv data/$2.roughness.rgbe mitsuba.roughness.rgbe
 #convert mitsuba.roughness.rgbe mitsuba.roughness.jpg
 mv data/$2.blend.rgbe mitsuba.blend.rgbe
+mv data/$2.texture.rgbe mitsuba.texture.rgbe
 convert mitsuba.blend.rgbe mitsuba.blend.jpg
+convert mitsuba.texture.rgbe mitsuba.texture.jpg
 mv data/$2.metal.blend.rgbe mitsuba.metal.blend.rgbe
 convert mitsuba.metal.blend.rgbe mitsuba.metal.blend.jpg
 #cp mitsuba.blend.jpg $2.blend.jpg
