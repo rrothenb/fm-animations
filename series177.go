@@ -429,9 +429,9 @@ func defaultModulators(t float64) Modulators {
 
 func newModulators(t float64) Modulators {
 	return Modulators{
-		A: []float64{2/pi - cos(2*t)*.1 - .1, .1 * sin(7*t)},
-		B: []float64{0, 2/pi - cos(3*t)*.1 - .1, .1 * sin(11*t)},
-		C: []float64{2/pi - cos(5*t)*.1 - .1, .1 * sin(13*t)},
+		A: []float64{2/pi - cos(2*t)*.25 - .25, .25 * sin(7*t)},
+		B: []float64{0, 2/pi - cos(3*t)*.25 - .25, .25 * sin(11*t)},
+		C: []float64{2/pi - cos(5*t)*.25 - .25, .25 * sin(13*t)},
 	}
 }
 
@@ -439,30 +439,34 @@ func structureAlgorithm(a float64, b float64, c float64, d float64, e float64, x
 	return sin(b*x + c*y + sin(c*x-b*y+(a+d)*sin(x+(b+e)*sin(y))))
 }
 
-func slabHeight(yIndex int, zIndex int, t float64) float64 {
-	a := pow(10, -cos(2*t)-1)
-	b := pow(10, -cos(3*t)-1)
-	c := pow(10, -cos(5*t)-1)
-	d := pow(10, -cos(7*t)-1)
-	e := pow(10, -cos(11*t)-1)
-	y := float64(yIndex) / 10 * 2 * pi
-	z := float64(zIndex) / 60 * 2 * pi
-	return 2 + 1.5*structureAlgorithm(a, b, c, d, e, y, z)
+func slabOffsetFloat(yFloat, zFloat, t float64) float64 {
+	a := pow(2, sin(2*t)*3-3)
+	b := pow(2, sin(3*t)*3-3)
+	c := pow(2, sin(5*t)*3-3)
+	d := pow(2, sin(7*t)*3-3)
+	e := pow(2, sin(11*t)*3-3)
+	y := yFloat / 5 * 2 * pi
+	z := zFloat / 30 * 2 * pi
+	return 2 + 2*structureAlgorithm(e, d, c, b, a, z, y) - y
 }
 
 func slabOffset(yIndex int, zIndex int, t float64) float64 {
-	a := pow(10, -cos(2*t)-1)
-	b := pow(10, -cos(3*t)-1)
-	c := pow(10, -cos(5*t)-1)
-	d := pow(10, -cos(7*t)-1)
-	e := pow(10, -cos(11*t)-1)
-	y := float64(yIndex) / 10 * 2 * pi
-	z := float64(zIndex) / 60 * 2 * pi
-	return 5 + 5*structureAlgorithm(e, d, c, b, a, z, y) + (9-y)*(sin(2*t)/2+.5)
+	return slabOffsetFloat(float64(yIndex), float64(zIndex), t)
 }
 
-func avgSlabHeight(t float64) float64 {
-	return 2
+// Per-instance mesh scales. The template maps these to scale axes as
+// x=Depth, y=Height, z=Width (see the instance <scale> below).
+func instanceWidth(t float64) float64  { return .3 + .15*cos(2*t) }
+func instanceHeight(t float64) float64 { return .3 + .15*cos(3*t) }
+func instanceDepth(t float64) float64  { return .3 + .15*cos(5*t) }
+
+// centerTip returns the world-space +X tip of the center instance (the one at
+// grid y=0, z=0). The instance scales the mesh by Depth along X, so the tip's
+// unscaled X from uv2xyz must be multiplied by that same Depth before adding
+// the instance's base offset.
+func centerTip(t float64) geom.Vec {
+	loc := uv2xyz(0, pi, t) // local +X tip of the mesh; Y,Z are 0 here
+	return geom.Vec{slabOffset(0, 0, t) + instanceDepth(t)*loc.X, 0, 0}
 }
 
 func cameraPath(t float64) geom.Vec {
@@ -470,30 +474,30 @@ func cameraPath(t float64) geom.Vec {
 		loc := geom.Vec{3.0, cos(t+pi*3/4) + .666, sin(t+pi*3/4) + .666}
 		return loc.Scaled((2.5 - cos(t)*.5) / loc.Len())
 	*/
-	return geom.Vec{40 + cos(2*t)*10, 25, sin(3*t) * 10}
+	tip := centerTip(t)
+	return geom.Vec{tip.X + cos(2*t)*15, 15, sin(3*t) * 15}
 }
 
 func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, slabOffset(0, 0, t)}
+	return centerTip(t)
 }
 
 func shape(u, v, t float64) geom.Vec {
-	return sphereishGeneral(u, v, newModulators(t)).By(geom.Vec{10, 1, 1})
+	return sphereishGeneral(u, v, newModulators(t))
 }
 
 func uv2xyz(u, v, t float64) geom.Vec {
 	loc := shape(u, v, t)
-	textureValue := 0.0
-	if (u > pi/4+.001 && u < 3*pi/4-.001 || u > 5*pi/4+.001 && u < 7*pi/4-.001) && (v > pi/2+.01 && v < 3*pi/2-.01) {
-		textureValue = pow(spow(shapeTexture(.1, .75-cos(41*t)*.5, t, loc), .1)/2+.5, pow(10, sin(29*t)))
-		if loc.Y > 0 {
-			return loc.Plus(geom.Vec{0, .1*textureValue - .1, 0})
-		} else {
-			return loc.Minus(geom.Vec{0, .1*textureValue - .1, 0})
-		}
-	} else {
-		return loc
+	const xMax = 1.0     // |loc.X| ceiling: rho = sin(alpha) is bounded by 1
+	const stretch = 50.0 // local dx multiplier at x=0; total X length grows by 1+2(s-1)/3 = 10×
+	xN := loc.X / xMax
+	if xN > 1 {
+		xN = 1
+	} else if xN < -1 {
+		xN = -1
 	}
+	loc.X = loc.X + (stretch-1)*xMax*(xN-xN*xN*xN/3)
+	return loc
 }
 
 func index2radians(index float64, n int) float64 {
@@ -517,12 +521,34 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	thingy := abs(sqrt(pow(cameraLoc.Y, 2)+pow(cameraLoc.Z, 2))) / distance
-	maxCornerFOV := 180 - 2*math.Asin(thingy)*180/pi
-	maxFOV := 2 * atan(tan(maxCornerFOV*pi/180/2)/sqrt(2)) * 180 / pi * .99
+	// Tangent-plane normal at the focus using only the primary -y term of
+	// slabOffset (structureAlgorithm is local wobble around this global tilt).
+	// ∂slab/∂y_world from the -y_rad term is -(2π/5), so the unnormalized
+	// outward normal (1, -∂slab/∂y, 0) is (1, 2π/5, 0).
+	nX, nY, nZ := 1.0, 2*pi/5, 0.0
+	nMag := sqrt(nX*nX + nY*nY + nZ*nZ)
+	nX, nY, nZ = nX/nMag, nY/nMag, nZ/nMag
+	dx := cameraLoc.X - focusPoint.X
+	dy := cameraLoc.Y - focusPoint.Y
+	dz := cameraLoc.Z - focusPoint.Z
+	cosPsi := (dx*nX + dy*nY + dz*nZ) / distance
+	if cosPsi < 0 {
+		cosPsi = -cosPsi
+	}
+	psi := math.Acos(cosPsi)
+	maxCornerFOV := 180 - 2*psi*180/pi
+	// Mitsuba sensor is 1200x675 (16:9) with fov_axis = "larger", so the fov
+	// passed below is the horizontal edge FOV. For aspect W:H, the diagonal-to-
+	// horizontal-edge conversion is tan(hFOV/2) = tan(diag/2) / sqrt(1+(H/W)^2).
+	const filmW = 1200.0
+	const filmH = 675.0
+	diagToEdge := sqrt(1 + (filmH/filmW)*(filmH/filmW))
+	maxFOV := 2 * atan(tan(maxCornerFOV*pi/180/2)/diagToEdge) * 180 / pi * .9
+	fovWeight := sin(2*t)/2 + .5
+	maxFOV = min(fovWeight*maxFOV+(1-fovWeight)*30, maxFOV)
 	// maxFOV = min(maxFOV, 120)
-	maxFOV = 60
-	fmt.Printf("\nthingy: %v\nmaxCornerFOV: %v\nmaxFOV: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", thingy, maxCornerFOV, maxFOV, cameraLoc, focusPoint, distance, t)
+	// maxFOV = 45
+	fmt.Printf("\nnormal: (%v, %v, %v)\npsi(deg): %v\nmaxCornerFOV: %v\nmaxFOV: %v\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", nX, nY, nZ, psi*180/pi, maxCornerFOV, maxFOV, cameraLoc, focusPoint, distance, t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
 		nU = maxSubdivisions
@@ -759,11 +785,11 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="2070"/>
+            <integer name="sample_count" value="360"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3072"/>
-            <integer name="height" value="1728"/>
+            <integer name="width" value="1600"/>
+            <integer name="height" value="900"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -790,27 +816,12 @@ end_header
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-        <ref id="medium1" name="interior"/>
-		<bsdf type="blendbsdf">
-			<texture type="bitmap" name="weight">
-				<string name="filename" value="mitsuba.blend.rgbe"/>
-				<boolean name="raw" value="true"/>
-			</texture>
-			<bsdf type="roughdielectric">
-				<float name="alpha" value="{{ .Roughness }}"/>
+			<bsdf type="dielectric">
 				<float name="film_thickness" value="{{ .FilmThickness }}"/>
 				<float name="film_ior" value="{{ .FilmIOR }}"/>
 				<float name="int_ior" value="{{ .IntIOR }}"/>
 				<float name="abbe" value="{{ .Abbe }}"/>
 			</bsdf>
-		   <bsdf type="twosided">
-				<bsdf type="diffuse">
-					<texture type="bitmap" name="reflectance">
-						<string name="filename" value="mitsuba.texture.rgbe"/>
-					</texture>
-				</bsdf>
-			</bsdf>
-		</bsdf>
     </shape>
 </shape>
 
@@ -819,38 +830,27 @@ end_header
 `)
 	angle := 90.0
 	instances := []instance{}
-	num := 9
-	gap := .1
-	avgHeight := avgSlabHeight(t)
+	num := 49
 
-	for z := -6 * num; z <= 6*num; z++ {
-		totalHeight := 0.0
+	for z := -2 * num; z <= 2*num; z++ {
 		for y := -num; y <= num; y++ {
-			totalHeight += slabHeight(y, z, t)
-		}
-		correctionFactor := (float64(num)*2 + 1) * avgHeight / totalHeight
-		accumulatedHeight := -float64(num) * (avgHeight + gap)
-		for y := -num; y <= num; y++ {
-			height := slabHeight(y, z, t) * correctionFactor
-			accumulatedHeight += height / 2
-			loc := geom.Vec{-5 + slabOffset(y, z, t), accumulatedHeight, float64(z)}
+			loc := geom.Vec{slabOffset(y, z, t), float64(y), float64(z)}
 			angle := 0.0
-			instances = append(instances, instance{angle, loc, .25, height / 2, 1})
-			accumulatedHeight += height/2 + gap
+			instances = append(instances, instance{angle, loc, instanceWidth(t), instanceHeight(t), instanceDepth(t)})
 		}
 	}
 	fmt.Println(len(instances))
 
-	intIor := 1.5 + sin(prime(14)*t)*.3
+	intIor := 1.6 + sin(prime(14)*t)*.5
 	abbe := pow(10, sin(prime(15)*t)/2+1.5)
 	filmThickness := pow(10, sin(prime(16)*t)/2+2.5)
-	filmIor := 1.7 + sin(prime(17)*t)/2
+	filmIor := 1.8 + sin(prime(17)*t)*.7
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
 		distance,
-		.000000000001,
+		pow(10, cos(prime(18)*t)*3-3),
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
@@ -875,7 +875,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 128, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
