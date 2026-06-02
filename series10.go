@@ -1,5 +1,4 @@
 //go:build ignore
-// +build ignore
 
 // This is actually 6b at this point (still torus)
 package main
