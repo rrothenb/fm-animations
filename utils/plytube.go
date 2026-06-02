@@ -99,3 +99,73 @@ end_header
 	}
 	return nil
 }
+
+// WriteBeadTubePLY sweeps a tube of radius r around a closed bead polygon (e.g. a
+// RelaxIdealKnot result) and writes a binary PLY. nU is the cross-section
+// resolution. Both directions wrap (closed tube around a closed curve). The ring
+// frame is built from the tangent and z, matching the rest of the codebase.
+func WriteBeadTubePLY(filename string, beads []geom.Vec, r float64, nU int) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	defer w.Flush()
+
+	n := len(beads)
+	type vtx struct{ px, py, pz, nx, ny, nz float32 }
+	verts := make([]vtx, 0, n*nU)
+	for i := 0; i < n; i++ {
+		tangent, _ := beads[(i+1)%n].Minus(beads[(i-1+n)%n]).Unit()
+		sinVec, ok := tangent.Cross(geom.Dir{X: 0, Y: 0, Z: 1})
+		if !ok {
+			sinVec, _ = tangent.Cross(geom.Dir{X: 1, Y: 0, Z: 0})
+		}
+		cosVec, _ := tangent.Cross(sinVec)
+		for k := 0; k < nU; k++ {
+			u := 2 * math.Pi * float64(k) / float64(nU)
+			radial := cosVec.Scaled(math.Cos(u)).Plus(sinVec.Scaled(math.Sin(u)))
+			p := radial.Scaled(r).Plus(beads[i])
+			verts = append(verts, vtx{
+				float32(p.X), float32(p.Y), float32(p.Z),
+				float32(radial.X), float32(radial.Y), float32(radial.Z),
+			})
+		}
+	}
+
+	numFaces := n * nU * 2
+	header := fmt.Sprintf(`ply
+format binary_little_endian 1.0
+element vertex %d
+property float32 x
+property float32 y
+property float32 z
+property float32 nx
+property float32 ny
+property float32 nz
+element face %d
+property list uint8 int32 vertex_index
+end_header
+`, len(verts), numFaces)
+	if _, err := w.WriteString(header); err != nil {
+		return err
+	}
+	for _, vv := range verts {
+		binary.Write(w, binary.LittleEndian, vv)
+	}
+	idx := func(i, k int) int32 { return int32((i%n)*nU + k%nU) }
+	for i := 0; i < n; i++ {
+		for k := 0; k < nU; k++ {
+			a := idx(i, k)
+			b := idx(i+1, k)
+			c := idx(i+1, k+1)
+			d := idx(i, k+1)
+			binary.Write(w, binary.LittleEndian, byte(3))
+			binary.Write(w, binary.LittleEndian, []int32{a, b, c})
+			binary.Write(w, binary.LittleEndian, byte(3))
+			binary.Write(w, binary.LittleEndian, []int32{a, c, d})
+		}
+	}
+	return nil
+}
