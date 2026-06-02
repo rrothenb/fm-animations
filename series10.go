@@ -1,3 +1,6 @@
+//go:build series10
+// +build series10
+
 // This is actually 6b at this point (still torus)
 package main
 

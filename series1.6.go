@@ -1,3 +1,6 @@
+//go:build series1.6
+// +build series1.6
+
 package main
 
 import (

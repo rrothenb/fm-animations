@@ -1,3 +1,6 @@
+//go:build series4
+// +build series4
+
 package main
 
 import (

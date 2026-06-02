@@ -1,3 +1,6 @@
+//go:build series39
+// +build series39
+
 package main
 
 import (

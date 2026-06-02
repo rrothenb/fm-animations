@@ -1,3 +1,6 @@
+//go:build series70
+// +build series70
+
 package main
 
 import (

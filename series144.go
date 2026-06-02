@@ -1,3 +1,6 @@
+//go:build series144
+// +build series144
+
 package main
 
 import (

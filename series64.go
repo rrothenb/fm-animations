@@ -1,3 +1,6 @@
+//go:build series64
+// +build series64
+
 package main
 
 import (

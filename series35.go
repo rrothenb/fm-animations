@@ -1,3 +1,6 @@
+//go:build series35
+// +build series35
+
 package main
 
 import (

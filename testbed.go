@@ -1,3 +1,6 @@
+//go:build testbed
+// +build testbed
+
 package main
 
 import (
@@ -10,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/hunterloftis/pbr/pkg/geom"
+	"github.com/rrothenb/fm-animations/utils"
 )
 
 type MeshType struct {
@@ -188,7 +192,10 @@ func pathWrapper(u, v, r float64, path func(x float64) geom.Vec) geom.Vec {
 	delta := .01
 	center := path(v)
 	normal, _ := path(v + delta).Minus(path(v - delta)).Unit()
-	sinVec, _ := normal.Cross(geom.Dir{0, 0, 1})
+	sinVec, ok := normal.Cross(geom.Dir{0, 0, 1})
+	if !ok { // tangent parallel to z: avoid 0/0 -> NaN ring, use a different up
+		sinVec, _ = normal.Cross(geom.Dir{1, 0, 0})
+	}
 	cosVec, _ := normal.Cross(sinVec)
 	a := -.2
 	return cosVec.Scaled(r * cos(u-a*sin(2*u))).Plus(sinVec.Scaled(r * sin(u+a*sin(2*u)))).Plus(center)
@@ -391,6 +398,8 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	t := float64(frameNumber) * dt
 	fmt.Println("radius", .475+t/2/pi/100)
+	rMax, rCurv, rSep := utils.MaxTubeRadius(outerKnot, 2*pi, 4000)
+	fmt.Printf("max tube radius for outerKnot: %.4f (curvature %.4f, separation %.4f)\n", rMax, rCurv, rSep)
 	fmt.Println("frame", frameNumber)
 	tGlobal = t
 	frameGlobal = frameNumber

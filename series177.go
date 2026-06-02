@@ -1,3 +1,6 @@
+//go:build series177
+// +build series177
+
 package main
 
 import (
@@ -785,11 +788,11 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="2070"/>
+            <integer name="sample_count" value="36"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="3072"/>
-            <integer name="height" value="1728"/>
+            <integer name="width" value="1200"/>
+            <integer name="height" value="675"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>

@@ -1,3 +1,6 @@
+//go:build renderFrame
+// +build renderFrame
+
 package main
 
 import (

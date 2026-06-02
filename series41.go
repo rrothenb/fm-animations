@@ -1,3 +1,6 @@
+//go:build series41
+// +build series41
+
 package main
 
 import (

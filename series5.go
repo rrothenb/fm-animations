@@ -1,3 +1,6 @@
+//go:build series5
+// +build series5
+
 package main
 
 import (

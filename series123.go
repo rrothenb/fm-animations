@@ -1,3 +1,6 @@
+//go:build series123
+// +build series123
+
 package main
 
 import (

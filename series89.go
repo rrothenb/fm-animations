@@ -1,3 +1,6 @@
+//go:build series89
+// +build series89
+
 package main
 
 import (

@@ -1,3 +1,6 @@
+//go:build series83
+// +build series83
+
 package main
 
 import (

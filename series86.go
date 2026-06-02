@@ -1,3 +1,6 @@
+//go:build series86
+// +build series86
+
 package main
 
 import (

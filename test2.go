@@ -1,3 +1,6 @@
+//go:build test2
+// +build test2
+
 package main
 
 import (

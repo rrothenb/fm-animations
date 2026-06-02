@@ -1,3 +1,6 @@
+//go:build series157
+// +build series157
+
 package main
 
 import (

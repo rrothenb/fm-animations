@@ -1,3 +1,6 @@
+//go:build series98
+// +build series98
+
 package main
 
 import (

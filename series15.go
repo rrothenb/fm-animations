@@ -1,3 +1,6 @@
+//go:build series15
+// +build series15
+
 package main
 
 import (

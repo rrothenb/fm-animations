@@ -1,3 +1,6 @@
+//go:build series57
+// +build series57
+
 package main
 
 import (
