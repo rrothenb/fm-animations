@@ -1,5 +1,5 @@
-//go:build series11
-// +build series11
+//go:build ignore
+// +build ignore
 
 // This is actually 6b at this point (still torus)
 package main

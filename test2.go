@@ -1,5 +1,5 @@
-//go:build test2
-// +build test2
+//go:build ignore
+// +build ignore
 
 package main
 

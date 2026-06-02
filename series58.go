@@ -1,5 +1,5 @@
-//go:build series58
-// +build series58
+//go:build ignore
+// +build ignore
 
 package main
 

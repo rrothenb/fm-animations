@@ -1,5 +1,5 @@
-//go:build renderFrame
-// +build renderFrame
+//go:build ignore
+// +build ignore
 
 package main
 
