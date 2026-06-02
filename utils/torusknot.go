@@ -17,6 +17,16 @@ import (
 // would make the ring degenerate to NaN) it falls back to x, matching the guard
 // in pathWrapper.
 func TorusKnot(R, r float64, p, q int, path func(float64) geom.Vec) func(float64) geom.Vec {
+	return TorusKnotPhased(R, r, p, q, 0, path)
+}
+
+// TorusKnotPhased is TorusKnot with an orbit phase offset: the winding angle is
+// p*t+phase instead of p*t. The phase shifts where this level's strands sit
+// relative to its parent's, which is the degree of freedom that lets an inner
+// winding thread through the gaps of an over-fat parent (see
+// TightenSatelliteGlobal). On the outermost level the phase is only a rigid
+// rotation and has no effect on self-intersection.
+func TorusKnotPhased(R, r float64, p, q int, phase float64, path func(float64) geom.Vec) func(float64) geom.Vec {
 	pf := float64(p)
 	qf := float64(q)
 	const delta = .01
@@ -28,6 +38,6 @@ func TorusKnot(R, r float64, p, q int, path func(float64) geom.Vec) func(float64
 			sinVec, _ = normal.Cross(geom.Dir{X: 1, Y: 0, Z: 0})
 		}
 		cosVec, _ := normal.Cross(sinVec)
-		return cosVec.Scaled(r * math.Cos(pf*t)).Plus(sinVec.Scaled(r * math.Sin(pf*t))).Plus(center)
+		return cosVec.Scaled(r * math.Cos(pf*t+phase)).Plus(sinVec.Scaled(r * math.Sin(pf*t+phase))).Plus(center)
 	}
 }

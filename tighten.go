@@ -19,11 +19,19 @@ func main() {
 		{P: 5, Q: 3},
 	}
 
-	orbits, rTube, _ := utils.TightenSatellite(levels, 0)
+	orbits, rTube, centerline := utils.TightenSatellite(levels, 0)
 
 	fmt.Println("tightest configuration:")
 	for k, lvl := range levels {
 		fmt.Printf("  level %d  (%d,%d)  orbit r = %.4f\n", k, lvl.P, lvl.Q, orbits[k])
 	}
-	fmt.Printf("  tube radius <= %.4f  (use ~%.4f for a visible gap)\n", rTube, 0.85*rTube)
+	tube := 0.9 * rTube
+	fmt.Printf("  tube radius <= %.4f  (using %.4f for the mesh)\n", rTube, tube)
+
+	const out = "tighten.ply"
+	if err := utils.WriteTubePLY(out, centerline, tube, 48, 3000); err != nil {
+		fmt.Println("PLY write failed:", err)
+		return
+	}
+	fmt.Printf("wrote %s (open in 3dviewer.net)\n", out)
 }
