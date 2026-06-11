@@ -655,6 +655,84 @@ func maxFrameGroundRadius(P geom.Vec) float64 {
 	return worst
 }
 
+// wallMatrix builds the Mitsuba `to_world` matrix (16 row-major values) for a
+// vertical backdrop that stands behind the knot from the camera's point of view,
+// so the camera never sees the constant-emitter environment directly. The wall:
+//   - is perpendicular to the canvas (its plane contains the up axis, +X),
+//   - faces the camera (its normal is horizontal, pointing back at the camera),
+//   - stands fully past the table, at ~2x the object->table-edge distance,
+//   - dips its bottom edge below the table so nothing peeks under it (the table
+//     occludes the wall's lower part), and so never touches the table,
+//   - is sized (from camera pos, focus, FOV and aspect) to be just slightly
+//     larger than the rendered view window at the wall's depth.
+//
+// Mitsuba's `rectangle` is the [-1,1]^2 plane in local XY with a +Z normal, so
+// the matrix maps local X -> right*halfW, local Y -> up*halfH, local Z -> normal.
+func wallMatrix(cameraLoc geom.Vec, maxFOV float64) string {
+	const margin = 0.04               // wall is this fraction larger than the view
+	const aspect = filmW / filmH      // sensor uses fov_axis="larger" (the horizontal)
+	const belowTable = surfaceX - 0.1 // force the bottom edge below the canvas
+
+	// Horizontal direction from the camera toward the knot center (drop the up
+	// axis so the result lies in the canvas plane).
+	h := geom.Vec{0, knotCenter.Y - cameraLoc.Y, knotCenter.Z - cameraLoc.Z}
+	hdir, ok := h.Unit()
+	if !ok {
+		hdir = geom.Dir{X: 0, Y: 1, Z: 0} // camera straight overhead: any horizontal
+	}
+	hd := geom.Vec(hdir)
+
+	// Stand the wall fully past the table: 2x the object->table-edge distance,
+	// measured along hd through the square canvas of half-size canvasHalf.
+	wallDist := 2 * canvasHalf / max(abs(hd.Y), abs(hd.Z))
+
+	up := cameraUp          // (1,0,0)
+	normal := hd.Scaled(-1) // the wall faces back toward the camera
+	rdir, _ := up.Cross(normal).Unit()
+	r := geom.Vec(rdir)
+	plane := hd.Scaled(wallDist) // a point on the vertical wall plane
+
+	// Project the four view-frustum corner rays onto the wall plane and bound them
+	// in the wall's (right, up) coordinates, so the wall just covers the rendered
+	// view (camera position, focus direction, FOV and aspect ratio).
+	fwd, right, upCam := cameraBasis(cameraLoc)
+	tanH := tan(maxFOV * pi / 180 / 2)
+	tanV := tanH / aspect
+	minLx, maxLx := math.Inf(1), math.Inf(-1)
+	minLy, maxLy := math.Inf(1), math.Inf(-1)
+	for _, sh := range []float64{-1, 1} {
+		for _, sv := range []float64{-1, 1} {
+			d := fwd.Plus(right.Scaled(tanH * sh)).Plus(upCam.Scaled(tanV * sv))
+			denom := d.Dot(normal)
+			if abs(denom) < 1e-9 {
+				continue
+			}
+			hit := cameraLoc.Plus(d.Scaled(plane.Minus(cameraLoc).Dot(normal) / denom))
+			rel := hit.Minus(plane)
+			lx, ly := rel.Dot(r), rel.Dot(up)
+			minLx, maxLx = min(minLx, lx), max(maxLx, lx)
+			minLy, maxLy = min(minLy, ly), max(maxLy, ly)
+		}
+	}
+
+	// Slight margin all around, then force the bottom edge below the table.
+	dx, dy := maxLx-minLx, maxLy-minLy
+	minLx, maxLx = minLx-dx*margin, maxLx+dx*margin
+	minLy, maxLy = minLy-dy*margin, maxLy+dy*margin
+	if minLy > belowTable {
+		minLy = belowTable
+	}
+
+	halfW, halfH := (maxLx-minLx)/2, (maxLy-minLy)/2
+	center := plane.Plus(r.Scaled((minLx + maxLx) / 2)).Plus(up.Scaled((minLy + maxLy) / 2))
+
+	// Row-major 4x4 whose columns are R*halfW, up*halfH, normal, and the center.
+	return fmt.Sprintf("%g %g %g %g %g %g %g %g %g %g %g %g 0 0 0 1",
+		r.X*halfW, up.X*halfH, normal.X, center.X,
+		r.Y*halfW, up.Y*halfH, normal.Y, center.Y,
+		r.Z*halfW, up.Z*halfH, normal.Z, center.Z)
+}
+
 func cameraPath(t float64) geom.Vec {
 	return geom.Vec{cos(5*t)*2 + 1.5, 6 + sin(3*t)*10, cos(3*t) * 10}
 }
@@ -716,7 +794,7 @@ func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int) {
 	globalFrameNumber = frameNumber
 	t := float64(frameNumber) * dt
-	envSize := 5000
+	envSize := int(pow(float64(desiredTriangles), .5)) * 5
 	cameraLoc := cameraPath(t)
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
@@ -939,6 +1017,9 @@ end_header
 		IntIOR        float64
 		ExtIOR        float64
 		FOV           float64
+		EnvX          float64
+		EnvY          float64
+		EnvZ          float64
 		LightDir      geom.Vec
 		Abbe          float64
 		FilmThickness float64
@@ -949,6 +1030,7 @@ end_header
 		Albedo        float64
 		SigmaT        float64
 		Illumination  float64
+		WallMatrix    string
 		Instances     []instance
 	}
 	sensorTemplate, _ := template.New("some template").Parse(`
@@ -962,23 +1044,20 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Up.X }}, {{ .Up.Y }}, {{ .Up.Z }}"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="64"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1200"/>
-            <integer name="height" value="900"/>
+            <integer name="width" value="2400"/>
+            <integer name="height" value="1800"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
-    <!-- Distant "sun" at ~table height, orbiting the up (+X) axis once per
-         animation (see lightDirection). Parallel rays => clean oblique raking
-         light with no envmap pole/seam. Tune "irradiance" for overall exposure. -->
-    <emitter type="directional" id="Area_002-light">
-        <vector name="direction" value="{{ .LightDir.X }}, {{ .LightDir.Y }}, {{ .LightDir.Z }}"/>
-        <rgb name="irradiance" value="5"/>
-    </emitter>
-  	<emitter type="constant">
-    	<rgb name="radiance" value="{{ .Illumination }}"/>
+    <emitter type="envmap" id="Area_002-light">
+        <string name="filename" value="mitsuba.rgbe"/>
+        <float name="scale" value="5"/>
+        <transform name="to_world">
+            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
+        </transform>
 	</emitter>
 	<integrator type="nanscrub">
         <integrator type="volpathmis">
@@ -1020,15 +1099,29 @@ end_header
                 <texture type="bitmap" name="reflectance">
                     <string name="filename" value="Alexander_cuts_the_Gordian_Knot.jpg"/>
 					<transform name="to_uv">
-						<scale value=".5"/>
+						<scale value=".9"/>
 					</transform>
                 </texture>
 		</bsdf>
 	</bsdf>
 	<transform name="to_world">
 		<scale value="10"/>
-		<rotate value="1, 0, 0" angle="90"/>
+		<rotate value="0, 1, 0" angle="0"/>
 		<translate x="-1" y="0" z="0"/>
+	</transform>
+</shape>
+
+<!-- Diffuse backdrop wall: a vertical screen standing just behind the knot
+     (camera-dependent, see wallMatrix) so the camera never sees the environment
+     directly. Perpendicular to the canvas, hovering a hair above it. -->
+<shape type="rectangle">
+	<bsdf type="twosided">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value=".25,.25,.25"/>
+		</bsdf>
+	</bsdf>
+	<transform name="to_world">
+		<matrix value="{{ .WallMatrix }}"/>
 	</transform>
 </shape>
 
@@ -1065,6 +1158,9 @@ end_header
 		intIor,
 		sin(3*t) + 2,
 		maxFOV,
+		sin(2*t) * 90,
+		sin(3*t) * 90,
+		sin(5*t) * 90,
 		lightDirection(t),
 		abbe,
 		filmThickness,
@@ -1075,6 +1171,7 @@ end_header
 		sin(prime(7)*t)*.25 + .25,
 		pow(10, 3*sin(prime(8)*t)-1),
 		cos(7*t)*.15 + .15,
+		wallMatrix(cameraLoc, maxFOV),
 		instances})
 }
 
@@ -1082,7 +1179,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 128, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
