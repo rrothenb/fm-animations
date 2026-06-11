@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	beads := utils.SampleClosedPath(utils.LissajousKnot(11, 12, 13), 4600)
+	beads := utils.SampleClosedPath(utils.LissajousKnot(7, 8, 9), 3200)
 	if err := utils.WriteVECT("knot.vect", beads, true); err != nil {
 		panic(err)
 	}

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math"
 
@@ -26,11 +27,15 @@ func pathLen(p func(float64) geom.Vec, samples int) float64 {
 // it works for satellite/cable knots, not just torus knots. (A truncated Fourier
 // fit would low-pass away the cable windings -- K=15 only suffices for a trefoil.)
 func main() {
-	beads, err := utils.ReadVECT("knot.rr/knot.final.vect")
+	in := flag.String("in", "knot.rr/knot.final.vect", "ridgerunner .vect to mesh (use a vectfiles/ snapshot for a progress mesh)")
+	out := flag.String("out", "knot.ply", "output PLY path")
+	flag.Parse()
+
+	beads, err := utils.ReadVECT(*in)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("read %d vertices from ridgerunner output\n", len(beads))
+	fmt.Printf("read %d vertices from %s\n", len(beads), *in)
 
 	// Size the tube from the true centerline. Fit enough harmonics to be
 	// near-lossless (K ~ N/4) -- this is only for MEASURING radius/length, not
@@ -47,8 +52,8 @@ func main() {
 		K, L, rMax, L/rMax)
 
 	// Mesh the raw ridgerunner beads directly -- exact geometry, any knot type.
-	if err := utils.WriteBeadTubePLY("knot.ply", beads, 0.95*rMax, 48); err != nil {
+	if err := utils.WriteBeadTubePLY(*out, beads, 0.95*rMax, 48); err != nil {
 		panic(err)
 	}
-	fmt.Println("wrote knot.ply (open in 3dviewer.net)")
+	fmt.Printf("wrote %s (open in 3dviewer.net)\n", *out)
 }
