@@ -1044,11 +1044,11 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Up.X }}, {{ .Up.Y }}, {{ .Up.Z }}"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="100"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2400"/>
-            <integer name="height" value="1800"/>
+            <integer name="width" value="4096"/>
+            <integer name="height" value="3072"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
