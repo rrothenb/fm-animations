@@ -734,11 +734,11 @@ func wallMatrix(cameraLoc geom.Vec, maxFOV float64) string {
 }
 
 func cameraPath(t float64) geom.Vec {
-	return geom.Vec{cos(5*t)*2 + 1.5, 6 + sin(3*t)*10, cos(3*t) * 10}
+	return geom.Vec{cos(5*t)*2 + 1.5, 2 + sin(3*t)*6, 1 + cos(3*t)*6}
 }
 
 func focusPath(t float64) geom.Vec {
-	return knotCenter
+	return geom.Vec{0, 0, 1}
 }
 
 // lightElevation is how far the orbiting distant light sits above the table
@@ -799,10 +799,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	// Tight, view-dependent FOV that just frames the knot (see frameHalfAngles).
-	// Mitsuba's sensor uses fov_axis="larger", so it gets the horizontal angle.
-	hHalf, _ := frameHalfAngles(cameraLoc)
-	maxFOV := 2 * hHalf * 180 / pi
+	maxFOV := 35.0
 	fmt.Printf("\nfocus(center): %v\ncameraLoc: %v\ndistance: %v\nFOV(deg): %v\ngroundR: %v\nt: %#v\n", focusPoint, cameraLoc, distance, maxFOV, maxFrameGroundRadius(cameraLoc), t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -1044,28 +1041,29 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Up.X }}, {{ .Up.Y }}, {{ .Up.Z }}"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="240"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="4096"/>
-            <integer name="height" value="3072"/>
+            <integer name="width" value="900"/>
+            <integer name="height" value="1200"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
-    <emitter type="envmap" id="Area_002-light">
-        <string name="filename" value="mitsuba.rgbe"/>
-        <float name="scale" value="5"/>
-        <transform name="to_world">
-            <rotate value="1, 0, 0" angle="{{ .EnvX }}"/>
-        </transform>
-	</emitter>
+	<shape type="sphere">
+		<emitter type="area">
+			<rgb name="radiance" value="1.0"/>
+		</emitter>
+		<transform name="to_world">
+			<scale value=".24"/>
+			<translate x="0" y="0" z="1"/>
+	</transform>
+	</shape>
 	<integrator type="nanscrub">
         <integrator type="volpathmis">
             <integer name="max_depth" value="16"/>
         </integrator>
 	</integrator>
     <medium id="medium1" type="homogeneous">
-        <float name="scale" value="{{ .Scale }}"/>
         <float name="albedo" value="{{ .Albedo }}"/>
         <float name="sigma_t" value="{{ .SigmaT }}"/>
         <phase type="hg">
@@ -1074,14 +1072,7 @@ end_header
     </medium>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
-        <string name="filename" value="knot_12a1_ideal.ply"/>
-        <!-- knotReorient: rotate the knot's most stable convex-hull face to the
-             bottom (its outward normal -> -X), then drop it to rest on the canvas
-             (X=-1) and center it at Y=Z=0, so it sits flat on a real base. Must
-             stay in sync with knotCenter/knotBBox* in the Go code. -->
-        <transform name="to_world">
-            <matrix value="-0.5338884 -0.8451295 0.0268195 0.8823664 -0.8305291 0.5181841 -0.2042221 -0.0922323 0.1586967 -0.1313062 -0.9785571 -0.2683723 0 0 0 1"/>
-        </transform>
+        <string name="filename" value="knot_789_final.ply"/>
 			<bsdf type="roughdielectric">
 			    <float name="alpha" value="{{ .Roughness }}"/>
 				<float name="film_thickness" value="{{ .FilmThickness }}"/>
@@ -1093,38 +1084,16 @@ end_header
    </shape>
 </shape>
 <shape type="ply">
-	<string name="filename" value="paper.ply"/>
-	<bsdf type="twosided">
-		<bsdf type="diffuse">
-                <texture type="bitmap" name="reflectance">
-                    <string name="filename" value="Alexander_cuts_the_Gordian_Knot.jpg"/>
-					<transform name="to_uv">
-						<scale value=".9"/>
-					</transform>
-                </texture>
-		</bsdf>
+	<string name="filename" value="knot_345_seed_thin.ply"/>
+	<bsdf type="conductor">
+		<float name="film_thickness" value="{{ .FilmThickness }}"/>
+		<float name="film_ior" value="{{ .FilmIOR }}"/>
 	</bsdf>
 	<transform name="to_world">
-		<scale value="10"/>
-		<rotate value="0, 1, 0" angle="0"/>
-		<translate x="-1" y="0" z="0"/>
+		<scale value="1.5"/>
+		<translate x="0" y="0" z="1"/>
 	</transform>
 </shape>
-
-<!-- Diffuse backdrop wall: a vertical screen standing just behind the knot
-     (camera-dependent, see wallMatrix) so the camera never sees the environment
-     directly. Perpendicular to the canvas, hovering a hair above it. -->
-<shape type="rectangle">
-	<bsdf type="twosided">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value=".25,.25,.25"/>
-		</bsdf>
-	</bsdf>
-	<transform name="to_world">
-		<matrix value="{{ .WallMatrix }}"/>
-	</transform>
-</shape>
-
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale x="{{ .Depth }}" y="{{ .Height }}" z="{{ .Width }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
@@ -1141,7 +1110,12 @@ end_header
 	}
 	fmt.Println(len(instances))
 
-	intIor := 1.6 + sin(prime(14)*t)*.5
+	intIor := 1.9 + sin(prime(14)*t)*.8
+	extIor := 1.0
+	if frameNumber%2 == 1 {
+		extIor = intIor
+		intIor = 1
+	}
 	abbe := pow(10, sin(prime(15)*t)/2+1.5)
 	filmThickness := pow(10, sin(prime(16)*t)/2+2.5)
 	filmIor := 1.8 + sin(prime(17)*t)*.7
@@ -1151,16 +1125,16 @@ end_header
 		focusPoint,
 		cameraUp,
 		distance,
-		pow(10, cos(prime(18)*t)*3-4),
+		.00000000001,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
 		intIor,
-		sin(3*t) + 2,
+		extIor,
 		maxFOV,
-		sin(2*t) * 90,
-		sin(3*t) * 90,
-		sin(5*t) * 90,
+		sin(2*t) * 175,
+		sin(3*t) * 175,
+		sin(5*t) * 175,
 		lightDirection(t),
 		abbe,
 		filmThickness,
@@ -1168,8 +1142,8 @@ end_header
 		pow(10, cos(17*t)*2-3),
 		pow(10, sin(7*t)*2-2),
 		cos(11*t) * .95,
-		sin(prime(7)*t)*.25 + .25,
-		pow(10, 3*sin(prime(8)*t)-1),
+		sin(prime(7)*t)*.5 + .5,
+		pow(10, 2*sin(prime(8)*t)-1),
 		cos(7*t)*.15 + .15,
 		wallMatrix(cameraLoc, maxFOV),
 		instances})
@@ -1179,7 +1153,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
