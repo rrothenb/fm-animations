@@ -24,3 +24,6 @@ images/
 *.log
 *.csv
 *.files
+*.vect
+*.rr
+*.tiff
