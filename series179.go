@@ -799,7 +799,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	maxFOV := 35.0
+	maxFOV := 30.0
 	fmt.Printf("\nfocus(center): %v\ncameraLoc: %v\ndistance: %v\nFOV(deg): %v\ngroundR: %v\nt: %#v\n", focusPoint, cameraLoc, distance, maxFOV, maxFrameGroundRadius(cameraLoc), t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -1041,11 +1041,11 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Up.X }}, {{ .Up.Y }}, {{ .Up.Z }}"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="240"/>
+            <integer name="sample_count" value="2070"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="900"/>
-            <integer name="height" value="1200"/>
+            <integer name="width" value="1992"/>
+            <integer name="height" value="2656"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -1078,10 +1078,20 @@ end_header
 				<float name="film_thickness" value="{{ .FilmThickness }}"/>
 				<float name="film_ior" value="{{ .FilmIOR }}"/>
 				<float name="int_ior" value="{{ .IntIOR }}"/>
+				<float name="ext_ior" value="{{ .ExtIOR }}"/>
 				<float name="abbe" value="{{ .Abbe }}"/>
 			</bsdf>
          <ref id="medium1" name="interior"/>
    </shape>
+</shape>
+<shape type="sphere">
+	<bsdf type="roughdielectric">
+		<float name="int_ior" value="{{ .ExtIOR }}"/>
+		<float name="ext_ior" value="{{ .IntIOR }}"/>
+	</bsdf>
+	<transform name="to_world">
+		<scale value="100"/>
+	</transform>
 </shape>
 <shape type="ply">
 	<string name="filename" value="knot_345_seed_thin.ply"/>
@@ -1110,15 +1120,23 @@ end_header
 	}
 	fmt.Println(len(instances))
 
-	intIor := 1.9 + sin(prime(14)*t)*.8
+	intIor := 1 + pow(10, cos(prime(14)*t)-2)
 	extIor := 1.0
 	if frameNumber%2 == 1 {
 		extIor = intIor
-		intIor = 1
+		intIor = 1.0
 	}
-	abbe := pow(10, sin(prime(15)*t)/2+1.5)
-	filmThickness := pow(10, sin(prime(16)*t)/2+2.5)
-	filmIor := 1.8 + sin(prime(17)*t)*.7
+
+	// Pick the interference order / optical thickness you want to sweep through.
+	// Order ~0.5–2 keeps you in the vivid, 4-wavelength-resolvable zone.
+	opticalThickness := 100 + (sin(prime(16)*t)/2+0.5)*650 // n·d ∈ [100, 750] nm
+	filmIor := 1.8 + sin(prime(17)*t)*.7                   // choose for material look
+	filmThickness := opticalThickness / filmIor            // d follows from the two
+
+	// Target dispersion strength: subtle to noticeable "flint-like" fire,
+	// staying out of the rutile-grade noisy tail.
+	dispStrength := 0.005 + (sin(prime(15)*t)/2+0.5)*0.020 // Δn ∈ [0.005, 0.025]
+	abbe := (intIor - 1) / dispStrength                    // derived, not swept
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -1139,7 +1157,7 @@ end_header
 		abbe,
 		filmThickness,
 		filmIor,
-		pow(10, cos(17*t)*2-3),
+		pow(10, cos(17*t)*2-4),
 		pow(10, sin(7*t)*2-2),
 		cos(11*t) * .95,
 		sin(prime(7)*t)*.5 + .5,
@@ -1153,7 +1171,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
