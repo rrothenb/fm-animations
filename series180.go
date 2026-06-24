@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"github.com/rrothenb/fm-animations/utils"
 	"math"
 	"os"
 	"text/template"
@@ -737,10 +738,6 @@ func cameraPath(t float64) geom.Vec {
 	return geom.Vec{cos(5*t)*2 + 1.5, 2 + sin(3*t)*6, 1 + cos(3*t)*6}
 }
 
-func focusPath(t float64) geom.Vec {
-	return geom.Vec{0, 0, 1}
-}
-
 // lightElevation is how far the orbiting distant light sits above the table
 // horizon. ~0 is exactly table height (pure grazing rays); a few degrees keeps
 // the table top lit while staying strongly oblique.
@@ -795,11 +792,25 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	globalFrameNumber = frameNumber
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5)) * 5
-	cameraLoc := cameraPath(t)
-	focusPoint := focusPath(t)
+	beads, err := utils.ReadVECT("knot_789.rr/knot.final.vect")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("read %d vertices\n", len(beads))
+
+	// Size the tube from the true centerline. Fit enough harmonics to be
+	// near-lossless (K ~ N/4) -- this is only for MEASURING radius/length, not
+	// for the mesh geometry, so over-resolving is safe.
+	K := len(beads) / 4
+	fk := utils.FitFourier(beads, K)
+	focusPoint := fk.Eval(2 * t)
+	cameraLoc := fk.Eval(3*t + pi).Scaled(pow(2, sin(5*t)))
+
+	// cameraLoc := cameraPath(t)
+	//focusPoint := focusPath(t)
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	distance := cameraLoc.Minus(focusPoint).Len()
-	maxFOV := 30.0
+	maxFOV := 45.0 + sin(7*t)*15
 	fmt.Printf("\nfocus(center): %v\ncameraLoc: %v\ndistance: %v\nFOV(deg): %v\ngroundR: %v\nt: %#v\n", focusPoint, cameraLoc, distance, maxFOV, maxFrameGroundRadius(cameraLoc), t)
 	nU := int(float64(pixels) / distance * 3)
 	if nU > maxSubdivisions {
@@ -1041,11 +1052,11 @@ end_header
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="{{ .Up.X }}, {{ .Up.Y }}, {{ .Up.Z }}"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="2070"/>
+            <integer name="sample_count" value="1024"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="1992"/>
-            <integer name="height" value="2656"/>
+            <integer name="width" value="2560"/>
+            <integer name="height" value="2560"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -1054,8 +1065,8 @@ end_header
 			<rgb name="radiance" value="1.0"/>
 		</emitter>
 		<transform name="to_world">
-			<scale value=".24"/>
-			<translate x="0" y="0" z="1"/>
+			<scale value=".45"/>
+			<translate x="{{ .LookAt.X }}" y="{{ .LookAt.Y }}" z="{{ .LookAt.Z }}"/>
 	</transform>
 	</shape>
 	<integrator type="nanscrub">
@@ -1084,26 +1095,6 @@ end_header
          <ref id="medium1" name="interior"/>
    </shape>
 </shape>
-<shape type="sphere">
-	<bsdf type="roughdielectric">
-		<float name="int_ior" value="{{ .ExtIOR }}"/>
-		<float name="ext_ior" value="{{ .IntIOR }}"/>
-	</bsdf>
-	<transform name="to_world">
-		<scale value="100"/>
-	</transform>
-</shape>
-<shape type="ply">
-	<string name="filename" value="knot_345_seed_thin.ply"/>
-	<bsdf type="conductor">
-		<float name="film_thickness" value="{{ .FilmThickness }}"/>
-		<float name="film_ior" value="{{ .FilmIOR }}"/>
-	</bsdf>
-	<transform name="to_world">
-		<scale value="1.5"/>
-		<translate x="0" y="0" z="1"/>
-	</transform>
-</shape>
 {{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale x="{{ .Depth }}" y="{{ .Height }}" z="{{ .Width }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
@@ -1120,7 +1111,7 @@ end_header
 	}
 	fmt.Println(len(instances))
 
-	intIor := 1 + pow(10, cos(prime(14)*t)-2)
+	intIor := 1 + pow(10, sin(prime(14)*t)*3-3)
 	extIor := 1.0
 	if frameNumber%2 == 1 {
 		extIor = intIor
@@ -1143,7 +1134,7 @@ end_header
 		focusPoint,
 		cameraUp,
 		distance,
-		.00000000001,
+		pow(10, sin(5*t)*3-5),
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
@@ -1157,11 +1148,11 @@ end_header
 		abbe,
 		filmThickness,
 		filmIor,
-		pow(10, cos(17*t)*2-4),
+		pow(10, sin(17*t)*4-4),
 		pow(10, sin(7*t)*2-2),
 		cos(11*t) * .95,
 		sin(prime(7)*t)*.5 + .5,
-		pow(10, 2*sin(prime(8)*t)-1),
+		pow(10, sin(prime(8)*t)*4-4),
 		cos(7*t)*.15 + .15,
 		wallMatrix(cameraLoc, maxFOV),
 		instances})
@@ -1171,7 +1162,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 512, "Max frames")
+	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
