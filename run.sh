@@ -18,3 +18,5 @@ convert mitsuba.rgbe mitsuba.env.jpg
 #exit
 time mitsuba -m scalar_spectral test.xml
 convert test.exr -fx 'u > -1e10 && u < 1e10 ? u : 0' -auto-gamma -brightness-contrast 5x20 -modulate 100,110,100 $1-$2.jpg
+./despeckle.sh $1-$2.jpg
+mv $1-$2_despeckled.jpg $1-$2.jpg
