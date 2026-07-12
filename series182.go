@@ -212,29 +212,6 @@ func sphere(u, v, t float64) geom.Vec {
 	}
 }
 
-func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
-	loc = loc.Scaled(f * 2 * pi)
-	loc.X = abs(loc.X)
-	loc.Y = abs(loc.Y)
-	loc.Z = abs(loc.Z)
-	return sin(
-		a*strength(7, t)*sin(a*strength(23, t)*loc.Z) +
-			a*strength(7, t)*sin(a*strength(23, t)*loc.Y) +
-			a*strength(7, t)*sin(a*strength(23, t)*loc.X) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z+a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.X-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y-a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Y-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Z)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z-a*strength(29, t)*sin(a*strength(31, t)*3*loc.X)) +
-			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y)))
-}
-
 func cube(u, v, t float64) geom.Vec {
 	a := cos(t) * .5
 	return geom.Vec{
@@ -726,14 +703,7 @@ func wallMatrix(cameraLoc geom.Vec, maxFOV float64) string {
 }
 
 func cameraPath(t float64) geom.Vec {
-	cameraLocs := [4]geom.Vec{
-		{1, 0, 0},
-		{1, -1, 0},
-		{1, 0, 1},
-		{1, -1, 1},
-	}
-	index := globalFrameNumber % len(cameraLocs)
-	return cameraLocs[index].Scaled(3)
+	return geom.Vec{1, 0, 0}.Scaled(4 + cos(7*t))
 }
 
 func focusPath(t float64) geom.Vec {
@@ -760,21 +730,31 @@ func lightDirection(t float64) geom.Vec {
 }
 
 func newModulators(t float64) Modulators {
-	a1 := sin(prime(18)*t) * .45
-	a2 := sin(prime(19)*t) * (.45 - abs(a1)) / 2
-	a3 := sin(prime(20)*t) * (.45 - abs(a1) - 2*abs(a2)) / 3
+	a1 := sin(prime(18)*t) * .49
+	a2 := sin(prime(19)*t) * (.49 - abs(a1)) / 2
+	a3 := sin(prime(20)*t) * (.49 - abs(a1) - 2*abs(a2)) / 3
 	b2 := sin(prime(21)*t) * .45
-	b4 := sin(prime(22)*t) * (.95 - 2*abs(b2)) / 4
-	b3 := sin(prime(23)*t) * (.95 - 2*abs(b2) - 4*abs(b4)) / 3
-	b1 := sin(prime(24)*t) * (.95 - 2*abs(b2) - 3*abs(b3) - 4*abs(b4))
-	c1 := sin(prime(25)*t) * .45
-	c2 := sin(prime(26)*t) * (.45 - abs(c1)) / 2
-	c3 := sin(prime(27)*t) * (.45 - abs(c1) - 2*abs(c2)) / 3
+	b4 := sin(prime(22)*t) * (.99 - 2*abs(b2)) / 4
+	b3 := sin(prime(23)*t) * (.99 - 2*abs(b2) - 4*abs(b4)) / 3
+	b1 := sin(prime(24)*t) * (.99 - 2*abs(b2) - 3*abs(b3) - 4*abs(b4))
+	c1 := sin(prime(25)*t) * .49
+	c2 := sin(prime(26)*t) * (.49 - abs(c1)) / 2
+	c3 := sin(prime(27)*t) * (.49 - abs(c1) - 2*abs(c2)) / 3
 	return Modulators{
 		A: []float64{a1, a2, a3},
 		B: []float64{b1, b2, b3, b4},
 		C: []float64{c1, c2, c3},
 	}
+}
+
+func shapeTexture(f, a, t float64, loc geom.Vec) float64 {
+	loc = loc.Scaled(f * 2 * pi)
+	loc.X = abs(loc.X)
+	loc.Y = abs(loc.Y)
+	loc.Z = abs(loc.Z)
+	return sin(
+		a*strength(7, t)*sin(a*strength(23, t)*loc.Z) +
+			a*strength(11, t)*sin(a*strength(19, t)*2*loc.Z-a*strength(29, t)*sin(a*strength(31, t)*3*loc.Y+a*strength(3, t)*sin(a*strength(5, t)*(loc.X-loc.Z)))))
 }
 
 func shape(u, v, t float64) geom.Vec {
@@ -944,7 +924,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			v := float64(vIndex) / float64(envSize) * 2 * pi
 			power := 2 * pow(10, sin(prime(7)*t)/2+.5)
 			envmapValue := pow(sin(u/2), power*4) * pow(sin(v/2), power)
-			if (frameNumber/4)%2 == 1 {
+			if (frameNumber/8)%2 == 1 {
 				envmapValue = 1 - envmapValue
 			}
 			envmapArray = append(
@@ -988,9 +968,11 @@ end_header
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type instance struct {
-		Angle float64
-		Loc   geom.Vec
-		Scale float64
+		AngleX float64
+		AngleY float64
+		AngleZ float64
+		Loc    geom.Vec
+		Scale  float64
 	}
 	type sensor struct {
 		Camera        geom.Vec
@@ -1020,18 +1002,18 @@ end_header
 <scene version="2.0.0">
     <sensor type="thinlens" id="Camera-camera">
         <string name="fov_axis" value="larger"/>
-        <float name="focus_distance" value=".25"/>
+        <float name="focus_distance" value="{{ .Distance }}"/>
         <float name="aperture_radius" value="{{ .Aperture }}"/>
         <float name="fov" value="{{ .FOV }}"/>
         <transform name="to_world">
             <lookat origin="{{ .Camera.X }}, {{ .Camera.Y }}, {{ .Camera.Z }}" target="{{ .LookAt.X }}, {{ .LookAt.Y }}, {{ .LookAt.Z }}" up="0, 1, 0"/>
         </transform>
         <sampler type="multijitter">
-            <integer name="sample_count" value="1024"/>
+            <integer name="sample_count" value="100"/>
         </sampler>
         <film type="hdrfilm" id="film">
-            <integer name="width" value="2560"/>
-            <integer name="height" value="2560"/>
+            <integer name="width" value="1280"/>
+            <integer name="height" value="1280"/>
             <rfilter type="gaussian"/>
         </film>
     </sensor>
@@ -1046,56 +1028,44 @@ end_header
 	</transform>
     </emitter>
 	<integrator type="nanscrub">
-        <integrator type="volpathmis">
+        <integrator type="path">
             <integer name="max_depth" value="16"/>
         </integrator>
 	</integrator>
-    <medium id="medium1" type="homogeneous">
-        <float name="albedo" value="{{ .Albedo }}"/>
-        <float name="sigma_t" value="{{ .SigmaT }}"/>
-        <phase type="hg">
-			<float name="g" value="{{ .G }}"/>
-		</phase>
-    </medium>
 <shape type="shapegroup" id="my_shape_group">
    <shape type="ply">
         <string name="filename" value="mitsuba.ply"/>
-			<bsdf type="roughdielectric">
-			    <float name="alpha" value="{{ .Roughness }}"/>
+			<bsdf type="dielectric">
 				<float name="film_thickness" value="{{ .FilmThickness }}"/>
 				<float name="film_ior" value="{{ .FilmIOR }}"/>
 				<float name="int_ior" value="{{ .IntIOR }}"/>
 				<float name="ext_ior" value="{{ .ExtIOR }}"/>
 				<float name="abbe" value="{{ .Abbe }}"/>
 			</bsdf>
-         <ref id="medium1" name="interior"/>
         <transform name="to_world">
 			<scale value="{{ .Scale }}"/>
-            <rotate value="1, 0, 0" angle="45"/>
-            <rotate value="0, 1, 0" angle="45"/>
-            <rotate value="0, 0, 1" angle="45"/>
         </transform>
    </shape>
 </shape>
 
-{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="0, 0, 1" angle="{{ .Angle }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
+{{range .Instances}}<shape type="instance"><ref id="my_shape_group"/><transform name="to_world"><scale value="{{ .Scale }}"/><rotate value="1, 0, 0" angle="{{ .AngleX }}"/><rotate value="0, 1, 0" angle="{{ .AngleY }}"/><rotate value="0, 0, 1" angle="{{ .AngleZ }}"/><translate x="{{ .Loc.X }}" y="{{ .Loc.Y }}" z="{{ .Loc.Z }}"/></transform></shape>{{end}}
 </scene>
 `)
-	angle := 90.0
+	angle := 0.0
 	instances := []instance{}
-	num := 15.0
-	for x := -num * 3; x <= 0; x++ {
+	num := 9.0
+	for x := -num * 5; x <= 0; x++ {
 		for y := -num; y <= num; y++ {
 			for z := -num; z <= num; z++ {
-				loc := geom.Vec{x, y, z}
-				if int(frameNumber/8)%2 == 1 && x > 0 {
-					loc = geom.Vec{x, y + 1/(x+1), z + 1/(x+1)}
-				}
-				angle := float64(int(x+y+z)%4) * 90
-				if int(frameNumber/2)%2 == 1 {
-					angle = 0.0
-				}
-				instances = append(instances, instance{angle, loc, 1 / maxDistance * .499})
+				yOffset := float64((frameNumber/2)%2*int(x)%2) * .5
+				zOffset := float64((frameNumber/4)%2*int(x)%2) * .5
+				loc := geom.Vec{x, y + yOffset, z + zOffset}
+				f := pow(10, sin(3*t)*2-1)
+				a := pow(10, sin(5*t)*2-1)
+				xAngle := 5 * shapeTexture(f, a, t, loc.Scaled(1/num*2*pi))
+				yAngle := 5 * shapeTexture(f, a, t, geom.Vec{loc.Y, loc.Z, loc.X}.Scaled(1/num*2*pi))
+				zAngle := 5 * shapeTexture(f, a, t, geom.Vec{loc.Z, loc.X, loc.Y}.Scaled(1/num*2*pi))
+				instances = append(instances, instance{xAngle, yAngle, zAngle, loc, 1 / maxDistance * .499})
 			}
 		}
 	}
@@ -1103,16 +1073,7 @@ end_header
 
 	envRot := geom.Vec{0, 0, 0}
 
-	if frameNumber%4 == 1 {
-		envRot.Z = 45
-	} else if frameNumber%4 == 2 {
-		envRot.Y = -45
-	} else if frameNumber%4 == 3 {
-		envRot.Z = 45
-		envRot.Y = -45
-	}
-
-	intIor := 1 + pow(10, sin(prime(9)*t)*3-3)
+	intIor := 1 + 2*pow(10, sin(prime(9)*t)*4-4)
 	extIor := 1.0
 	if frameNumber%2 == 1 {
 		extIor = intIor
@@ -1133,7 +1094,7 @@ end_header
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
 		focusPoint,
-		distance - 1/maxDistance*.499,
+		distance,
 		focusPoint.Minus(cameraLoc).Scaled(.5).Len(),
 		angle,
 		minZ,
@@ -1151,7 +1112,7 @@ end_header
 		cos(11*t) * .95,
 		sin(prime(15)*t)*.5 + .5,
 		pow(10, sin(prime(16)*t)*4-4),
-		pow(10, sin(prime(17)*t)*4-8),
+		.00000000000000000001,
 		instances})
 }
 
@@ -1159,7 +1120,7 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
