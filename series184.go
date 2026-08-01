@@ -260,6 +260,17 @@ func writeFace(PlyDataBuffered *bufio.Writer, a, b, c int32) {
 	binary.Write(PlyDataBuffered, binary.LittleEndian, b)
 }
 
+// emitFace writes a triangle with whichever winding makes its geometric normal
+// agree with outward, so the body's faces can be listed in any order without
+// having to track the sign conventions of the camera transform by hand.
+func emitFace(PlyDataBuffered *bufio.Writer, ia, ib, ic int32, pa, pb, pc, outward geom.Vec) {
+	if pb.Minus(pa).Cross(pc.Minus(pa)).Dot(outward) >= 0 {
+		writeFace(PlyDataBuffered, ia, ic, ib)
+	} else {
+		writeFace(PlyDataBuffered, ia, ib, ic)
+	}
+}
+
 func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
 	width := int(aspectRatio * float64(height))
 	t := float64(frameNumber) * dt
@@ -403,26 +414,89 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			writeVertex(PlyDataBuffered, vertex, *normal, index2radians(float64(uIndex-startUIndex), endUIndex-startUIndex), index2radians(float64(vIndex-startVIndex), endVIndex-startVIndex))
 		}
 	}
-	BLL := uv2xyz(0, 0, t).Scaled(10)
-	BLR := uv2xyz(0, 2*pi, t).Scaled(10)
-	BUL := uv2xyz(2*pi, 0, t).Scaled(10)
-	BUR := uv2xyz(2*pi, 2*pi, t).Scaled(10)
-	BLL.Z = -5 * scale
-	BLLIndex := numVerticies
-	numVerticies++
-	writeVertex(PlyDataBuffered, BLL, geom.Dir{-1, -1, -1}, 0, 0)
-	BLR.Z = -5 * scale
-	BLRIndex := numVerticies
-	numVerticies++
-	writeVertex(PlyDataBuffered, BLR, geom.Dir{1, -1, -1}, 0, 2*pi)
-	BUL.Z = -5 * scale
-	BULIndex := numVerticies
-	numVerticies++
-	writeVertex(PlyDataBuffered, BUL, geom.Dir{-1, 1, -1}, 2*pi, 0)
-	BUR.Z = -5 * scale
-	BURIndex := numVerticies
-	numVerticies++
-	writeVertex(PlyDataBuffered, BUR, geom.Dir{1, 1, -1}, 2*pi, 2*pi)
+	// --- Cube body ---------------------------------------------------------
+	// The patch is inset into the front face of a cube. Coplanar with the patch,
+	// a flat frame runs from the patch boundary out to the front face's edge;
+	// from there four perpendicular walls drop straight back to the base.
+	// frameScale is how many patch widths across the front face is, and the body
+	// is as deep as the front face is wide, so the solid is a cube.
+	frameScale := 1.5
+	depth := frameScale * scale
+	// Take the outward side from the patch itself -- (LR-LL)x(UL-LL) is the
+	// du x dv that writeFace's winding treats as front -- so the body agrees
+	// with the patch however the camera transform happens to be oriented.
+	frontDir, _ := LR.Minus(LL).Cross(UL.Minus(LL)).Unit()
+	front := geom.Vec(frontDir)
+	back := front.Scaled(-depth)
+	// The patch is the view frustum's z = 0 slice, so scaling a boundary point
+	// about the view axis (the origin) lands it on the front face's edge and
+	// keeps that edge straight.
+	outset := func(p geom.Vec) geom.Vec { return p.Scaled(frameScale) }
+
+	addVertex := func(p, normal geom.Vec, u, v float64) int32 {
+		dir, _ := normal.Unit()
+		index := int32(numVerticies)
+		numVerticies++
+		writeVertex(PlyDataBuffered, p, dir, u, v)
+		return index
+	}
+
+	// The four sides, walked counter-clockwise as seen from the front: side i
+	// runs from corner i to corner i+1, matching the patch boundary from
+	// LL to LR to UR to UL.
+	frameCorner := []geom.Vec{outset(LL), outset(LR), outset(UR), outset(UL)}
+	baseCorner := make([]geom.Vec, 4)
+	cornerUV := [][2]float64{{0, 0}, {2 * pi, 0}, {2 * pi, 2 * pi}, {0, 2 * pi}}
+	frameIndex := make([]int32, 4)
+	baseIndex := make([]int32, 4)
+	wallTop := make([][2]int32, 4)
+	wallBottom := make([][2]int32, 4)
+	for i, p := range frameCorner {
+		baseCorner[i] = p.Plus(back)
+		frameIndex[i] = addVertex(p, front, cornerUV[i][0], cornerUV[i][1])
+	}
+	// Each wall gets its own vertices so the cube's edges stay crisp instead of
+	// being rounded off by normals shared with the frame and the neighbouring
+	// walls -- with a dielectric that difference is visible in the refraction.
+	for i := range frameCorner {
+		next := (i + 1) % 4
+		normal := frameCorner[next].Minus(frameCorner[i]).Cross(front)
+		wallTop[i] = [2]int32{
+			addVertex(frameCorner[i], normal, cornerUV[i][0], cornerUV[i][1]),
+			addVertex(frameCorner[next], normal, cornerUV[next][0], cornerUV[next][1]),
+		}
+		wallBottom[i] = [2]int32{
+			addVertex(baseCorner[i], normal, cornerUV[i][0], cornerUV[i][1]),
+			addVertex(baseCorner[next], normal, cornerUV[next][0], cornerUV[next][1]),
+		}
+	}
+	for i, p := range baseCorner {
+		baseIndex[i] = addVertex(p, back, cornerUV[i][0], cornerUV[i][1])
+	}
+
+	// The patch boundary, one list per side, in the same counter-clockwise
+	// order. The frame fans off these, so it shares the patch's edge vertices
+	// exactly and leaves no seam.
+	sideIndices := make([][]int32, 4)
+	sidePoints := make([][]geom.Vec, 4)
+	appendBoundary := func(side, uIndex, vIndex int) {
+		sideIndices[side] = append(sideIndices[side], vertexIndicies[uIndex][vIndex])
+		sidePoints[side] = append(sidePoints[side],
+			uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t))
+	}
+	for uIndex := startUIndex; uIndex <= endUIndex; uIndex++ {
+		appendBoundary(0, uIndex, startVIndex)
+	}
+	for vIndex := startVIndex; vIndex <= endVIndex; vIndex++ {
+		appendBoundary(1, endUIndex, vIndex)
+	}
+	for uIndex := endUIndex; uIndex >= startUIndex; uIndex-- {
+		appendBoundary(2, uIndex, endVIndex)
+	}
+	for vIndex := endVIndex; vIndex >= startVIndex; vIndex-- {
+		appendBoundary(3, startUIndex, vIndex)
+	}
+
 	envmapArray := []float32{}
 	blendArray := []float32{}
 	numFaces := 0
@@ -443,44 +517,49 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 			writeFace(PlyDataBuffered, topRight, botLeft, topLeft)
 			numFaces++
 			writeFace(PlyDataBuffered, topRight, botRight, botLeft)
-			if vIndex == startVIndex {
-				numFaces++
-				writeFace(PlyDataBuffered, topRight, topLeft, int32(BULIndex))
-				if uIndex == startUIndex {
-					numFaces++
-					writeFace(PlyDataBuffered, topRight, int32(BULIndex), int32(BLLIndex))
-				}
-			}
-			if vIndex == endVIndex-1 {
-				numFaces++
-				writeFace(PlyDataBuffered, botRight, botLeft, int32(BLRIndex))
-				if uIndex == endUIndex-1 {
-					numFaces++
-					writeFace(PlyDataBuffered, botRight, int32(BLRIndex), int32(BURIndex))
-				}
-			}
-			if uIndex == startUIndex {
-				numFaces++
-				writeFace(PlyDataBuffered, topLeft, botLeft, int32(BLRIndex))
-				if vIndex == startVIndex {
-					numFaces++
-					writeFace(PlyDataBuffered, botLeft, int32(BLRIndex), int32(BLLIndex))
-				}
-			}
-			if uIndex == endUIndex-1 {
-				numFaces++
-				writeFace(PlyDataBuffered, topRight, botRight, int32(BULIndex))
-				if vIndex == endVIndex-1 {
-					numFaces++
-					writeFace(PlyDataBuffered, topRight, int32(BULIndex), int32(BURIndex))
-				}
-			}
 		}
 	}
-	numFaces++
-	writeFace(PlyDataBuffered, int32(BULIndex), int32(BLRIndex), int32(BLLIndex))
-	numFaces++
-	writeFace(PlyDataBuffered, int32(BULIndex), int32(BURIndex), int32(BLRIndex))
+
+	// Frame: four planar fans, each from a front face corner across the
+	// subdivided patch edge on that side. The frame is flat, so a fan is exact,
+	// and its outer boundary is a single unsplit edge per side -- the same edge
+	// the wall above it uses, so there are no T-junctions to crack open.
+	for side := range frameCorner {
+		next := (side + 1) % 4
+		apex, apexPoint := frameIndex[side], frameCorner[side]
+		indices, points := sideIndices[side], sidePoints[side]
+		for j := 0; j+1 < len(indices); j++ {
+			if indices[j] == -1 || indices[j+1] == -1 {
+				continue
+			}
+			numFaces++
+			emitFace(PlyDataBuffered, apex, indices[j], indices[j+1],
+				apexPoint, points[j], points[j+1], front)
+		}
+		if last := len(indices) - 1; indices[last] != -1 {
+			numFaces++
+			emitFace(PlyDataBuffered, apex, indices[last], frameIndex[next],
+				apexPoint, points[last], frameCorner[next], front)
+		}
+	}
+
+	// Walls: each front face edge dropped straight back to the base.
+	for side := range frameCorner {
+		next := (side + 1) % 4
+		normal := frameCorner[next].Minus(frameCorner[side]).Cross(front)
+		numFaces += 2
+		emitFace(PlyDataBuffered, wallTop[side][0], wallTop[side][1], wallBottom[side][1],
+			frameCorner[side], frameCorner[next], baseCorner[next], normal)
+		emitFace(PlyDataBuffered, wallTop[side][0], wallBottom[side][1], wallBottom[side][0],
+			frameCorner[side], baseCorner[next], baseCorner[side], normal)
+	}
+
+	// Base.
+	numFaces += 2
+	emitFace(PlyDataBuffered, baseIndex[0], baseIndex[1], baseIndex[2],
+		baseCorner[0], baseCorner[1], baseCorner[2], back)
+	emitFace(PlyDataBuffered, baseIndex[0], baseIndex[2], baseIndex[3],
+		baseCorner[0], baseCorner[2], baseCorner[3], back)
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
 			u := float64(uIndex) / float64(envSize) * 2 * pi
