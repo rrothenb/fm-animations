@@ -553,6 +553,7 @@ end_header
     	<bsdf type="blendbsdf">
 			<texture type="bitmap" name="weight">
 				<string name="filename" value="mitsuba.blend.rgbe"/>
+				<boolean name="raw" value="true"/>
 			</texture>
 			<bsdf type="blendbsdf">
 				<float name="weight" value="{{ .Weight1 }}"/>
@@ -630,7 +631,8 @@ end_header
     <bsdf type="blendbsdf">
         <texture type="bitmap" name="weight">
             <string name="filename" value="paper.rgbe"/>
-        </texture>
+            <boolean name="raw" value="true"/>
+       </texture>
 		   <bsdf type="diffuse">
                 <rgb name="reflectance" value=".9, .9, .9"/>
 			</bsdf>

@@ -647,8 +647,6 @@ end_header
         <film type="hdrfilm" id="film">
             <integer name="width" value="{{ .Width }}"/>
             <integer name="height" value="{{ .Height }}"/>
-            <integer name="crop_offset_y" value="$offset"/>
-            <integer name="crop_height" value="{{ .RowHeight }}"/>
             <rfilter type="lanczos"/>
         </film>
     </sensor>
@@ -718,6 +716,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo1">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="glass"/>
 		<ref id="diffuse2"/>
@@ -725,6 +724,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo2">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="glass"/>
 		<ref id="metal2"/>
@@ -732,6 +732,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo3">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="diffuse2"/>
 		<ref id="glass"/>
@@ -739,6 +740,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo4">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="metal2"/>
 		<ref id="glass"/>
@@ -746,6 +748,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo5">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="plastic2"/>
 		<ref id="glass"/>
@@ -753,6 +756,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo6">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="glass"/>
 		<ref id="plastic2"/>
@@ -760,6 +764,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo7">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="glass"/>
 		<ref id="metal1"/>
@@ -767,6 +772,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo8">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="glass"/>
 		<ref id="plastic1"/>
@@ -774,6 +780,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo9">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="glass"/>
 		<ref id="diffuse1"/>
@@ -781,6 +788,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo10">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="metal1"/>
 		<ref id="glass"/>
@@ -788,6 +796,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo11">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="plastic1"/>
 		<ref id="glass"/>
@@ -795,6 +804,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo12">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="diffuse1"/>
 		<ref id="glass"/>
@@ -802,6 +812,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo13">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="metal1"/>
 		<ref id="diffuse2"/>
@@ -809,6 +820,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo14">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="metal2"/>
 		<ref id="diffuse1"/>
@@ -816,6 +828,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo15">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="diffuse1"/>
 		<ref id="plastic2"/>
@@ -823,6 +836,7 @@ end_header
 	<bsdf type="blendbsdf" id="combo16">
 		<texture type="bitmap" name="weight">
 			<string name="filename" value="mitsuba.blend.rgbe"/>
+            <boolean name="raw" value="true"/>
 		</texture>
 		<ref id="metal1"/>
 		<ref id="plastic2"/>
@@ -952,7 +966,7 @@ func main() {
 	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
-	height := flag.Int("height", 720, "Height")
+	height := flag.Int("height", 1024, "Height")
 	samples := flag.Int("samples", 25, "Samples")
 	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
