@@ -38,6 +38,7 @@ var pi = math.Pi
 var abs = math.Abs
 var min = math.Min
 var max = math.Max
+var round = math.Round
 var yScale = 1.0
 var scale = 0.0
 var UL = geom.Vec{0, 0, 0}
@@ -56,8 +57,8 @@ func spow(x, y float64) float64 {
 	return sign(x) * pow(abs(x), y)
 }
 
-func strength(n int, x float64) float64 {
-	return pow(12, sin(float64(n)*(x+float64(n)/10)))
+func strength(n, x float64) float64 {
+	return pow(5, sin(n*(x+n/10)))
 }
 
 type SLR2 struct {
@@ -145,14 +146,20 @@ func (s *SLR2) invisible(point geom.Vec) bool {
 }
 
 func cameraPath(t, frustumHalfAngle float64) geom.Vec {
-	margin := 6.0 * pi / 180
+	// Buffer between the frustum's extreme corner ray and the plane. Swept like
+	// everything else, so the reachable grazing floor isn't rigidly tied to the
+	// FOV: near 3 deg the camera can lean noticeably further over than a fixed
+	// 6 deg allowed, near 12 deg it hangs back. Keep the low end well off zero
+	// -- the far corner's distance goes as 1/sin(margin), so it runs away fast
+	// below a couple of degrees.
+	margin := (7.5 + 4.5*sin(prime(1)*t)) * pi / 180
 	capRadius := pi/2 - frustumHalfAngle - margin
 	if capRadius < 0 {
 		capRadius = 0
 	}
-	theta := capRadius * (sin(prime(29)*t)/2 + .5) // in [0, capRadius): never reaches the edge
-	azimuth := prime(28) * t
-	radius := 4.5 + 2.5*sin(prime(12)*t) // distance from origin, breathes in [2, 7]
+	theta := capRadius * (sin(prime(2)*t)/2 + .5) // in [0, capRadius): never reaches the edge
+	azimuth := prime(3) * t
+	radius := 4.5 + 2.5*sin(prime(4)*t) // distance from origin, breathes in [2, 7]
 	return geom.Vec{
 		radius * sin(theta) * cos(azimuth),
 		radius * sin(theta) * sin(azimuth),
@@ -179,36 +186,46 @@ func rectangle(u, v, t float64) geom.Vec {
 }
 
 func blendValue(u, v, t float64) float64 {
-	return shaper(texture1(u, v, t), pow(4, sin(prime(27)*t)), pow(2, cos(prime(26)*t))-1)/2 + .5
+	return shaper(texture(u, v, t), sin(prime(5)*t), cos(prime(6)*t))/2 + .5
 }
 
-func texture(a, u, v, t float64) float64 {
-	uPortion := sin(prime(25)*t)*.2 + .3
-	vPortion := sin(prime(24)*t)*.2 + .3
-	uOffset := (sin(prime(23)*t)/2 + .5) * (1 - uPortion)
-	vOffset := (sin(prime(22)*t)/2 + .5) * (1 - vPortion)
-	u = u*uPortion + 2*pi*uOffset
-	v = v*vPortion + 2*pi*vOffset
-	return sin(
-		a*strength(9, t)*sin(11*u+a*strength(16, t)*sin(u))*sin(17*v+a*strength(17, t)*16*v) +
-			a*strength(10, t)*sin(12*u+a*strength(15, t)*sin(v+a*strength(19, t)*sin(2*u-3*v))) +
-			a*strength(11, t)*sin(13*v+a*strength(14, t)*sin(u+a*strength(20, t)*sin(3*u+2*v))) +
-			a*strength(12, t)*sin(14*u+15*v+a*strength(13, t)*sin(u+v+a*strength(18, t)*sin(u-v))))
+func texture(u, v, t float64) float64 {
+	fu1 := round(sin(prime(7)*t) * 7.5)
+	fu2 := round(sin(prime(8)*t) * 7.5)
+	fu3 := round(sin(prime(9)*t) * 7.5)
+	fu4 := round(sin(prime(10)*t) * 7.5)
+	fu5 := round(sin(prime(11)*t) * 7.5)
+	fu6 := round(sin(prime(12)*t) * 7.5)
+	fu7 := round(sin(prime(13)*t) * 7.5)
+	fu8 := round(sin(prime(14)*t) * 7.5)
+	fv1 := round(sin(prime(15)*t) * 7.5)
+	fv2 := round(sin(prime(16)*t) * 7.5)
+	fv3 := round(sin(prime(17)*t) * 7.5)
+	fv4 := round(sin(prime(18)*t) * 7.5)
+	fv5 := round(sin(prime(19)*t) * 7.5)
+	fv6 := round(sin(prime(20)*t) * 7.5)
+	fv7 := round(sin(prime(21)*t) * 7.5)
+	fv8 := round(sin(prime(22)*t) * 7.5)
+	a1d1 := strength(prime(23), t)
+	a1d2 := strength(prime(24), t)
+	a1d3 := strength(prime(25), t)
+	a2d3 := strength(prime(26), t)
+	a2d2 := strength(prime(27), t)
+	a3d3 := strength(prime(28), t)
+	a4d3 := strength(prime(29), t)
+	return sin(fu1*u + fv1*v +
+		a1d1*sin(fu2*u+fv2*v+
+			a1d2*sin(fu3*u+fv3*v+
+				a1d3*sin(fu5*u+fv5*v)+
+				a2d3*sin(fu6*u+fv6*v)+
+				a2d2*sin(fu4*u+fv4*v+
+					a3d3*sin(fu7*u+fv7*v)+
+					a4d3*sin(fu8*u+fv8*v)))))
 
-}
-
-func texture1(u, v, t float64) float64 {
-	a := pow(12, sin(prime(21)*t))
-	return texture(a, u, v, t)
-}
-
-func texture2(u, v, t float64) float64 {
-	a := pow(12, cos(prime(20)*t))
-	return texture(a, u, v, t)
 }
 
 func shaper(x, a, b float64) float64 {
-	return spow(pow(x/2+.5, a)*2-1, b)
+	return spow(pow(x/2+.5, pow(10, a))*2-1, pow(10, b))
 }
 
 func shape(u, v, t float64) geom.Vec {
@@ -216,8 +233,7 @@ func shape(u, v, t float64) geom.Vec {
 	return rectangle(u, v, t).Plus(geom.Vec{
 		0,
 		0,
-		a*scale*.1*cos(prime(17)*t)*(shaper(texture1(u, v, t), pow(2, sin(prime(18)*t)), pow(3, sin(prime(19)*t)-1))-1) +
-			a*scale*.1*sin(prime(16)*t)*(shaper(texture2(u, v, t), pow(2, cos(prime(15)*t)), pow(3, cos(prime(14)*t)-1))-1),
+		a * scale * .2 * sin(prime(43)*t) * texture(u, v, t),
 	})
 }
 
@@ -276,13 +292,18 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	t := float64(frameNumber) * dt
 	envSize := int(pow(float64(desiredTriangles), .5))
 	focusPoint := geom.Vec{0, 0, 0}
-	// Wide-angle field of view, swept by a prime like the other animated
-	// parameters. fovHoriz is the horizontal FOV in degrees; the textured
-	// rectangle below is *derived* from it (the rectangle is the frustum's z=0
-	// slice), so widening the FOV genuinely widens the perspective instead of
-	// just scaling the texture down to fit a fixed cone. Range here is ~30°..90°;
-	// adjust the 60/30 to taste.
-	fovHoriz := 60.0 + 30.0*sin(prime(30)*t)
+	// Field of view in degrees, horizontal, swept by a prime like the other
+	// animated parameters. Range is 5..120; adjust the 62.5/57.5 to taste.
+	//
+	// Note the rectangle below is *derived* from this (it is the frustum's z=0
+	// slice), so it always fills the frame no matter the FOV -- the framing
+	// never changes, only the perspective falloff across it. That falloff is
+	// not monotonic in FOV: it peaks around 60 deg and drops off at both ends,
+	// because a narrow frustum shrinks as the camera tilts down with it, while
+	// a wide one forces the camera nearly overhead (see cameraPath). So the
+	// extremes of this range buy different flavours -- near-orthographic and
+	// slanted at 5 deg, flat and overhead at 120 -- not more distortion.
+	fovHoriz := 62.5 + 57.5*sin(prime(30)*t)
 	halfTanH := tan(fovHoriz / 2 * pi / 180)
 	// Half-angle from the view axis to a frustum corner (the extreme ray). The
 	// camera path uses this to stay far enough above the plane that every corner
@@ -381,7 +402,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	//boundingSpheroid := surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{maxX*.95, maxY*.95, maxZ*.95})
 	// dir, _ := focusPoint.Minus(cameraLoc).Unit()
 	// _, distance = surface.UnitSphere(material.Mirror(1)).Scale(geom.Vec{.075, .075, .075}).Intersect(geom.NewRay(cameraLoc, dir), 10.0)
-	distanceWeight := cos(prime(13)*t)/5 + .5
+	distanceWeight := cos(prime(31)*t)/5 + .5
 	distance = distanceWeight*cameraLoc.Minus(closestPoint).Len() + (1-distanceWeight)*cameraLoc.Minus(farthestPoint).Len()
 	//distance = cameraLoc.Len()
 	fmt.Printf("minDistance: %v, maxDistance: %v, distance: %v, len: %v, maxX: %v, maxY: %v, maxZ: %v, minZ: %v\n", minDistance, maxDistance, distance, cameraLoc.Len(), maxX, maxY, maxZ, minZ)
@@ -420,7 +441,7 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	// from there four perpendicular walls drop straight back to the base.
 	// frameScale is how many patch widths across the front face is, and the body
 	// is as deep as the front face is wide, so the solid is a cube.
-	frameScale := 1.5
+	frameScale := 10.0
 	depth := frameScale * scale
 	// Take the outward side from the patch itself -- (LR-LL)x(UL-LL) is the
 	// du x dv that writeFace's winding treats as front -- so the body agrees
@@ -670,20 +691,32 @@ end_header
             <scale value="1"/>
             <translate x="0" y="0" z="0"/>
         </transform>
-		<bsdf type="roughdielectric">
-			<float name="alpha" value="{{ .Roughness }}"/>
-			<float name="film_thickness" value="{{ .FilmThickness }}"/>
-			<float name="film_ior" value="{{ .FilmIOR }}"/>
-			<float name="int_ior" value="{{ .IntIOR }}"/>
-			<float name="ext_ior" value="{{ .ExtIOR }}"/>
-			<float name="abbe" value="{{ .Abbe }}"/>
+		<bsdf type="blendbsdf">
+			<texture type="bitmap" name="weight">
+				<string name="filename" value="mitsuba.blend.rgbe"/>
+				<boolean name="raw" value="true"/>
+			</texture>
+			<bsdf type="roughdielectric">
+				<float name="alpha" value="{{ .Roughness }}"/>
+				<float name="film_thickness" value="{{ .FilmThickness }}"/>
+				<float name="film_ior" value="{{ .FilmIOR }}"/>
+				<float name="int_ior" value="{{ .IntIOR }}"/>
+				<float name="ext_ior" value="{{ .ExtIOR }}"/>
+				<float name="abbe" value="{{ .Abbe }}"/>
+			</bsdf>
+			<bsdf type="roughdielectric">
+				<float name="alpha" value="{{ .Roughness }}"/>
+				<float name="int_ior" value="{{ .IntIOR }}"/>
+				<float name="ext_ior" value="{{ .ExtIOR }}"/>
+				<float name="abbe" value="{{ .Abbe }}"/>
+			</bsdf>
 		</bsdf>
         <ref id="medium1" name="interior"/>
     </shape>
 </scene>
 `)
 
-	intIor := 1 + 2*pow(10, cos(prime(5)*t)*3-3)
+	intIor := 1 + 2*pow(10, cos(prime(32)*t)*3-3)
 	extIor := 1.0
 	if frameNumber%2 == 1 {
 		extIor = intIor
@@ -692,14 +725,14 @@ end_header
 
 	// Pick the interference order / optical thickness you want to sweep through.
 	// Order ~0.5–2 keeps you in the vivid, 4-wavelength-resolvable zone.
-	opticalThickness := 100 + (sin(prime(6)*t)/2+0.5)*650 // n·d ∈ [100, 750] nm
-	filmIor := 1.8 + sin(prime(7)*t)*.7                   // choose for material look
-	filmThickness := opticalThickness / filmIor           // d follows from the two
+	opticalThickness := 100 + (sin(prime(33)*t)/2+0.5)*650 // n·d ∈ [100, 750] nm
+	filmIor := 1.8 + sin(prime(34)*t)*.7                   // choose for material look
+	filmThickness := opticalThickness / filmIor            // d follows from the two
 
 	// Target dispersion strength: subtle to noticeable "flint-like" fire,
 	// staying out of the rutile-grade noisy tail.
-	dispStrength := 0.005 + (sin(prime(8)*t)/2+0.5)*0.020 // Δn ∈ [0.005, 0.025]
-	abbe := (intIor - 1) / dispStrength                   // derived, not swept
+	dispStrength := 0.005 + (sin(prime(35)*t)/2+0.5)*0.020 // Δn ∈ [0.005, 0.025]
+	abbe := (max(intIor, extIor) - 1) / dispStrength       // derived, not swept
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -708,22 +741,22 @@ end_header
 		0,
 		minZ,
 		fov * .9,
-		pow(10, sin(prime(31)*t)*5-7),
+		.0000000000001,
 		height,
 		width,
 		samples,
 		intIor,
 		extIor,
-		cos(prime(4)*t) * .95,
+		cos(prime(36)*t) * .95,
 		abbe,
 		filmThickness,
 		filmIor,
-		pow(10, sin(prime(9)*t)*4-4),
-		sin(prime(10)*t)*.5 + .5,
-		pow(10, sin(prime(11)*t)*4-4),
-		sin(prime(3)*t) * 90,
-		sin(prime(2)*t) * 90,
-		sin(prime(1)*t) * 90,
+		pow(10, sin(prime(37)*t)*4-4),
+		sin(prime(38)*t)*.5 + .5,
+		pow(10, sin(prime(39)*t)*4-4),
+		sin(prime(40)*t) * 179,
+		sin(prime(41)*t) * 179,
+		sin(prime(42)*t) * 179,
 	})
 }
 
@@ -731,11 +764,11 @@ func main() {
 	frame := flag.Int("frame", 0, "Specify frame")
 	pixels := flag.Int("pixels", 256, "Specify height and width of generated image")
 	maxSubdivisions := flag.Int("maxsubdivisions", 1000, "Max subdivisions")
-	maxFrames := flag.Int("maxframes", 256, "Max frames")
+	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
-	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
-	height := flag.Int("height", 2560, "Height")
-	samples := flag.Int("samples", 1024, "Samples")
+	aspectRatio := flag.Float64("aspectratio", 16.0/9.0, "Aspect ratio")
+	height := flag.Int("height", 1024, "Height")
+	samples := flag.Int("samples", 100, "Samples")
 	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
