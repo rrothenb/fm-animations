@@ -20,7 +20,7 @@ import (
 var primes = []int{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271}
 
 func prime(i int) float64 {
-	return float64(primes[45-i-1])
+	return float64(primes[44-i-1])
 }
 
 type MeshType struct {
@@ -359,10 +359,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	maxU := 0
 	maxV := 0
 	minZ := 1.0
-	// The relief's true extent along the view axis, which is what the aperture is
-	// set against. maxZ above is an absolute value and so cannot say which way
-	// the surface ran; the patch boundary is undisplaced, so topZ >= 0 >= minZ.
-	topZ := 0.0
 	closestPoint := geom.Vec{0, 0, 0}
 	farthestPoint := cameraLoc
 	for uIndex := 0; uIndex <= 500; uIndex++ {
@@ -381,7 +377,6 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 				maxY = math.Max(maxY, math.Abs(vertex.Y))
 				maxZ = math.Max(maxZ, math.Abs(vertex.Z))
 				minZ = math.Min(minZ, vertex.Z)
-				topZ = math.Max(topZ, vertex.Z)
 				if minU > uIndex {
 					minU = uIndex
 				}
@@ -725,7 +720,14 @@ end_header
 </scene>
 `)
 
-	intIor := 1 + 2*pow(10, cos(prime(32)*t)*3-3)
+	// Index contrast, swept over [1.02, 3]. The exponent multiplier is the knob:
+	// at k it bottoms out at 1 + 2*10^-2k, and at the 3 this used to carry the
+	// floor was 1.000002 -- so far below the ~3e-3 where any structure at all
+	// becomes measurable that better than half the frames rendered as a flat grey
+	// veil, the object being optically index-matched with its surroundings.
+	// k = 1 keeps the top of the range and lifts the floor to just above where
+	// the effect is detectable, costing nothing that was ever visible.
+	intIor := 1 + 2*pow(10, cos(prime(32)*t)-1)
 	extIor := 1.0
 	if frameNumber%2 == 1 {
 		extIor = intIor
@@ -745,26 +747,16 @@ end_header
 
 	// --- View camera ---------------------------------------------------------
 	// Both standards are neutral and the film is parallel to the patch plane, so
-	// the plane of focus is parallel to the top of the object. No tilt, no
-	// Scheimpflug: a focus plane parallel to the top face is equidistant from
-	// every point of it, so what the aperture selects here is *height* in the
-	// relief, uniformly across the frame.
+	// the plane of focus is parallel to the top of the object -- no tilt, no
+	// Scheimpflug -- and it is set on the patch plane itself.
 	//
-	// The relief runs from minZ to topZ, and the plane of focus sits at the top of
-	// it, so the peaks are exactly sharp. Blur then grows linearly downward:
-	// whatever the floor of the relief gets, a third of the way down gets a third
-	// of it. So one number -- the blur at the floor -- sets the whole gradient,
-	// and the top third comes out sharp against a bottom third that plainly is
-	// not. Raise floorBlur below to push the bottom further out.
-	relief := topZ - minZ
-	// Axial lens-to-focus-plane distance. The patch plane is at cameraLoc.Z; the
-	// relief's peaks stand above it, toward the camera.
-	focusDistance := cameraLoc.Z - topZ
-	// focal_length is still a gauge choice, even now that the aperture is open:
-	// with the bellows solved for focusDistance and the aperture given as a
-	// radius in scene units, the ray bundles come out the same whatever f is
-	// (film_width and the shifts are all derived from the bellows). A quarter of
-	// the focus distance puts the bellows at a 4/3 draw.
+	// The aperture is a pinhole, so everything is in focus and the focus distance
+	// is only a gauge: at a zero aperture every ray is a chief ray through the
+	// lens centre, and only film_width/bellows and the shifts over bellows reach
+	// the image. Both are derived from the bellows below, so the framing does not
+	// care what f is. A quarter of the focus distance puts the bellows at a 4/3
+	// draw, which makes the magnification exactly 1/3 on every frame.
+	focusDistance := cameraLoc.Z
 	focalLength := focusDistance / 4
 	bellows := 1 / (1/focalLength - 1/focusDistance) // = focusDistance/3
 	// The patch plane sits at axial distance cameraLoc.Z from the lens, and the
@@ -784,23 +776,19 @@ end_header
 	// pixel aspect, which is the aspect the patch was built to.
 	backShift := -magnification * cameraLoc.X
 	backRise := magnification * cameraLoc.Y
-	// In object space the blur cone opens linearly either side of the plane of
-	// focus: a point `s` off it is smeared across aperture*s/focusDistance, the
-	// aperture there being the diameter. Ask for floorBlur of the frame width at
-	// s = relief -- the floor of the relief -- and the radius follows. The top
-	// third of the relief then stays under a third of that.
-	floorBlur := .012
-	apertureRadius := floorBlur * frameWidth * focusDistance / (2 * relief) * pow(100, sin(prime(44)*t)-1)
-	// A nearly flat frame asks for an unbounded aperture to separate a relief
-	// that is not there. Cap it at the equivalent of f/1.4 and let those frames
-	// come out sharp, which is what they are.
-	if wideOpen := focalLength / 2.8; apertureRadius > wideOpen {
-		apertureRadius = wideOpen
-	}
+	// A pinhole, fixed on every frame: nothing is ever out of focus. Zero is legal
+	// here, unlike thinlens, which clamps it to epsilon.
+	//
+	// "Small but nonzero" would not do the same job. In object space the blur cone
+	// opens linearly with distance from the plane of focus, and the body runs ten
+	// patch widths back behind it and shows through the dielectric, so an aperture
+	// small enough to keep the refracted interior sharp is a pinhole in all but
+	// name. Depth of field here is all or nothing.
+	apertureRadius := 0.0
 	fmt.Printf("focalLength: %v, bellows: %v, magnification: %v, filmWidth: %v, backShift: %v, backRise: %v\n",
 		focalLength, bellows, magnification, filmWidth, backShift, backRise)
-	fmt.Printf("relief: %v (minZ %v .. topZ %v), focusDistance: %v, apertureRadius: %v (f/%v)\n",
-		relief, minZ, topZ, focusDistance, apertureRadius, focalLength/(2*apertureRadius))
+	fmt.Printf("focusDistance: %v, apertureRadius: %v, minZ: %v\n",
+		focusDistance, apertureRadius, minZ)
 
 	sensorTemplate.Execute(sensorFile, sensor{
 		cameraLoc,
@@ -836,8 +824,8 @@ func main() {
 	maxFrames := flag.Int("maxframes", 512, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 16.0/9.0, "Aspect ratio")
-	height := flag.Int("height", 1024, "Height")
-	samples := flag.Int("samples", 100, "Samples")
+	height := flag.Int("height", 2304, "Height")
+	samples := flag.Int("samples", 1024, "Samples")
 	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
