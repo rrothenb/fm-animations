@@ -175,6 +175,15 @@ func sampleCenterline(path func(float64) geom.Vec, nV int) (centers, tangents []
 	return centers, tangents
 }
 
+// TubeFrame samples the closed centerline `path` (period 2*pi) at nV points and
+// returns the centers with the seamless rotation-minimizing cross-section frame
+// WriteTubePLY uses, for callers that build their own tube mesh.
+func TubeFrame(path func(float64) geom.Vec, nV int) (centers, e1, e2 []geom.Vec) {
+	centers, tangents := sampleCenterline(path, nV)
+	e1, e2 = closedFrame(tangents)
+	return centers, e1, e2
+}
+
 // WriteTubePLY sweeps a tube of radius `tubeRadius` around the closed centerline
 // `path` (period 2*pi) and writes it as a binary little-endian PLY that opens
 // directly in 3dviewer.net. nU is the cross-section resolution (ring around the
