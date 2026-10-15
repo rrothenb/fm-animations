@@ -167,18 +167,6 @@ func torusKnot(t, R, r float64, pInt, qInt int, path func(x float64) geom.Vec) g
 
 var factor = .51
 
-func outerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, 0.48125, 3, 2, circle)
-}
-
-func middleKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 2), 3, 2, outerKnot)
-}
-
-func innerKnot(t float64) geom.Vec {
-	return torusKnot(t, 1, pow(factor, 3), 2, 3, middleKnot)
-}
-
 func lastKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, pow(factor, 5), 3, 2, innerKnot)
 }
@@ -377,8 +365,27 @@ func cube(u, v, t float64) geom.Vec {
 	}
 }
 
+func outerKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, 0.4, 3, 2, circle)
+}
+
+func middleKnot(t float64) geom.Vec {
+	return torusKnot(t, 1, pow(factor, 2), 3, 2, outerKnot)
+}
+
+func innerKnot(t float64) geom.Vec {
+	return geom.Vec{sin(41 * t), sin(43 * t), sin((41*43 - 2) * t)}.Plus(outerKnot(t))
+}
+
+func movingLissajousKnot(t float64, xN, yN, zN int, path func(x float64) geom.Vec) geom.Vec {
+	return geom.Vec{
+		sin(float64(xN) * t),
+		sin(float64(yN) * t),
+		cos(float64(zN) * t)}.Plus(path(t))
+}
+
 func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, 0.48125, outerKnot)
+	return pathWrapper(u, v, 0.025, innerKnot)
 }
 
 func index2radians(index float64, n int) float64 {
