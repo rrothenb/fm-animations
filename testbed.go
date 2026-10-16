@@ -373,8 +373,34 @@ func middleKnot(t float64) geom.Vec {
 	return torusKnot(t, 1, pow(factor, 2), 3, 2, outerKnot)
 }
 
+// sleeveFill is how close the outermost yarn comes to outerKnot's max tube radius
+// (1 = strands of the sleeve touch where the knot passes closest to itself).
+// Yarn .2 (radius in weave cells) is what a sleeve this fat needs to stay clear
+// on the inside of the knot's bends; .7 squashes it against the fabric.
+var sleeveFill = .95
+
+// sleeve wraps the woven-fabric thread around outerKnot: around the tube is the
+// folded Lissajous axis, along the tube is periodic, the weave is radial.
+var sleeve = utils.FitFabricSleeve(outerKnot, 499, sleeveFill*outerKnotMaxRadius(), .2, .7, 20000)
+
+// weave is the seamless alternative to sleeve: the (20, K) and (20, -K) cables of
+// outerKnot woven plain, a 2-component link. Written with -weave.
+// Yarn .42 cell, flat .3, lift 1.1, crimp 3 is collision-free at 95% fill (the
+// max found at N=20 was .438); fuller yarns need a less full sleeve.
+var weave = func() *utils.CableWeave {
+	w := utils.FitCableWeave(outerKnot, 100, sleeveFill*outerKnotMaxRadius(), .42, .3, 1.1, 20000)
+	w.Crimp = 3
+	return w
+}()
+
+func outerKnotMaxRadius() float64 {
+	rMax, _, _ := utils.MaxTubeRadius(outerKnot, 2*pi, 4000)
+	return rMax
+}
+
 func innerKnot(t float64) geom.Vec {
-	return geom.Vec{sin(41 * t), sin(43 * t), sin((41*43 - 2) * t)}.Plus(outerKnot(t))
+	p, _ := sleeve.Thread(t)
+	return p
 }
 
 func movingLissajousKnot(t float64, xN, yN, zN int, path func(x float64) geom.Vec) geom.Vec {
@@ -384,19 +410,23 @@ func movingLissajousKnot(t float64, xN, yN, zN int, path func(x float64) geom.Ve
 		cos(float64(zN) * t)}.Plus(path(t))
 }
 
-func uv2xyz(u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
-	return pathWrapper(u, v, 0.025, innerKnot)
+// numSurfaces is how many separate tubes uv2xyz describes (s = 0..numSurfaces-1).
+const numSurfaces = 2
+
+// uv2xyz: the weave's two yarns, u around each yarn, v along it.
+func uv2xyz(s int, u, v, t float64, radius func(u, v, t float64) float64) geom.Vec {
+	return weave.Tube(s, u, v)
 }
 
 func index2radians(index float64, n int) float64 {
 	return index / float64(n) * pi * 2
 }
 
-func uvIndexToNormal(uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
-	left := uv2xyz(index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius)
-	right := uv2xyz(index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius)
-	up := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius)
-	down := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius)
+func uvIndexToNormal(s, uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
+	left := uv2xyz(s, index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	right := uv2xyz(s, index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t, radius)
+	up := uv2xyz(s, index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t, radius)
+	down := uv2xyz(s, index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t, radius)
 	normal, _ := left.Minus(right).Cross(up.Minus(down)).Unit()
 	return &normal
 }
@@ -407,6 +437,8 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	rMax, rCurv, rSep := utils.MaxTubeRadius(outerKnot, 2*pi, 4000)
 	fmt.Printf("max tube radius for outerKnot: %.4f (curvature %.4f, separation %.4f)\n", rMax, rCurv, rSep)
 	fmt.Println("frame", frameNumber)
+	fmt.Printf("weave: N %v K %v R %.4f outer %.4f cell %.5f yarn radius %.5f\n",
+		weave.N, weave.K, weave.R(), weave.Outer(), weave.Cell(), weave.YarnRadius())
 	tGlobal = t
 	frameGlobal = frameNumber
 	cameraLoc := geom.Vec{0, 0, 9}
@@ -414,78 +446,96 @@ func renderSurfaces(frameNumber int, pixels int, maxSubdivisions int, dt float64
 	c := NewSLR2().MoveTo(cameraLoc).LookAt(focusPoint)
 	c.FStop = 64
 	distance := cameraLoc.Minus(focusPoint).Len() - c.Lens
-	nU := int(float64(pixels) / distance * 3)
-	nV := nU
+	// v must resolve the weave: 2*N*K crossings along each yarn, ~12 rings each.
+	nU := 16
+	nV := 2 * weave.N * weave.K * 12
 	minZ := 0.0
 	if desiredTriangles > 0 {
+		// Average how fast the surface stretches in u and in v (derivatives, not
+		// chords between the 500 samples, which alias on fast-oscillating
+		// surfaces) so the quads come out square, and spend desiredTriangles
+		// across all surfaces.
 		numTriangles := 0
 		totalWidth := 0.0
 		totalHeight := 0.0
-		for uIndex := 0; uIndex <= 500; uIndex++ {
-			for vIndex := 0; vIndex <= 500; vIndex++ {
-				vertex := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500), t, radius)
-				if !c.invisible(vertex) {
-					numTriangles++
-					vertexLeft := uv2xyz(index2radians(float64(uIndex-1), 500), index2radians(float64(vIndex), 500), t, radius)
-					vertexBelow := uv2xyz(index2radians(float64(uIndex), 500), index2radians(float64(vIndex-1), 500), t, radius)
-					totalWidth += vertex.Minus(vertexLeft).Len()
-					totalHeight += vertex.Minus(vertexBelow).Len()
-					minZ = math.Min(minZ, vertex.Z)
+		const eps = 1e-7
+		for s := 0; s < numSurfaces; s++ {
+			for uIndex := 0; uIndex <= 500; uIndex++ {
+				for vIndex := 0; vIndex <= 500; vIndex++ {
+					u, v := index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500)
+					vertex := uv2xyz(s, u, v, t, radius)
+					if !c.invisible(vertex) {
+						numTriangles++
+						totalWidth += uv2xyz(s, u+eps, v, t, radius).Minus(vertex).Len() / eps
+						totalHeight += uv2xyz(s, u, v+eps, t, radius).Minus(vertex).Len() / eps
+						minZ = math.Min(minZ, vertex.Z)
+					}
 				}
 			}
 		}
 		fmt.Println(numTriangles, minZ)
 		ratio := totalWidth / totalHeight
-		nU = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)*ratio) * 500)
-		nV = int(sqrt(float64(desiredTriangles)/float64(numTriangles*2)/ratio) * 500)
+		// nU*nV quads per surface, of which numTriangles/(numSurfaces*501*501) are
+		// visible, at 2 triangles each, over numSurfaces surfaces.
+		quads := float64(desiredTriangles) / 2 / float64(numTriangles) * 501 * 501
+		nU = int(sqrt(quads * ratio))
+		nV = int(sqrt(quads / ratio))
 	}
 	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
-	vertexIndicies := make([][]int32, nU+1)
+	fmt.Printf("%.1f rings per weave crossing\n", float64(nV)/float64(2*weave.N*weave.K))
+	// All vertices must precede all faces in the PLY, so keep every surface's
+	// index grid until the faces are written.
+	vertexIndicies := make([][][]int32, numSurfaces)
 	numVerticies := 0
 	plyDataPath := fmt.Sprintf("testbed.data.ply")
 	plyData, _ := os.Create(plyDataPath)
 	PlyDataBuffered := bufio.NewWriter(plyData)
-	for uIndex := 0; uIndex <= nU; uIndex++ {
-		vertexIndicies[uIndex] = make([]int32, nV+1)
-		for vIndex := 0; vIndex <= nV; vIndex++ {
-			vertex := uv2xyz(index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius)
-			if c.invisible(vertex) {
-				vertexIndicies[uIndex][vIndex] = -1
-				continue
+	for s := 0; s < numSurfaces; s++ {
+		vertexIndicies[s] = make([][]int32, nU+1)
+		for uIndex := 0; uIndex <= nU; uIndex++ {
+			vertexIndicies[s][uIndex] = make([]int32, nV+1)
+			for vIndex := 0; vIndex <= nV; vIndex++ {
+				vertex := uv2xyz(s, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t, radius)
+				if c.invisible(vertex) {
+					vertexIndicies[s][uIndex][vIndex] = -1
+					continue
+				}
+				normal := uvIndexToNormal(s, uIndex, vIndex, nU, nV, t)
+				vertexIndicies[s][uIndex][vIndex] = int32(numVerticies)
+				numVerticies++
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.X))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Y))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Z))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.X))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Y))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Z))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex), nU)/pi/2))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex), nV)/pi/2))
 			}
-			normal := uvIndexToNormal(uIndex, vIndex, nU, nV, t)
-			vertexIndicies[uIndex][vIndex] = int32(numVerticies)
-			numVerticies++
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.X))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Y))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(vertex.Z))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.X))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Y))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(normal.Z))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(uIndex), nU)/pi/2))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, float32(index2radians(float64(vIndex), nV)/pi/2))
 		}
 	}
 	numFaces := 0
-	for vIndex := 0; vIndex < nV; vIndex++ {
-		for uIndex := 0; uIndex < nU; uIndex++ {
-			topRight := vertexIndicies[uIndex][vIndex]
-			topLeft := vertexIndicies[uIndex+1][vIndex]
-			botRight := vertexIndicies[uIndex][vIndex+1]
-			botLeft := vertexIndicies[uIndex+1][vIndex+1]
-			if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
-				continue
+	for s := 0; s < numSurfaces; s++ {
+		for vIndex := 0; vIndex < nV; vIndex++ {
+			for uIndex := 0; uIndex < nU; uIndex++ {
+				topRight := vertexIndicies[s][uIndex][vIndex]
+				topLeft := vertexIndicies[s][uIndex+1][vIndex]
+				botRight := vertexIndicies[s][uIndex][vIndex+1]
+				botLeft := vertexIndicies[s][uIndex+1][vIndex+1]
+				if topRight == -1 || topLeft == -1 || botRight == -1 || botLeft == -1 {
+					continue
+				}
+				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
+				numFaces++
+				binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
+				binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
+				binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
+				numFaces++
 			}
-			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topLeft)
-			numFaces++
-			binary.Write(PlyDataBuffered, binary.LittleEndian, byte(3))
-			binary.Write(PlyDataBuffered, binary.LittleEndian, topRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botRight)
-			binary.Write(PlyDataBuffered, binary.LittleEndian, botLeft)
-			numFaces++
 		}
 	}
 
