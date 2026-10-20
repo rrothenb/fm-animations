@@ -353,27 +353,21 @@ func shape(u, v, t float64) geom.Vec {
 }
 
 // filmPattern is the film-thickness texture (0..1) at loc, a point on the
-// unthinned yarn surface already scaled by 2pi.
+// yarn surface already scaled by 2pi. Its sharpness sweeps from nearly a step
+// (exponent .1) to soft, with 0 the most common value (exponent 10).
 func filmPattern(loc geom.Vec) float64 {
-	value := pow(spow(shapeTexture(1, .75-cos(41*t)*.5, t, loc), .1)/2+.5, pow(10, sin(29*t)))
+	sharpness := pow(10, sin(43*t+2.3))
+	value := pow(spow(shapeTexture(1, .75-cos(41*t)*.5, t, loc), sharpness)/2+.5, pow(10, sin(29*t)))
 	if frameNumber%2 == 1 {
 		value = 1 - value
 	}
 	return value
 }
 
-// thinning is how much thinner the yarn gets where the film is thickest, so the
-// color pattern is echoed in the surface.
-const thinning = .1
-
-// uv2xyz: the weave's two yarns, u around each yarn, v along it. The yarn's
-// cross-section shrinks toward its center by up to thinning where filmPattern
-// is high (shrinking can't cause collisions).
+// uv2xyz: the weave's two yarns, u around each yarn, v along it.
 func uv2xyz(s int, u, v, t float64) geom.Vec {
 	p, up, side, a, b := weave.Section(s, v)
-	offset := up.Scaled(b * cos(u)).Plus(side.Scaled(a * sin(u)))
-	k := 1 - thinning*filmPattern(p.Plus(offset).Scaled(2*pi))
-	return p.Plus(offset.Scaled(k))
+	return p.Plus(up.Scaled(b * cos(u))).Plus(side.Scaled(a * sin(u)))
 }
 
 // parallelFor runs body(i) for i in [0, n) across all cores, in chunks.
@@ -477,7 +471,13 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 	}
 	// The textures are independent of the mesh: surface s owns the band of rows
 	// [s, s+1]/numSurfaces, so its v texture coordinate is squeezed into it. The
-	// long side is capped at JPEG's 65500 so run.sh can convert them to view.
+	// previews (data/N.texture.rgbe, data/N.blend.rgbe) have their long side
+	// capped at JPEG's 65500 so run.sh can convert them to view. The film
+	// thickness Mitsuba reads (mitsuba.film.pfm) is single-channel float with
+	// square-ish texels, texelsPerTriangle per triangle of the mesh (600M, 2.4
+	// GB, at 150M triangles): the pattern is nearly a step, so its contours are
+	// only as smooth as the texels are small.
+	const texelsPerTriangle = 4
 	const maxTexSize = 65500
 	texCols := int(min(float64(nU), maxTexSize))
 	texRows := int(min(float64(nV), maxTexSize/numSurfaces))
@@ -534,7 +534,6 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 		// Sample the 3D textures at the texel's center on the yarn.
 		u := index2radians(float64(col)+.5, texCols)
 		v := index2radians(float64(row)+.5, texRows)
-		// The unthinned surface, so the texture and the thinning agree.
 		loc := weave.Tube(s, u, v).Scaled(2 * pi)
 		blendValue := float32(pow(spow(shapeTexture(2, 1, t, loc), 10)/2+.5, 10))
 		textureValue := float32(filmPattern(loc))
@@ -542,6 +541,42 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 			blendArray[3*i+k] = blendValue
 			textureArray[3*i+k] = textureValue
 		}
+	})
+	// Two triangles per quad, so each quad side gets sqrt(2*texelsPerTriangle) texels.
+	filmScale := sqrt(2 * texelsPerTriangle)
+	filmCols, filmRows := int(float64(nU)*filmScale), int(float64(nV)*filmScale)
+	fmt.Printf("film: %v x %v\n", filmCols, numSurfaces*filmRows)
+	// PFM rows run bottom to top (Mitsuba flips them back on reading), so file
+	// row j is texture row numSurfaces*filmRows-1-j.
+	// Each texel is the pattern's average over the texel, not its value at the
+	// center: a near-step pattern then stores how much of the texel is on each
+	// side, and bilinear filtering puts the contour between texels instead of
+	// along their edges. 2x2 samples first; if they differ by a jump rather than
+	// a gentle slope (whose 2x2 average is already accurate) the texel holds an
+	// edge and gets filmSupersample^2 samples.
+	const filmSupersample = 4
+	filmData := make([]byte, numSurfaces*filmRows*filmCols*4)
+	parallelFor(numSurfaces*filmRows*filmCols, func(i int) {
+		s, row, col := i/(filmRows*filmCols), i/filmCols%filmRows, i%filmCols
+		average := func(n int) (mean, spread float64) {
+			lo, hi := math.Inf(1), math.Inf(-1)
+			for a := 0; a < n; a++ {
+				for b := 0; b < n; b++ {
+					u := index2radians(float64(col)+(float64(a)+.5)/float64(n), filmCols)
+					v := index2radians(float64(row)+(float64(b)+.5)/float64(n), filmRows)
+					value := filmPattern(weave.Tube(s, u, v).Scaled(2 * pi))
+					mean += value
+					lo, hi = math.Min(lo, value), math.Max(hi, value)
+				}
+			}
+			return mean / float64(n*n), hi - lo
+		}
+		value, spread := average(2)
+		if spread > .25 {
+			value, _ = average(filmSupersample)
+		}
+		j := (numSurfaces*filmRows-1-(s*filmRows+row))*filmCols + col
+		binary.LittleEndian.PutUint32(filmData[4*j:], math.Float32bits(float32(value)))
 	})
 	for vIndex := 0; vIndex < envSize; vIndex++ {
 		for uIndex := 0; uIndex < envSize; uIndex++ {
@@ -585,6 +620,10 @@ end_header
 	rgbe.Encode(blend, texCols, numSurfaces*texRows, blendArray)
 	texture, _ := os.Create(texturePath)
 	rgbe.Encode(texture, texCols, numSurfaces*texRows, textureArray)
+	film, _ := os.Create("mitsuba.film.pfm")
+	fmt.Fprintf(film, "Pf\n%d %d\n-1.0\n", filmCols, numSurfaces*filmRows)
+	film.Write(filmData)
+	film.Close()
 	sensorFile, _ := os.Create("sensor.xml")
 
 	type sensor struct {
@@ -667,7 +706,7 @@ end_header
 			<float name="film_ior" value="{{ .FilmIOR }}"/>
 			<float name="film_thickness_scale" value="{{ .FilmThickness }}"/>
 			<texture type="bitmap" name="film_thickness">
-				<string name="filename" value="mitsuba.texture.rgbe"/>
+				<string name="filename" value="mitsuba.film.pfm"/>
 				<boolean name="raw" value="true"/>
 			</texture>
 		</bsdf>
@@ -716,7 +755,7 @@ end_header
 	sigmaT := pow(10, sin(59*t+.9)*2+1)
 	g := sin(61*t+3.1) * .99
 	fmt.Printf("albedo: %v, sigma_t: %v, g: %v\n", albedo, sigmaT, g)
-	// mitsuba.texture.rgbe is in [0, 1]; its max maps to an optical thickness
+	// mitsuba.film.pfm is in [0, 1]; its max maps to an optical thickness
 	// (film_ior * nm) swept through the vivid interference orders, 150 to 800 nm.
 	filmThickness := (475 + sin(67*t+5.4)*325) / filmIor
 	fmt.Printf("bsdf: %v, int_ior: %v, ext_ior: %v, film_ior: %v, abbe: %v, film max: %v nm (optical %v)\n",
@@ -762,8 +801,8 @@ func main() {
 	maxFrames := flag.Int("maxframes", 256, "Max frames")
 	desiredTriangles := flag.Int("desiredtriangles", 0, "The desired number of triangles to render")
 	aspectRatio := flag.Float64("aspectratio", 1.0, "Aspect ratio")
-	height := flag.Int("height", 1536, "Height")
-	samples := flag.Int("samples", 42, "Samples")
+	height := flag.Int("height", 6144, "Height")
+	samples := flag.Int("samples", 1024, "Samples")
 	numRows := flag.Int("numrows", 1, "Number rows")
 	flag.Parse()
 	fmt.Printf("frame: %v, pixels: %v, maxSubdivisions: %v, maxFrames: %v\n", *frame, *pixels, *maxSubdivisions, *maxFrames)
