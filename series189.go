@@ -364,10 +364,93 @@ func filmPattern(loc geom.Vec) float64 {
 	return value
 }
 
-// uv2xyz: the weave's two yarns, u around each yarn, v along it.
+// uv2xyz: the weave's two yarns, u around each yarn, v along it. u is the
+// direction of the surface normal in the yarn's elliptical cross-section, not
+// the ellipse's parametric angle (weave.Tube's u): the yarns are only Flat as
+// thick as they are wide, so even parametric steps crowd the flat faces and
+// leave the narrow edges with normals 1/Flat times further apart, which
+// refraction shows as stripes. Even normal steps facet every part equally.
 func uv2xyz(s int, u, v, t float64) geom.Vec {
 	p, up, side, a, b := weave.Section(s, v)
-	return p.Plus(up.Scaled(b * cos(u))).Plus(side.Scaled(a * sin(u)))
+	c, sn := cos(u), sin(u)
+	k := 1 / sqrt(a*a*sn*sn+b*b*c*c)
+	return p.Plus(up.Scaled(b * b * c * k)).Plus(side.Scaled(a * a * sn * k))
+}
+
+// ellipseAngle is the parametric angle (weave.Tube's u) of the point uv2xyz
+// puts at normal angle u, unwrapped to follow u, so textures sampled with
+// weave.Tube line up with the mesh.
+func ellipseAngle(u float64) float64 {
+	phi := math.Atan2(sin(u), weave.Flat*cos(u))
+	return phi + 2*pi*math.Round((u-phi)/(2*pi))
+}
+
+// surfaceNormal is the outward normal of yarn s at (u, v). Mitsuba puts a
+// shape's interior medium on the side away from its normals, so inward
+// normals would fill the whole world with the medium.
+func surfaceNormal(s int, u, v float64) geom.Dir {
+	const du, dv = 1e-5, 1e-9
+	around := uv2xyz(s, u+du, v, 0).Minus(uv2xyz(s, u-du, v, 0))
+	along := uv2xyz(s, u, v+dv, 0).Minus(uv2xyz(s, u, v-dv, 0))
+	normal, _ := around.Cross(along).Unit()
+	return normal
+}
+
+// ringDensity tabulates, for each yarn, the cumulative "turning" along it at
+// rings evenly spaced in v: how far the centerline's direction turns (radians)
+// plus a floor of one radian per minRingSpacing of length, so straight stretches
+// still get rings. Rings placed evenly in it turn the surface by equal angles,
+// which puts them where the yarn bends to dive under its neighbour.
+const minRingSpacing = 4 // weave cells
+
+func ringDensity() (table [numSurfaces][]float64, perimeter, length float64) {
+	n := 2 * weave.N * weave.K * 32
+	floor := 1 / (minRingSpacing * weave.Cell())
+	for s := 0; s < numSurfaces; s++ {
+		density := make([]float64, n)
+		parallelFor(n, func(i int) {
+			const h = 1e-8
+			v := index2radians(float64(i), n)
+			p0, _, _, _, _ := weave.Section(s, v)
+			p1, _, _, _, _ := weave.Section(s, v+h)
+			pm, _, _, _, _ := weave.Section(s, v-h)
+			d1 := p1.Minus(pm).Scaled(1 / (2 * h))
+			d2 := p1.Minus(p0.Scaled(2)).Plus(pm).Scaled(1 / (h * h))
+			speed := d1.Len()
+			density[i] = d1.Cross(d2).Len()/(speed*speed) + floor*speed
+		})
+		table[s] = make([]float64, n+1)
+		for i := 0; i < n; i++ {
+			table[s][i+1] = table[s][i] + density[i]*2*pi/float64(n)
+		}
+	}
+	// Mean cross-section perimeter (Ramanujan) and yarn length, for texel shape.
+	const samples = 10000
+	for i := 0; i < samples; i++ {
+		_, _, _, a, b := weave.Section(i%numSurfaces, 2*pi*math.Mod(float64(i)*math.Sqrt2, 1))
+		perimeter += pi * (3*(a+b) - sqrt((3*a+b)*(a+3*b))) / samples
+	}
+	for s := 0; s < numSurfaces; s++ {
+		length += weave.ThreadLength(s) / numSurfaces
+	}
+	return
+}
+
+// ringVs places nV+1 rings (v from 0 to 2pi) evenly in a ringDensity table.
+func ringVs(table []float64, nV int) []float64 {
+	n := len(table) - 1
+	vs := make([]float64, nV+1)
+	j := 0
+	for r := 0; r <= nV; r++ {
+		target := table[n] * float64(r) / float64(nV)
+		for j < n-1 && table[j+1] < target {
+			j++
+		}
+		x := (target - table[j]) / (table[j+1] - table[j])
+		vs[r] = index2radians(float64(j)+math.Min(math.Max(x, 0), 1), n)
+	}
+	vs[nV] = 2 * pi
+	return vs
 }
 
 // parallelFor runs body(i) for i in [0, n) across all cores, in chunks.
@@ -401,16 +484,6 @@ func index2radians(index float64, n int) float64 {
 	return index / float64(n) * pi * 2
 }
 
-func uvIndexToNormal(s, uIndex, vIndex, nU int, nV int, t float64) *geom.Dir {
-	left := uv2xyz(s, index2radians(float64(uIndex)-.1, nU), index2radians(float64(vIndex), nV), t)
-	right := uv2xyz(s, index2radians(float64(uIndex)+.1, nU), index2radians(float64(vIndex), nV), t)
-	up := uv2xyz(s, index2radians(float64(uIndex), nU), index2radians(float64(vIndex)+.1, nV), t)
-	down := uv2xyz(s, index2radians(float64(uIndex), nU), index2radians(float64(vIndex)-.1, nV), t)
-	// Outward: Mitsuba puts a shape's interior medium on the side away from its
-	// normals, so inward normals would fill the whole world with the medium.
-	normal, _ := right.Minus(left).Cross(up.Minus(down)).Unit()
-	return &normal
-}
 
 func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desiredTriangles int, aspectRatio float64, height int, samples int, numRows int) {
 	frameNumber = frame
@@ -433,36 +506,29 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 	fmt.Printf("fov: %v\n", c.FOV)
 	distance := cameraLoc.Minus(focusPoint).Len()
 	fmt.Printf("\ncameraLoc: %v\nfocusPoint: %v\ndistance: %v\nt: %#v\n", cameraLoc, focusPoint, distance, t, c)
-	// v must resolve the weave: 2*N*K crossings along each yarn, ~12 rings each.
+	// Size the mesh by angle, not quad shape: each step around a yarn (2pi/nU)
+	// and each ring along it (the table's total/nV) turns the surface by the
+	// same amount, so neither direction shows facets before the other.
+	table, perimeter, length := ringDensity()
+	turning := 0.0
+	for s := 0; s < numSurfaces; s++ {
+		turning += table[s][len(table[s])-1] / numSurfaces
+	}
 	nU := 16
-	nV := 2 * weave.N * weave.K * 12
-	minZ := 1.0
+	nV := int(turning / (2 * pi / float64(nU)))
+	minZ := -1.0 // unused by the template
 	if desiredTriangles > 0 {
-		// Average how fast the surface stretches in u and in v (derivatives, not
-		// chords between the 500 samples, which alias on fast-oscillating
-		// surfaces) so the quads come out square, and spend desiredTriangles
-		// across all surfaces.
-		totalWidth := 0.0
-		totalHeight := 0.0
-		const eps = 1e-7
-		for s := 0; s < numSurfaces; s++ {
-			for uIndex := 0; uIndex <= 500; uIndex++ {
-				for vIndex := 0; vIndex <= 500; vIndex++ {
-					u, v := index2radians(float64(uIndex), 500), index2radians(float64(vIndex), 500)
-					vertex := uv2xyz(s, u, v, t)
-					totalWidth += uv2xyz(s, u+eps, v, t).Minus(vertex).Len() / eps
-					totalHeight += uv2xyz(s, u, v+eps, t).Minus(vertex).Len() / eps
-					minZ = math.Min(minZ, vertex.Z)
-				}
-			}
-		}
-		fmt.Println(minZ)
-		ratio := totalWidth / totalHeight
 		// nU*nV quads per surface, at 2 triangles each, over numSurfaces surfaces.
 		quads := float64(desiredTriangles) / 2 / numSurfaces
+		ratio := 2 * pi / turning
 		nU = int(sqrt(quads * ratio))
 		nV = int(sqrt(quads / ratio))
 	}
+	var vs [numSurfaces][]float64
+	for s := 0; s < numSurfaces; s++ {
+		vs[s] = ringVs(table[s], nV)
+	}
+	fmt.Printf("%.1f degrees per facet\n", 360/float64(nU))
 	fmt.Printf("distance from center: %v, distance from focal point: %v, nU: %v, nV: %v\n", cameraLoc.Len(), distance, nU, nV)
 	fmt.Printf("%.1f rings per weave crossing\n", float64(nV)/float64(2*weave.N*weave.K))
 	if nU < 3 || nV < 3 {
@@ -474,16 +540,16 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 	// previews (data/N.texture.rgbe, data/N.blend.rgbe) have their long side
 	// capped at JPEG's 65500 so run.sh can convert them to view. The film
 	// thickness Mitsuba reads (mitsuba.film.pfm) is single-channel float with
-	// square-ish texels, texelsPerTriangle per triangle of the mesh (600M, 2.4
+	// square-ish texels, texelsPerTriangle per triangle of the mesh (1.35G, 5.4
 	// GB, at 150M triangles): the pattern is nearly a step, so its contours are
 	// only as smooth as the texels are small.
-	const texelsPerTriangle = 4
+	const texelsPerTriangle = 9
 	const maxTexSize = 65500
 	texCols := int(min(float64(nU), maxTexSize))
 	texRows := int(min(float64(nV), maxTexSize/numSurfaces))
 	fmt.Printf("textures: %v x %v\n", texCols, numSurfaces*texRows)
-	texU := func(uIndex int) float32 { return float32(uIndex) / float32(nU) }
-	texV := func(s, vIndex int) float32 { return (float32(s) + float32(vIndex)/float32(nV)) / numSurfaces }
+	texU := func(uIndex int) float32 { return float32(ellipseAngle(index2radians(float64(uIndex), nU)) / (2 * pi)) }
+	texV := func(s, vIndex int) float32 { return float32((float64(s) + vs[s][vIndex]/(2*pi)) / numSurfaces) }
 	// Every vertex, face and texel is independent: fill them in parallel into
 	// buffers laid out in file order, then write each buffer in one go.
 	// Vertex (s, uIndex, vIndex) is number (s*(nU+1)+uIndex)*(nV+1)+vIndex.
@@ -493,8 +559,9 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 	vertexData := make([]byte, numVerticies*vertexSize)
 	parallelFor(numVerticies, func(i int) {
 		s, uIndex, vIndex := i/((nU+1)*(nV+1)), i/(nV+1)%(nU+1), i%(nV+1)
-		vertex := uv2xyz(s, index2radians(float64(uIndex), nU), index2radians(float64(vIndex), nV), t)
-		normal := uvIndexToNormal(s, uIndex, vIndex, nU, nV, t)
+		u, v := index2radians(float64(uIndex), nU), vs[s][vIndex]
+		vertex := uv2xyz(s, u, v, t)
+		normal := surfaceNormal(s, u, v)
 		b := vertexData[i*vertexSize:]
 		for k, x := range []float32{float32(vertex.X), float32(vertex.Y), float32(vertex.Z),
 			float32(normal.X), float32(normal.Y), float32(normal.Z), texU(uIndex), texV(s, vIndex)} {
@@ -542,9 +609,11 @@ func renderSurfaces(frame int, pixels int, maxSubdivisions int, dt float64, desi
 			textureArray[3*i+k] = textureValue
 		}
 	})
-	// Two triangles per quad, so each quad side gets sqrt(2*texelsPerTriangle) texels.
-	filmScale := sqrt(2 * texelsPerTriangle)
-	filmCols, filmRows := int(float64(nU)*filmScale), int(float64(nV)*filmScale)
+	// Square texels: columns over the cross-section's perimeter, rows over the
+	// yarn's length.
+	texels := float64(texelsPerTriangle * numFaces / numSurfaces)
+	filmCols := int(sqrt(texels * perimeter / length))
+	filmRows := int(texels / float64(filmCols))
 	fmt.Printf("film: %v x %v\n", filmCols, numSurfaces*filmRows)
 	// PFM rows run bottom to top (Mitsuba flips them back on reading), so file
 	// row j is texture row numSurfaces*filmRows-1-j.
